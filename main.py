@@ -18,7 +18,7 @@ def check_new_trades():
                 message = f"Noones Trade Alert:\nTrade ID: {trade['trade_id']}\nStatus: {trade['status']}"
                 send_telegram_alert(message)
 
-        time.sleep(60)  # Check every 60 seconds
+        time.sleep(60)
 
 if __name__ == "__main__":
     check_new_trades()
