@@ -4,6 +4,7 @@ from config import *
 from data.get_history import get_trade_history
 from data.get_trade_list import get_trade_list
 from core.telegram_alert import send_telegram_alert
+from core.send_welcome_message import send_welcome_message
 
 
 def load_processed_trades():
@@ -45,6 +46,7 @@ def main():
 
                     if trade_hash not in processed_trades:
                         send_telegram_alert(trade)
+                        send_welcome_message(trade_hash)
                         save_processed_trade(trade_hash)
                         processed_trades.add(trade_hash)
                     else:
