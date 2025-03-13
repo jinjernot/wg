@@ -6,7 +6,8 @@ def send_welcome_message(trade_hash):
     body = {
         "data": {
             "id": trade_hash,
-            "success": True
+            "success": True,
+            "message": "Welcome to WillGang Trading"
         },
         "status": "success",
         "timestamp": int(time.time())
