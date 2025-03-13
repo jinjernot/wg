@@ -1,24 +1,41 @@
-from data.get_trades import *
-from core.telegram import *
-
+import requests
 from config import *
 
-def check_new_trades():
-    while True:
-        paxful_trades = fetch_paxful_trades()
-        noones_trades = fetch_noones_trades()
+token_url = 'https://auth.noones.com/oauth2/token'
+token_data = {
+    'grant_type': 'client_credentials',
+    'client_id': NOONES_API_KEY,
+    'client_secret': NOONES_SECRET_KEY
+}
 
-        if paxful_trades:
-            for trade in paxful_trades.get("data", []):
-                message = f"Paxful Trade Alert:\nTrade ID: {trade['trade_id']}\nStatus: {trade['status']}"
-                send_telegram_alert(message)
+# Get the token
+response = requests.post(token_url, data=token_data)
+if response.status_code == 200:
+    access_token = response.json()['access_token']
+    #print(f"Access Token: {access_token}")
 
-        if noones_trades:
-            for trade in noones_trades.get("data", []):
-                message = f"Noones Trade Alert:\nTrade ID: {trade['trade_id']}\nStatus: {trade['status']}"
-                send_telegram_alert(message)
+    api_url_userinfo = 'https://auth.noones.com/oauth2/userinfo'
+    headers = {'Authorization': f'Bearer {access_token}'}
+    
+    api_response_userinfo = requests.get(api_url_userinfo, headers=headers)
+    if api_response_userinfo.status_code == 200:
+        print(f"User Info: {api_response_userinfo.json()}")
+    else:
+        print(f"Error fetching user info: {api_response_userinfo.status_code} - {api_response_userinfo.text}")
 
-        time.sleep(60)
+    api_url_trades = 'https://api.noones.com/noones/v1/trade/completed'
+    
+    data = {
+        'page': 1,
+        'count': 1,
+        'limit': 10 
+    }
 
-if __name__ == "__main__":
-    check_new_trades()
+    api_response_trades = requests.post(api_url_trades, headers=headers, data=data)
+
+    if api_response_trades.status_code == 200:
+        print(f"Completed Trades: {api_response_trades.json()}")
+    else:
+        print(f"Error fetching trades: {api_response_trades.status_code} - {api_response_trades.text}")
+else:
+    print(f"Error fetching token: {response.status_code} - {response.text}")
