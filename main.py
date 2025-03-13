@@ -1,45 +1,62 @@
 import requests
+import time
 from config import *
-from data.get_history import get_trade_history  # Import trade history
-from data.get_trade_list import get_trade_list  # Import trade list function
+from data.get_history import get_trade_history
+from data.get_trade_list import get_trade_list
+from core.telegram_alert import send_telegram_alert
 
-token_url = 'https://auth.noones.com/oauth2/token'
-token_data = {
-    'grant_type': 'client_credentials',
-    'client_id': NOONES_API_KEY,
-    'client_secret': NOONES_SECRET_KEY
-}
 
-response = requests.post(token_url, data=token_data)
-if response.status_code == 200:
-    access_token = response.json()['access_token']
+def load_processed_trades():
+    try:
+        with open("processed_trades.txt", "r") as file:
+            return set(line.strip() for line in file.readlines())
+    except FileNotFoundError:
+        return set()
 
-    headers = {'Authorization': f'Bearer {access_token}'}
 
-    api_url_userinfo = 'https://auth.noones.com/oauth2/userinfo'
-    api_response_userinfo = requests.get(api_url_userinfo, headers=headers)
-    if api_response_userinfo.status_code == 200:
-        print(f"User Info: {api_response_userinfo.json()}")
+def save_processed_trade(trade_hash):
+    with open("processed_trades.txt", "a") as file:
+        file.write(trade_hash + "\n")
+
+
+def main():
+    processed_trades = load_processed_trades()
+
+    token_url = "https://auth.noones.com/oauth2/token"
+    token_data = {
+        "grant_type": "client_credentials",
+        "client_id": NOONES_API_KEY,
+        "client_secret": NOONES_SECRET_KEY
+    }
+
+    response = requests.post(token_url, data=token_data)
+    if response.status_code == 200:
+        access_token = response.json().get("access_token")
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        while True:
+            print("Checking for new trades...")
+
+            trades = get_trade_list(headers, limit=10, page=1)
+
+            if trades:
+                for trade in trades:
+                    trade_hash = trade.get("trade_hash")
+
+                    if trade_hash not in processed_trades:
+                        send_telegram_alert(trade)
+                        save_processed_trade(trade_hash)
+                        processed_trades.add(trade_hash)
+                    else:
+                        print(f"Trade {trade_hash} has already been processed.")
+            else:
+                print("No new trades found.")
+
+            time.sleep(60)
+
     else:
-        print(f"Error fetching user info: {api_response_userinfo.status_code} - {api_response_userinfo.text}")
+        print(f"Error fetching token: {response.status_code} - {response.text}")
 
-    # Get completed trades history
-    html_content_history = get_trade_history(headers, limit=10, page=1)
-    if html_content_history:
-        with open('completed_trades.html', 'w') as file:
-            file.write(html_content_history)
-        print("HTML file 'completed_trades.html' has been generated.")
-    else:
-        print("No completed trades found.")
 
-    # Get trade list
-    html_content_trade_list = get_trade_list(headers)
-    if html_content_trade_list:
-        with open('trade_list.html', 'w') as file:
-            file.write(html_content_trade_list)
-        print("HTML file 'trade_list.html' has been generated.")
-    else:
-        print("No trade list found.")
-
-else:
-    print(f"Error fetching token: {response.status_code} - {response.text}")
+if __name__ == "__main__":
+    main()
