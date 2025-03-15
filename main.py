@@ -46,7 +46,7 @@ def main():
 
                     if trade_hash not in processed_trades:
                         send_telegram_alert(trade)
-                        send_welcome_message(trade_hash)
+                        send_welcome_message(trade_hash, headers)
                         save_processed_trade(trade_hash)
                         processed_trades.add(trade_hash)
                     else:
