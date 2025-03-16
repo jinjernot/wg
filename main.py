@@ -1,5 +1,6 @@
 import requests
 import time
+import json
 from config import *
 from data.get_history import get_trade_history
 from data.get_trade_list import get_trade_list
@@ -7,21 +8,28 @@ from core.telegram_alert import send_telegram_alert
 from core.send_welcome_message import send_welcome_message
 
 
+
 def load_processed_trades():
+    """ Load previously processed trades from a JSON file. """
     try:
-        with open("processed_trades.txt", "r") as file:
-            return set(line.strip() for line in file.readlines())
-    except FileNotFoundError:
-        return set()
+        with open(TRADES_FILE, "r") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
+def save_processed_trade(trade):
+    """ Save processed trades to a JSON file. """
+    trades = load_processed_trades()
+    trade_hash = trade.get("trade_hash")
+    
+    trades[trade_hash] = trade  # Save full trade data
 
-def save_processed_trade(trade_hash):
-    with open("processed_trades.txt", "a") as file:
-        file.write(trade_hash + "\n")
-
+    with open(TRADES_FILE, "w") as file:
+        json.dump(trades, file, indent=4)
 
 def main():
     processed_trades = load_processed_trades()
+    payment_methods = set()
 
     token_url = "https://auth.noones.com/oauth2/token"
     token_data = {
@@ -43,12 +51,17 @@ def main():
             if trades:
                 for trade in trades:
                     trade_hash = trade.get("trade_hash")
+                    payment_method_name = trade.get("payment_method_name", "Unknown")
+
+                    if payment_method_name not in payment_methods:
+                        payment_methods.add(payment_method_name)
+                        print(f"New Payment Method Found: {payment_method_name}")
 
                     if trade_hash not in processed_trades:
                         send_telegram_alert(trade)
-                        send_welcome_message(trade_hash, headers)
-                        save_processed_trade(trade_hash)
-                        processed_trades.add(trade_hash)
+                        send_welcome_message(trade, headers)
+                        save_processed_trade(trade)  # Save trade details
+                        processed_trades[trade_hash] = trade  # Add to in-memory cache
                     else:
                         print(f"Trade {trade_hash} has already been processed.")
             else:
@@ -58,7 +71,6 @@ def main():
 
     else:
         print(f"Error fetching token: {response.status_code} - {response.text}")
-
 
 if __name__ == "__main__":
     main()

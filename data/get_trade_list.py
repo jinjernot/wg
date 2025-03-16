@@ -1,7 +1,6 @@
 import requests
-import json
+from config import TRADE_LIST_URL
 
-TRADE_LIST_URL = "https://api.noones.com/noones/v1/trade/list"
 
 def get_trade_list(headers, limit=10, page=1):
     data = {
