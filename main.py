@@ -1,20 +1,30 @@
 import requests
 import time
+import threading
 
-from config import NOONES_API_KEY, NOONES_SECRET_KEY, TOKEN_URL
+from config import (
+    NOONES_API_KEY_JOE, NOONES_SECRET_KEY_JOE,
+    NOONES_API_KEY_DAVID, NOONES_SECRET_KEY_DAVID, TOKEN_URL
+)
 from data.get_trade_list import get_trade_list
 from core.telegram_alert import send_telegram_alert
 from core.send_welcome_message import send_welcome_message
 from data.get_files import load_processed_trades, save_processed_trade
 
-def main():
+# Account configurations
+ACCOUNTS = [
+    {"name": "Joe", "api_key": NOONES_API_KEY_JOE, "secret_key": NOONES_SECRET_KEY_JOE},
+    {"name": "David", "api_key": NOONES_API_KEY_DAVID, "secret_key": NOONES_SECRET_KEY_DAVID},
+]
+
+def process_trades(account):
     processed_trades = {}
     payment_methods = set()
 
     token_data = {
         "grant_type": "client_credentials",
-        "client_id": NOONES_API_KEY,
-        "client_secret": NOONES_SECRET_KEY
+        "client_id": account["api_key"],
+        "client_secret": account["secret_key"]
     }
 
     response = requests.post(TOKEN_URL, data=token_data)
@@ -23,7 +33,7 @@ def main():
         headers = {"Authorization": f"Bearer {access_token}"}
 
         while True:
-            print("Checking for new trades...")
+            print(f"Checking for new trades for {account['name']}...")
 
             trades = get_trade_list(headers, limit=10, page=1)
 
@@ -35,7 +45,7 @@ def main():
 
                     if payment_method_name not in payment_methods:
                         payment_methods.add(payment_method_name)
-                        print(f"New Payment Method Found: {payment_method_name}")
+                        print(f"New Payment Method Found for {account['name']}: {payment_method_name}")
 
                     # Load processed trades for this user
                     processed_trades = load_processed_trades(owner_username)
@@ -45,14 +55,25 @@ def main():
                         send_welcome_message(trade, headers)
                         save_processed_trade(trade)
                     else:
-                        print(f"Trade {trade_hash} for {owner_username} has already been processed.")
+                        print(f"Trade {trade_hash} for {owner_username} ({account['name']}) has already been processed.")
             else:
-                print("No new trades found.")
+                print(f"No new trades found for {account['name']}.")
 
             time.sleep(60)
 
     else:
-        print(f"Error fetching token: {response.status_code} - {response.text}")
+        print(f"Error fetching token for {account['name']}: {response.status_code} - {response.text}")
+
+def main():
+    threads = []
+    for account in ACCOUNTS:
+        thread = threading.Thread(target=process_trades, args=(account,))
+        thread.start()
+        threads.append(thread)
+
+    # Wait for all threads to finish
+    for thread in threads:
+        thread.join()
 
 if __name__ == "__main__":
     main()

@@ -19,14 +19,12 @@ def send_telegram_alert(trade):
 
 🔹 *Trade Status:* {trade.get('trade_status', 'N/A')}
 🔹 *Trade Hash:* `{trade.get('trade_hash', 'N/A')}`
-🔹 *Offer Type:* {trade.get('offer_type', 'N/A')}
 🔹 *Fiat Amount:* {trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', 'N/A')}
 🔹 *Payment Method:* {trade.get('payment_method_name', 'N/A')}
 🔹 *Started At:* {trade.get('started_at', 'N/A')}
-🔹 *Completed At:* {trade.get('completed_at', 'N/A')}
 
-💰 *Seller:* {trade.get('owner_username', 'N/A')}
-👤 *Buyer:* {trade.get('responder_username', 'N/A')}
+💸 *Seller:* {trade.get('owner_username', 'N/A')}
+🐵 *Buyer:* {trade.get('responder_username', 'N/A')}
 
 🔗 [View Trade Details](https://noones.com/es/trade/{trade.get('trade_hash', '')})
     """
