@@ -3,10 +3,9 @@ import json
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 def send_telegram_alert(trade):
-    # Ensure trade is a dictionary
     if isinstance(trade, str):
         try:
-            trade = json.loads(trade)  # Convert from string to dict if needed
+            trade = json.loads(trade)
         except json.JSONDecodeError:
             print("Error: Trade data is not a valid JSON string.")
             return
