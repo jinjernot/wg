@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import os
 from config import *
 from data.get_history import get_trade_history
 from data.get_trade_list import get_trade_list
@@ -9,26 +10,38 @@ from core.send_welcome_message import send_welcome_message
 
 
 
-def load_processed_trades():
-    """ Load previously processed trades from a JSON file. """
+def ensure_trade_storage():
+    """ Ensure the trade storage directory exists. """
+    if not os.path.exists(TRADE_STORAGE_DIR):
+        os.makedirs(TRADE_STORAGE_DIR)
+
+def load_processed_trades(owner_username):
+    """ Load previously processed trades for a specific owner. """
+    file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}.json")
     try:
-        with open(TRADES_FILE, "r") as file:
+        with open(file_path, "r") as file:
             return json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 def save_processed_trade(trade):
-    """ Save processed trades to a JSON file. """
-    trades = load_processed_trades()
+    """ Save processed trades separately based on owner_username. """
+    ensure_trade_storage()
+    
+    owner_username = trade.get("owner_username", "unknown_user")  # Default if no username found
+    file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}.json")
+
+    trades = load_processed_trades(owner_username)
     trade_hash = trade.get("trade_hash")
     
-    trades[trade_hash] = trade  # Save full trade data
+    trades[trade_hash] = trade  # Store trade details
 
-    with open(TRADES_FILE, "w") as file:
+    with open(file_path, "w") as file:
         json.dump(trades, file, indent=4)
 
 def main():
-    processed_trades = load_processed_trades()
+    ensure_trade_storage()
+    processed_trades = {}
     payment_methods = set()
 
     token_url = "https://auth.noones.com/oauth2/token"
@@ -51,19 +64,22 @@ def main():
             if trades:
                 for trade in trades:
                     trade_hash = trade.get("trade_hash")
+                    owner_username = trade.get("owner_username", "unknown_user")
                     payment_method_name = trade.get("payment_method_name", "Unknown")
 
                     if payment_method_name not in payment_methods:
                         payment_methods.add(payment_method_name)
                         print(f"New Payment Method Found: {payment_method_name}")
 
+                    # Load processed trades for this user
+                    processed_trades = load_processed_trades(owner_username)
+
                     if trade_hash not in processed_trades:
                         send_telegram_alert(trade)
                         send_welcome_message(trade, headers)
-                        save_processed_trade(trade)  # Save trade details
-                        processed_trades[trade_hash] = trade  # Add to in-memory cache
+                        save_processed_trade(trade)
                     else:
-                        print(f"Trade {trade_hash} has already been processed.")
+                        print(f"Trade {trade_hash} for {owner_username} has already been processed.")
             else:
                 print("No new trades found.")
 
