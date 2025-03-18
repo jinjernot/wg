@@ -1,4 +1,5 @@
 import requests
+
 from config import TRADE_LIST_URL
 
 
@@ -6,7 +7,7 @@ def get_trade_list(headers, limit=10, page=1):
     data = {
         "page": page,
         "count": 1,
-        "limit": limit  # Modify as needed
+        "limit": limit
     }
     
     response = requests.post(TRADE_LIST_URL, headers=headers, json=data)
@@ -15,7 +16,7 @@ def get_trade_list(headers, limit=10, page=1):
         trades_data = response.json()
 
         if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
-            return trades_data["data"]["trades"]  # Return the list of trades
+            return trades_data["data"]["trades"]
         else:
             print("No trades found.")
             return []
