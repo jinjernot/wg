@@ -22,7 +22,7 @@ def send_welcome_message(trade, headers):
     # Send second message if payment method is OXXO
     if payment_method_slug == "oxxo":
         try:
-            with open("data/oxxo.json", "r") as f:
+            with open(DB_PATH, "r") as f:
                 oxxo_data = json.load(f)
 
             selected_id = oxxo_data["oxxo"].get("selected_id")

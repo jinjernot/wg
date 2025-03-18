@@ -1,7 +1,7 @@
 import requests
 import csv
 
-from config import *
+from config import NOONES_API_KEY_JOE, NOONES_SECRET_KEY_JOE, NOONES_API_KEY_DAVID, NOONES_SECRET_KEY_DAVID, TOKEN_URL, API_URL
 # Function to get an access token for an account
 def get_access_token(api_key, secret_key):
     token_data = {
