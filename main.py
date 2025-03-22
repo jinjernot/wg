@@ -2,7 +2,7 @@ import requests
 import time
 import threading
 import logging
-from config import TOKEN_URL, ACCOUNTS
+from config import TOKEN_URL_NOONES, TOKEN_URL_PAXFUL, ACCOUNTS
 from data.get_trade_list import get_trade_list
 from core.telegram_alert import send_telegram_alert
 from core.send_welcome_message import send_welcome_message
@@ -12,16 +12,29 @@ from data.get_files import load_processed_trades, save_processed_trade
 logging.basicConfig(level=logging.DEBUG)
 
 def fetch_token_with_retry(account, max_retries=3):
-    token_data = {
-        "grant_type": "client_credentials",
-        "client_id": account["api_key"],
-        "client_secret": account["secret_key"]
-    }
+    """Fetch an access token with retry logic, handling different APIs for Noones and Paxful."""
+    
+    # Determine which API to use
+    if "_Paxful" in account["name"]:
+        token_url = TOKEN_URL_PAXFUL
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": account["api_key"],
+            "client_secret": account["secret_key"]
+        }
+        print("si salio paxful")
+    else:
+        token_url = TOKEN_URL_NOONES
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": account["api_key"],
+            "client_secret": account["secret_key"]
+        }
 
     for attempt in range(max_retries):
         try:
-            logging.debug(f"Attempt {attempt + 1} of {max_retries} to fetch token for {account['name']}")
-            response = requests.post(TOKEN_URL, data=token_data, timeout=10)
+            logging.debug(f"Attempt {attempt + 1} of {max_retries} to fetch token for {account['name']} using {token_url}")
+            response = requests.post(token_url, data=token_data, timeout=10)
             
             if response.status_code == 200:
                 return response.json().get("access_token")
@@ -61,7 +74,7 @@ def process_trades(account):
     while True:
         logging.debug(f"Checking for new trades for {account['name']}...")
 
-        trades = get_trade_list(headers, limit=10, page=1)
+        trades = get_trade_list(account, headers, limit=10, page=1)
 
         if trades:
             for trade in trades:
@@ -73,19 +86,22 @@ def process_trades(account):
                     payment_methods.add(payment_method_name)
                     logging.info(f"New Payment Method Found for {account['name']}: {payment_method_name}")
 
-                processed_trades = load_processed_trades(owner_username)
+                # Determine platform for the alert based on account name
+                platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+
+                processed_trades = load_processed_trades(owner_username, platform)
 
                 if trade_hash not in processed_trades:
-                    send_telegram_alert(trade)
-                    send_welcome_message(trade, headers)
-                    save_processed_trade(trade)
+                    send_telegram_alert(trade, platform)
+                    send_welcome_message(trade, account, headers)
+                    save_processed_trade(trade, platform)
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) has already been processed.")
         else:
             logging.debug(f"No new trades found for {account['name']}.")
-
+        
         time.sleep(60)
-
+        
 def main():
     threads = []
     for account in ACCOUNTS:

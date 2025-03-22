@@ -2,7 +2,7 @@ import requests
 import json
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
-def send_telegram_alert(trade):
+def send_telegram_alert(trade, platform):
     if isinstance(trade, str):
         try:
             trade = json.loads(trade)
@@ -14,8 +14,25 @@ def send_telegram_alert(trade):
         print("Error: Trade data is not a dictionary.")
         return
 
-    message = f"""
-🚀 *New Trade Alert* 🚀
+    # Different message formats based on the platform
+    if platform == "Paxful":
+        message = f"""
+🚀 *New Paxful Trade Alert* 🚀
+
+🔹 *Trade Status:* {trade.get('trade_status', 'N/A')}
+🔹 *Trade Hash:* `{trade.get('trade_hash', 'N/A')}`
+🔹 *Fiat Amount:* {trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency', 'N/A')}
+🔹 *Payment Method:* {trade.get('payment_method_name', 'N/A')}
+🔹 *Started At:* {trade.get('started_at', 'N/A')}
+
+💸 *Seller:* {trade.get('owner_username', 'N/A')}
+🐵 *Buyer:* {trade.get('responder_username', 'N/A')}
+
+🔗 [View Trade Details](https://www.paxful.com/trade/{trade.get('trade_hash', '')})
+        """
+    elif platform == "Noones":
+        message = f"""
+🚀 *New Noones Trade Alert* 🚀
 
 🔹 *Trade Status:* {trade.get('trade_status', 'N/A')}
 🔹 *Trade Hash:* `{trade.get('trade_hash', 'N/A')}`
@@ -27,8 +44,12 @@ def send_telegram_alert(trade):
 🐵 *Buyer:* {trade.get('responder_username', 'N/A')}
 
 🔗 [View Trade Details](https://noones.com/es/trade/{trade.get('trade_hash', '')})
-    """
+        """
+    else:
+        print("Error: Unsupported platform.")
+        return
     
+    # Send the Telegram message
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
