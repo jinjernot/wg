@@ -2,6 +2,7 @@ import requests
 import json
 import time
 import logging
+import os
 from config import *
 
 # Set up logging
@@ -13,7 +14,7 @@ def send_welcome_message(trade, account, headers, max_retries=3):
     trade_hash = trade.get("trade_hash")
     payment_method_slug = trade.get("payment_method_slug", "").lower()
 
-    # Select the correct API endpoint based on the account type
+    # Select API endpoint
     if "_Paxful" in account["name"]:
         chat_url = CHAT_URL_PAXFUL
     else:
@@ -62,26 +63,30 @@ def send_welcome_message(trade, account, headers, max_retries=3):
         print(f"Failed to send welcome message for trade {trade_hash} ({account['name']}) after {max_retries} retries.")
         return
 
-    # Send second message if payment method is OXXO
-    if payment_method_slug == "oxxo":
+    # Send second message if payment method is OXXO or bank-transfer
+    if payment_method_slug in ["oxxo", "bank-transfer"]:
         try:
-            with open(DB_PATH, "r") as f:
-                oxxo_data = json.load(f)
+            # Load the JSON file from DB_PATH
+            json_filename = f"{payment_method_slug}.json"
+            json_path = os.path.join(JSON_PATH, json_filename)
 
-            selected_id = oxxo_data["oxxo"].get("selected_id")
-            oxxo_accounts = oxxo_data["oxxo"].get("accounts", [])
+            with open(json_path, "r") as f:
+                payment_data = json.load(f)
 
-            # Find the account with the matching ID
-            selected_account = next((acc for acc in oxxo_accounts if acc["id"] == selected_id), None)
+            selected_id = payment_data.get("selected_id")
+            payment_accounts = payment_data.get("accounts", [])
+
+            # Find the account with the matching ID from the JSON file
+            selected_account = next((acc for acc in payment_accounts if acc["id"] == selected_id), None)
 
             if not selected_account:
-                print(f"No OXXO account found for selected_id: {selected_id}")
+                print(f"No {payment_method_slug.upper()} account found for selected_id: {selected_id}")
                 return
 
             second_message = f"Payment Details:\n\n" \
                              f"Bank: {selected_account['bank']}\n" \
                              f"Name: {selected_account['name']}\n" \
-                             f"Card Number: {selected_account['card_number']}\n\n"
+                             f"Account Number: {selected_account['account_number']}\n\n"
 
             # Send the second message
             body = {"trade_hash": trade_hash, "message": second_message}
@@ -91,4 +96,4 @@ def send_welcome_message(trade, account, headers, max_retries=3):
                 print(f"Failed to send payment details for trade {trade_hash} ({account['name']}) after {max_retries} retries.")
 
         except Exception as e:
-            print(f"Error reading OXXO data: {e}")
+            print(f"Error reading {payment_method_slug.upper()} data: {e}")

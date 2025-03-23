@@ -42,12 +42,11 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
             if response.status_code == 200:
                 trades_data = response.json()
 
-                # Save the response data before checking for "success"
-                filename = f"{account['name'].replace(' ', '_')}_trades.json"
-                with open(filename, "w", encoding="utf-8") as json_file:
-                    json.dump(trades_data, json_file, indent=4)
-
-                logging.info(f"Saved raw trade data to {filename}")
+                # Save the response data for troubleshooting
+                #filename = f"{account['name'].replace(' ', '_')}_trades.json"
+                #with open(filename, "w", encoding="utf-8") as json_file:
+                #    json.dump(trades_data, json_file, indent=4)
+                #logging.info(f"Saved raw trade data to {filename}")
 
                 # Check if response contains successful trades
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
