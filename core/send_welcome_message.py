@@ -66,34 +66,53 @@ def send_welcome_message(trade, account, headers, max_retries=3):
     # Send second message if payment method is OXXO or bank-transfer
     if payment_method_slug in ["oxxo", "bank-transfer"]:
         try:
-            # Load the JSON file from DB_PATH
+            # Load the JSON file
             json_filename = f"{payment_method_slug}.json"
             json_path = os.path.join(JSON_PATH, json_filename)
 
             with open(json_path, "r") as f:
                 payment_data = json.load(f)
 
-            selected_id = payment_data.get("selected_id")
-            payment_accounts = payment_data.get("accounts", [])
+            print(f"Loaded payment data for {payment_method_slug}: {payment_data}")  # Debugging line
 
-            # Find the account with the matching ID from the JSON file
-            selected_account = next((acc for acc in payment_accounts if acc["id"] == selected_id), None)
+            # Access the correct dictionary level
+            payment_method_data = payment_data.get(payment_method_slug, {})
+            selected_id = str(payment_method_data.get("selected_id"))
+
+            if not selected_id:
+                print(f"Error: selected_id is missing in {json_filename}")
+                return
+
+            payment_accounts = payment_method_data.get("accounts", [])
+
+            # Find the account with the matching ID
+            selected_account = next((acc for acc in payment_accounts if str(acc["id"]) == selected_id), None)
 
             if not selected_account:
                 print(f"No {payment_method_slug.upper()} account found for selected_id: {selected_id}")
                 return
 
-            second_message = f"Payment Details:\n\n" \
-                             f"Bank: {selected_account['bank']}\n" \
-                             f"Name: {selected_account['name']}\n" \
-                             f"Account Number: {selected_account['account_number']}\n\n"
+            # Dynamic message formatting based on payment method
+            if payment_method_slug == "bank-transfer":
+                second_message = f"Payment Details:\n\n" \
+                                f"Bank: {selected_account['bank']}\n" \
+                                f"Name: {selected_account['name']}\n" \
+                                f"SPEI: {selected_account.get('SPEI', 'N/A')}\n\n"
+            elif payment_method_slug == "oxxo":
+                second_message = f"Payment Details:\n\n" \
+                                f"Bank: {selected_account['bank']}\n" \
+                                f"Name: {selected_account['name']}\n" \
+                                f"Card Number: {selected_account.get('card_number', 'N/A')}\n\n"
+            else:
+                print(f"Unsupported payment method: {payment_method_slug}")
+                return
 
             # Send the second message
             body = {"trade_hash": trade_hash, "message": second_message}
             if send_message_with_retry(chat_url, body, headers, max_retries):
-                print(f"Payment details sent for trade {trade_hash} ({account['name']})")
+                print(f"Payment details sent for trade {trade_hash} ({selected_account['name']})")
             else:
-                print(f"Failed to send payment details for trade {trade_hash} ({account['name']}) after {max_retries} retries.")
+                print(f"Failed to send payment details for trade {trade_hash} ({selected_account['name']}) after {max_retries} retries.")
 
         except Exception as e:
             print(f"Error reading {payment_method_slug.upper()} data: {e}")
