@@ -3,13 +3,10 @@ import time
 import logging
 from config import TOKEN_URL_NOONES, TOKEN_URL_PAXFUL
 
-# Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 def fetch_token_with_retry(account, max_retries=3):
-    """Fetch an access token with retry logic, handling different APIs for Noones and Paxful."""
     
-    # Determine API URL
     token_url = TOKEN_URL_PAXFUL if "_Paxful" in account["name"] else TOKEN_URL_NOONES
     token_data = {
         "grant_type": "client_credentials",
@@ -28,7 +25,7 @@ def fetch_token_with_retry(account, max_retries=3):
                 logging.error(f"Failed to fetch token for {account['name']}. Status Code: {response.status_code} - {response.text}")
             
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2 ** attempt 
                 logging.debug(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
         except requests.exceptions.RequestException as e:

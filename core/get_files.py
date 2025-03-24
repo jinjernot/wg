@@ -4,8 +4,7 @@ import os
 from config import TRADE_STORAGE_DIR
 
 def load_processed_trades(owner_username, platform):
-    """ Load previously processed trades with platform differentiation. """
-    # Removed the default platform value here, it must always be passed when calling the function
+    
     file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
     try:
         with open(file_path, "r") as file:
@@ -14,8 +13,7 @@ def load_processed_trades(owner_username, platform):
         return {}
 
 def save_processed_trade(trade, platform):
-    """ Save processed trades separately based on owner_username and platform. """
-    # Removed the default platform value here as well, platform should always be passed
+
     owner_username = trade.get("owner_username", "unknown_user")
     file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
 

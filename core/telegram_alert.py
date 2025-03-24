@@ -4,7 +4,7 @@ import re
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE
 
 def extract_placeholders(message_template):
-    """ Extracts placeholders from the message template correctly. """
+
     return re.findall(r"{(.*?)}", message_template)
 
 def send_telegram_alert(trade, platform):
@@ -19,7 +19,6 @@ def send_telegram_alert(trade, platform):
         print("Error: Trade data is not a dictionary.")
         return
 
-    # Choose the correct message template
     if platform == "Paxful":
         message_template = PAXFUL_ALERT_MESSAGE
     elif platform == "Noones":
@@ -28,20 +27,16 @@ def send_telegram_alert(trade, platform):
         print("Error: Unsupported platform.")
         return
     
-    # Extract placeholders correctly
     placeholders = extract_placeholders(message_template)
     
-    # Fill in missing placeholders with "N/A"
     trade_data = {key: trade.get(key, "N/A") for key in placeholders}
 
-    # Format the message safely
     try:
         message = message_template.format(**trade_data)
     except KeyError as e:
         print(f"Error: Missing key {e} in trade data.")
         return
 
-    # Send the Telegram message
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,

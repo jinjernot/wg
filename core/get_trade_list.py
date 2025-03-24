@@ -5,13 +5,10 @@ import time
 import json
 from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL
 
-# Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
-    """Fetches the trade list from Noones or Paxful API based on the account type."""
-    
-    # Select the correct API endpoint based on the account type
+
     if "_Paxful" in account["name"]:
         trade_list_url = TRADE_LIST_URL_PAXFUL
     else:
@@ -23,7 +20,6 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
         "limit": limit
     }
     
-    # For Paxful, use application/x-www-form-urlencoded if necessary
     headers_paxful = headers.copy()
     if "_Paxful" in account["name"]:
         headers_paxful["Content-Type"] = "application/x-www-form-urlencoded"
@@ -33,10 +29,10 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
             logging.debug(f"Attempt {attempt + 1} of {max_retries} for {account['name']}")
             response = requests.post(
                 trade_list_url,
-                headers=headers_paxful,  # Use modified headers for Paxful
-                json=data if "_Paxful" not in account["name"] else data,  # Paxful may need urlencoded data
-                verify=certifi.where(),  # Use certifi's CA bundle
-                timeout=10  # Set a timeout to avoid hanging
+                headers=headers_paxful,
+                json=data if "_Paxful" not in account["name"] else data,  
+                verify=certifi.where(),
+                timeout=10
             )
             
             if response.status_code == 200:
@@ -48,7 +44,6 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
                 #    json.dump(trades_data, json_file, indent=4)
                 #logging.info(f"Saved raw trade data to {filename}")
 
-                # Check if response contains successful trades
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     return trades_data["data"]["trades"]
                 else:
@@ -61,7 +56,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
         except requests.exceptions.SSLError as e:
             logging.error(f"SSL Error on attempt {attempt + 1} for {account['name']}: {e}")
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2 ** attempt
                 logging.debug(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
                 continue
@@ -72,7 +67,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
         except requests.exceptions.RequestException as e:
             logging.error(f"Request failed on attempt {attempt + 1} for {account['name']}: {e}")
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2 ** attempt
                 logging.debug(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
                 continue
@@ -80,4 +75,4 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
                 logging.error("Max retries reached. Giving up.")
                 return []
     
-    return []  # Return an empty list if all retries fail
+    return []

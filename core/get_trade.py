@@ -2,7 +2,7 @@ import requests
 from config import GET_TRADE_URL_NOONES, GET_TRADE_URL_PAXFUL
 
 def get_trade(account, headers, trade_hash):
-    # Determine which API URL to use
+
     if "_Paxful" in account["name"].upper():
         trade_url = GET_TRADE_URL_PAXFUL
     else:

@@ -4,7 +4,7 @@ from core.trade_processor import process_trades
 from config import ACCOUNTS
 
 def main():
-    """Main entry point for the app."""
+    
     threads = []
     for account in ACCOUNTS:
         thread = threading.Thread(target=process_trades, args=(account,))

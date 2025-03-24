@@ -6,15 +6,13 @@ from core.telegram_alert import send_telegram_alert
 from core.send_welcome_message import send_welcome_message
 from core.get_files import load_processed_trades, save_processed_trade
 
-# Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
 def process_trades(account):
-    """Handles trade processing logic, fetching new trades, and sending notifications."""
+
     processed_trades = {}
     payment_methods = set()
 
-    # Fetch API token
     access_token = fetch_token_with_retry(account)
     if not access_token:
         logging.error(f"Failed to fetch access token for {account['name']}. Skipping account.")
@@ -37,7 +35,6 @@ def process_trades(account):
                     payment_methods.add(payment_method_name)
                     logging.info(f"New Payment Method Found for {account['name']}: {payment_method_name}")
 
-                # Determine platform for the alert based on account name
                 platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
 
                 processed_trades = load_processed_trades(owner_username, platform)
