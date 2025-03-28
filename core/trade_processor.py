@@ -5,7 +5,7 @@ from core.get_trade_list import get_trade_list
 from core.get_trade_chat import fetch_trade_chat_messages
 from core.send_welcome_message import send_welcome_message
 from core.get_files import load_processed_trades, save_processed_trade
-from core.telegram_alert import send_telegram_alert, send_chat_message_alert       # Import the alert function
+from core.telegram_alert import send_telegram_alert, send_chat_message_alert
 
 logging.basicConfig(level=logging.DEBUG)
 
