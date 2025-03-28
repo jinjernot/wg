@@ -2,9 +2,10 @@ import time
 import logging
 from api.auth import fetch_token_with_retry
 from core.get_trade_list import get_trade_list
-from core.telegram_alert import send_telegram_alert
+from core.get_trade_chat import fetch_trade_chat_messages
 from core.send_welcome_message import send_welcome_message
 from core.get_files import load_processed_trades, save_processed_trade
+from core.telegram_alert import send_telegram_alert, send_chat_message_alert       # Import the alert function
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -43,9 +44,16 @@ def process_trades(account):
                     send_telegram_alert(trade, platform)
                     send_welcome_message(trade, account, headers)
                     save_processed_trade(trade, platform)
+
+                    logging.debug(f"Sending Telegram alert for new trade {trade_hash} for {owner_username}")
+                    send_chat_message_alert(trade, platform)  
+
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) has already been processed.")
+                
+                fetch_trade_chat_messages(trade_hash, account, headers)
+
         else:
             logging.debug(f"No new trades found for {account['name']}.")
-
+        
         time.sleep(60)
