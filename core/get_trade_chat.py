@@ -66,10 +66,11 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                 message_id = latest_message.get("id")
                 message_text = latest_message.get("text")
 
-                # Ensure "author" is a dictionary before accessing "userName"
-                author = "Unknown"
-                if isinstance(latest_message.get("author"), dict):
-                    author = latest_message["author"].get("userName", "Unknown")
+                author = latest_message.get("author", "Unknown")
+
+                if author in ["davidvs", "JoeWillgang"]:
+                    logging.debug(f"Skipping message from {author} for trade {trade_hash}.")
+                    return False
 
                 # Check if this message was already processed
                 if trade_hash in LAST_MESSAGE_IDS and LAST_MESSAGE_IDS[trade_hash] == message_id:
