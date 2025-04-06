@@ -86,7 +86,7 @@ def send_welcome_message(trade, account, headers, max_retries=3):
                 print(f"No {payment_method_slug.upper()} account found for selected_id: {selected_id}")
                 return
 
-            if payment_method_slug == "bank-transfer":
+            if payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
                 second_message = f"Payment Details:\n\n" \
                                 f"Bank: {selected_account['bank']}\n" \
                                 f"Name: {selected_account['name']}\n" \
