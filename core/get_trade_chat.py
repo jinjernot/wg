@@ -4,7 +4,7 @@ import logging
 import time
 import os
 from config import GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL, CHAT_LOG_PATH
-from core.telegram_alert import send_chat_message_alert
+from core.messaging.telegram_alert import send_chat_message_alert
 
 # Store last processed message IDs to avoid duplicate alerts
 LAST_MESSAGE_IDS = {}

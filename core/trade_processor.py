@@ -3,14 +3,15 @@ import logging
 from api.auth import fetch_token_with_retry
 from core.get_trade_list import get_trade_list
 from core.get_trade_chat import fetch_trade_chat_messages
-from core.send_welcome_message import send_welcome_message
+from core.messaging.welcome_message import send_welcome_message
+from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
-from core.telegram_alert import send_telegram_alert, send_chat_message_alert
+from core.messaging.telegram_alert import send_telegram_alert, send_chat_message_alert
+from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES
 
 logging.basicConfig(level=logging.DEBUG)
 
 def process_trades(account):
-
     processed_trades = {}
     payment_methods = set()
 
@@ -22,7 +23,7 @@ def process_trades(account):
     headers = {"Authorization": f"Bearer {access_token}"}
 
     while True:
-        logging.debug(f"Checking for new trades for {account['name']}...")
+        logging.debug(f"🔍 Checking for new trades for {account['name']}...")
 
         trades = get_trade_list(account, headers, limit=10, page=1)
 
@@ -30,6 +31,7 @@ def process_trades(account):
             for trade in trades:
                 trade_hash = trade.get("trade_hash")
                 owner_username = trade.get("owner_username", "unknown_user")
+                payment_method_slug = trade.get("payment_method_slug", "").lower()
                 payment_method_name = trade.get("payment_method_name", "Unknown")
 
                 if payment_method_name not in payment_methods:
@@ -37,23 +39,32 @@ def process_trades(account):
                     logging.info(f"New Payment Method Found for {account['name']}: {payment_method_name}")
 
                 platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+                chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else CHAT_URL_NOONES
 
                 processed_trades = load_processed_trades(owner_username, platform)
 
                 if trade_hash not in processed_trades:
                     send_telegram_alert(trade, platform)
                     send_welcome_message(trade, account, headers)
+
+                    # Now send the payment details after welcome message
+                    if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
+                        send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url)
+
                     save_processed_trade(trade, platform)
 
-                    logging.debug(f"Sending Telegram alert for new trade {trade_hash} for {owner_username}")
-                    send_chat_message_alert(trade, platform)  
+                    #logging.debug(f"Sent messages for new trade {trade_hash} ({owner_username})")
+                    #chat_message = "New trade started."
+                    #author = trade.get("owner_username", "unknown_user")
+                    #send_chat_message_alert(chat_message, trade_hash, platform, author)
 
                 else:
-                    logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) has already been processed.")
+                    logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
                 
+                # Optional: Keep reading chat messages even for old trades
                 fetch_trade_chat_messages(trade_hash, account, headers)
 
         else:
             logging.debug(f"No new trades found for {account['name']}.")
-        
+
         time.sleep(60)
