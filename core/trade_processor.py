@@ -6,7 +6,7 @@ from core.get_trade_chat import fetch_trade_chat_messages
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
-from core.messaging.telegram_alert import send_telegram_alert, send_chat_message_alert
+from core.messaging.telegram_alert import send_telegram_alert
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES
 
 logging.basicConfig(level=logging.DEBUG)
@@ -23,7 +23,7 @@ def process_trades(account):
     headers = {"Authorization": f"Bearer {access_token}"}
 
     while True:
-        logging.debug(f"🔍 Checking for new trades for {account['name']}...")
+        logging.debug(f"Checking for new trades for {account['name']}...")
 
         trades = get_trade_list(account, headers, limit=10, page=1)
 

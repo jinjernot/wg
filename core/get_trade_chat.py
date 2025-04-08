@@ -4,7 +4,8 @@ import logging
 import time
 import os
 from config import GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL, CHAT_LOG_PATH
-from core.messaging.telegram_alert import send_chat_message_alert
+from core.messaging.telegram_alert import send_chat_message_alert, send_attachment_alert
+from core.messaging.attachment_message import send_attachment_message
 
 # Store last processed message IDs to avoid duplicate alerts
 LAST_MESSAGE_IDS = {}
@@ -13,10 +14,7 @@ def save_chat_log(trade_hash, messages):
     """
     Save chat messages to a log file named by the trade_hash.
     """
-    # Ensure the log directory exists
     os.makedirs(CHAT_LOG_PATH, exist_ok=True)
-
-    # Set the log file path based on the trade_hash
     log_file_path = os.path.join(CHAT_LOG_PATH, f"{trade_hash}_chat_log.json")
 
     chat_log_data = {
@@ -25,7 +23,6 @@ def save_chat_log(trade_hash, messages):
         "timestamp": time.time()
     }
 
-    # Save messages as JSON in the specified chat log path
     try:
         with open(log_file_path, "w") as log_file:
             json.dump(chat_log_data, log_file, indent=4)
@@ -35,7 +32,8 @@ def save_chat_log(trade_hash, messages):
 
 def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
     """
-    Fetch messages from trade chat and send a Telegram alert if a new message is received.
+    Fetch messages from trade chat and send Telegram alerts or attachment messages
+    for all new messages since last check.
     """
     chat_url = GET_CHAT_URL_PAXFUL if "_Paxful" in account["name"] else GET_CHAT_URL_NOONES
     data = {"trade_hash": trade_hash}
@@ -56,32 +54,51 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                 messages = chat_data.get("data", {}).get("messages", [])
 
                 if not messages:
-                    logging.debug(f"No new messages for trade {trade_hash}.")
+                    logging.debug(f"No messages found for trade {trade_hash}.")
                     return False
 
-                # Save the chat log to a file
                 save_chat_log(trade_hash, messages)
 
-                latest_message = messages[-1]  # Get the most recent message
-                message_id = latest_message.get("id")
-                message_text = latest_message.get("text")
+                # Get last processed message ID for this trade
+                last_processed_id = LAST_MESSAGE_IDS.get(trade_hash)
 
-                author = latest_message.get("author", "Unknown")
+                # Process all unprocessed messages (oldest to newest)
+                new_messages = []
+                new_seen = False
+                for msg in messages:
+                    if msg.get("id") == last_processed_id:
+                        new_seen = True
+                        new_messages = []
+                    elif new_seen or last_processed_id is None:
+                        new_messages.append(msg)
 
-                if author in ["davidvs", "JoeWillgang"]:
-                    logging.debug(f"Skipping message from {author} for trade {trade_hash}.")
+                # If we’ve never processed this trade, take last 1 message only to avoid flooding
+                if last_processed_id is None and messages:
+                    new_messages = [messages[-1]]
+
+                if not new_messages:
+                    logging.debug(f"No new messages to process for trade {trade_hash}.")
                     return False
 
-                # Check if this message was already processed
-                if trade_hash in LAST_MESSAGE_IDS and LAST_MESSAGE_IDS[trade_hash] == message_id:
-                    logging.debug(f"No new messages for trade {trade_hash}. Skipping Telegram alert.")
-                    return False
+                for message in new_messages:
+                    message_id = message.get("id")
+                    message_type = message.get("type")
+                    author = message.get("author", "Unknown")
 
-                # Update last processed message
-                LAST_MESSAGE_IDS[trade_hash] = message_id
+                    if author in ["davidvs", "JoeWillgang"]:
+                        continue
 
-                # Send Telegram alert for new chat message
-                send_chat_message_alert(message_text, trade_hash, account["name"], author)
+                    if message_type == "trade_attach_uploaded":
+                        send_attachment_message(trade_hash, chat_url, headers, max_retries)
+                        send_attachment_alert(trade_hash, author)
+                    else:
+                        message_text = message.get("text")
+                        if isinstance(message_text, dict):
+                            message_text = str(message_text)
+                        send_chat_message_alert(message_text, trade_hash, account["name"], author)
+
+                    # Always update the last message ID after processing
+                    LAST_MESSAGE_IDS[trade_hash] = message_id
 
                 return True
 
@@ -91,7 +108,6 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
             else:
                 logging.error(f"Failed to fetch messages for {trade_hash}. Status: {response.status_code} - {response.text}")
 
-            # Retry if needed
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
                 logging.debug(f"Retrying in {wait_time} seconds...")

@@ -15,7 +15,7 @@ def get_active_offers(account, limit=50):
     """
     access_token = fetch_token_with_retry(account)
     if not access_token:
-        logging.error(f"❌ Failed to get access token for {account['name']}.")
+        logging.error(f"Failed to get access token for {account['name']}.")
         return []
 
     headers = {
@@ -25,7 +25,7 @@ def get_active_offers(account, limit=50):
 
     base_url = account.get("offers_url")
     if not base_url:
-        logging.error("❌ No offers_url specified in account config.")
+        logging.error("No offers_url specified in account config.")
         return []
 
     all_offers = []
@@ -33,7 +33,7 @@ def get_active_offers(account, limit=50):
 
     while True:
         payload = {
-            "type": "sell",  # Change to "buy" if you want buy offers instead
+            "type": "sell",
             "currency_code": "MXN",
             "crypto_currency_code": "BTC",
             "limit": limit,
@@ -52,7 +52,7 @@ def get_active_offers(account, limit=50):
             total = data.get("data", {}).get("totalCount", 0)
 
             active_offers = [offer for offer in offers if offer.get("active") is True]
-            logging.info(f"✅ Fetched {len(active_offers)} active offers (offset {offset}) for {account['name']}")
+            logging.info(f"Fetched {len(active_offers)} active offers (offset {offset}) for {account['name']}")
 
             all_offers.extend(active_offers)
             offset += limit
@@ -61,7 +61,7 @@ def get_active_offers(account, limit=50):
                 break
 
         except requests.RequestException as e:
-            logging.error(f"❌ Error fetching offers for {account['name']}: {e}")
+            logging.error(f"Error fetching offers for {account['name']}: {e}")
             break
 
     # Save active offers to JSON and CSV
@@ -76,7 +76,7 @@ def get_active_offers(account, limit=50):
         
         with open(json_filepath, "w") as f:
             json.dump(all_offers, f, indent=2)
-        logging.info(f"📁 Saved {len(all_offers)} offers to {json_filepath}")
+        logging.info(f"Saved {len(all_offers)} offers to {json_filepath}")
 
         # Save CSV file
         csv_filename = f"{account['name'].lower()}_offers_{timestamp}.csv"
@@ -117,6 +117,6 @@ def get_active_offers(account, limit=50):
                 }
                 writer.writerow(offer_data)
 
-        logging.info(f"📁 Saved {len(all_offers)} offers to {csv_filepath}")
+        logging.info(f"Saved {len(all_offers)} offers to {csv_filepath}")
 
     return all_offers

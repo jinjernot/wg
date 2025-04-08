@@ -1,7 +1,7 @@
 import requests
 import json
 import re
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE, NEW_CHAT_ALERT_MESSAGE
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE, NEW_CHAT_ALERT_MESSAGE, NEW_ATTACHMENT_ALERT_MESSAGE
 
 def extract_placeholders(message_template):
     """
@@ -97,3 +97,24 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
         print("New chat message alert sent successfully.")
     else:
         print(f"Failed to send chat alert: {response.status_code} - {response.text}")
+
+
+def send_attachment_alert(trade_hash, author):
+    """
+    Send a Telegram alert when an attachment is uploaded in the trade chat.
+    """
+    attachment_message = NEW_ATTACHMENT_ALERT_MESSAGE.format(trade_hash=trade_hash, author=author)
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": attachment_message,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True 
+    }
+
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        print("Attachment alert sent successfully.")
+    else:
+        print(f"Failed to send attachment alert: {response.status_code} - {response.text}")

@@ -1,8 +1,8 @@
 import requests
 import certifi
 import logging
-import time
 import json
+import time
 from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL
 
 logging.basicConfig(level=logging.DEBUG)
@@ -38,11 +38,11 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
             if response.status_code == 200:
                 trades_data = response.json()
 
-                # Save the response data for troubleshooting
-                #filename = f"{account['name'].replace(' ', '_')}_trades.json"
-                #with open(filename, "w", encoding="utf-8") as json_file:
-                #    json.dump(trades_data, json_file, indent=4)
-                #logging.info(f"Saved raw trade data to {filename}")
+                #Save the response data for troubleshooting
+                filename = f"{account['name'].replace(' ', '_')}_trades.json"
+                with open(filename, "w", encoding="utf-8") as json_file:
+                    json.dump(trades_data, json_file, indent=4)
+                logging.info(f"Saved raw trade data to {filename}")
 
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     return trades_data["data"]["trades"]
