@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from config import JSON_PATH
+from config import JSON_PATH, PAYMENT_MESSAGES_DAVID, PAYMENT_MESSAGES_JOE
 from core.messaging.message_sender import send_message_with_retry
 
 def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username, max_retries=3):
@@ -22,27 +22,35 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             print(f"Missing selected_id in {json_filename} for {owner_username}")
             return
 
-        # Find the account using selected_id
         account = next((acc for acc in method_data.get("accounts", []) if str(acc["id"]) == selected_id), None)
 
         if not account:
             print(f"No account found for selected_id: {selected_id} for {owner_username}")
             return
 
-        # Prepare the message based on the payment method
-        if payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
-            message = f"Payment Details:\n\nBank: {account['bank']}\nName: {account['name']}\nSPEI: {account.get('SPEI', 'N/A')}\n\n"
-        elif payment_method_slug == "oxxo":
-            message = f"Payment Details:\n\nBank: {account['bank']}\nName: {account['name']}\nCard Number: {account.get('card_number', 'N/A')}\n\n"
+        # Select the appropriate message dictionary based on the owner username
+        if owner_username == "davidvs":
+            message_dict = PAYMENT_MESSAGES_DAVID
+        elif owner_username == "joewillgang":
+            message_dict = PAYMENT_MESSAGES_JOE
         else:
-            print(f"Unsupported payment method: {payment_method_slug}")
-            return
+            message_dict = PAYMENT_MESSAGES_DAVID  # fallback
 
-        # Set headers and send the message
+        # Get the appropriate message template
+        template = message_dict.get(payment_method_slug, message_dict["default"])
+
+        # Fill in placeholders with account values
+        message = template.format(
+            bank=account.get("bank", "N/A"),
+            name=account.get("name", "N/A"),
+            SPEI=account.get("SPEI", "N/A"),
+            card_number=account.get("card_number", "N/A")
+        )
+
+        # Prepare and send the message
         headers["Content-Type"] = "application/x-www-form-urlencoded"
         body = {"trade_hash": trade_hash, "message": message}
 
-        # Attempt to send the message
         if send_message_with_retry(chat_url, body, headers, max_retries):
             print(f"Payment details sent for trade {trade_hash} ({account['name']}) for {owner_username}")
         else:
