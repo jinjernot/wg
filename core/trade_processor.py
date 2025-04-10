@@ -34,6 +34,14 @@ def process_trades(account):
                 payment_method_slug = trade.get("payment_method_slug", "").lower()
                 payment_method_name = trade.get("payment_method_name", "Unknown")
 
+                # Debug log to check if trade_hash and owner_username are valid
+                logging.debug(f"Trade data - trade_hash: {trade_hash}, owner_username: {owner_username}, payment_method_slug: {payment_method_slug}")
+
+                # Check if valid trade_hash exists
+                if not trade_hash or not owner_username:
+                    logging.error(f"Missing trade_hash or owner_username for trade: {trade}")
+                    continue
+
                 if payment_method_name not in payment_methods:
                     payment_methods.add(payment_method_name)
                     logging.info(f"New Payment Method Found for {account['name']}: {payment_method_name}")
@@ -47,16 +55,18 @@ def process_trades(account):
                     send_telegram_alert(trade, platform)
                     send_welcome_message(trade, account, headers)
 
-                    # Now send the payment details after welcome message
+                    # Send payment details after the welcome message, passing the owner username
                     if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
-                        send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url)
+                        send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username)
 
                     save_processed_trade(trade, platform)
-
+                    
+                    
                     #logging.debug(f"Sent messages for new trade {trade_hash} ({owner_username})")
                     #chat_message = "New trade started."
                     #author = trade.get("owner_username", "unknown_user")
                     #send_chat_message_alert(chat_message, trade_hash, platform, author)
+
 
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
@@ -66,5 +76,5 @@ def process_trades(account):
 
         else:
             logging.debug(f"No new trades found for {account['name']}.")
-
+        
         time.sleep(60)
