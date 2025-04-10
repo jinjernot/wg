@@ -61,13 +61,6 @@ def process_trades(account):
 
                     save_processed_trade(trade, platform)
                     
-                    
-                    #logging.debug(f"Sent messages for new trade {trade_hash} ({owner_username})")
-                    #chat_message = "New trade started."
-                    #author = trade.get("owner_username", "unknown_user")
-                    #send_chat_message_alert(chat_message, trade_hash, platform, author)
-
-
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
                 
