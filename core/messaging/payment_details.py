@@ -31,7 +31,7 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
         # Select the appropriate message dictionary based on the owner username
         if owner_username == "davidvs":
             message_dict = PAYMENT_MESSAGES_DAVID
-        elif owner_username == "joewillgang":
+        elif owner_username == "JoeWillgang":
             message_dict = PAYMENT_MESSAGES_JOE
         else:
             message_dict = PAYMENT_MESSAGES_DAVID  # fallback

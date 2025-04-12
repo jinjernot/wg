@@ -1,88 +1,131 @@
 import requests
 import csv
+import logging
+import threading
+import os
+from datetime import datetime, timezone
+from dateutil.parser import isoparse
 
-from config import NOONES_API_KEY_JOE, NOONES_SECRET_KEY_JOE, NOONES_API_KEY_DAVID, NOONES_SECRET_KEY_DAVID, TOKEN_URL, API_URL
-# Function to get an access token for an account
-def get_access_token(api_key, secret_key):
-    token_data = {
-        "grant_type": "client_credentials",
-        "client_id": api_key,
-        "client_secret": secret_key
-    }
+from api.auth import fetch_token_with_retry
+from config import ACCOUNTS, GET_TRADE_URL_NOONES, GET_TRADE_URL_PAXFUL
 
-    response = requests.post(TOKEN_URL, data=token_data)
-    if response.status_code == 200:
-        return response.json().get("access_token")
-    else:
-        print(f"Error fetching token: {response.status_code} - {response.text}")
-        return None
+# Silence urllib3 connection logs
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 
-# Function to fetch completed trade history and save as CSV
-def get_trade_history(api_key, secret_key, account_name, limit=10, page=1):
-    access_token = get_access_token(api_key, secret_key)
-    if not access_token:
-        print(f"{account_name}: Failed to get access token.")
+def get_all_trades_for_today(account, limit=100):
+    """
+    Fetch every trade (regardless of status) and collect those
+    whose started_at or completed_at is today.
+    """
+    # pick the right endpoint
+    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+    base_url = GET_TRADE_URL_PAXFUL if platform == "Paxful" else GET_TRADE_URL_NOONES
+
+    token = fetch_token_with_retry(account)
+    if not token:
+        logging.error(f"{account['name']}: could not fetch token.")
         return
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    data = {"page": page, "count": 1, "limit": limit}
+    headers = {"Authorization": f"Bearer {token}"}
+    today = datetime.now(timezone.utc).date()
 
-    response = requests.post(API_URL, headers=headers, data=data)
+    collected = []
+    offset = 0
+    total = None
 
-    if response.status_code == 200:
-        trades_data = response.json()
+    while True:
+        payload = {
+            "limit": limit,
+            "offset": offset,
+            "status": "all"            # ask for every status
+        }
 
-        if trades_data["status"] == "success" and trades_data["data"]["trades"]:
-            trades = trades_data["data"]["trades"]
+        try:
+            resp = requests.post(base_url, headers=headers, data=payload, timeout=15)
+            resp.raise_for_status()
+        except Exception as e:
+            logging.error(f"{account['name']}: error fetching offset {offset}: {e}")
+            break
 
-            # Define CSV file path
-            csv_filename = f"{account_name.lower()}_trades.csv"
+        data = resp.json().get("data", {})
+        trades = data.get("trades", [])
+        if total is None:
+            total = data.get("totalCount", 0)
 
-            # Define CSV headers
-            headers = [
-                "Trade Status", "Trade Hash", "Offer Hash", "Location", "Fiat Amount Requested",
-                "Payment Method", "Crypto Amount Requested", "Started At", "Seller", "Buyer",
-                "Fiat Currency", "Ended At", "Completed At", "Offer Type", "Seller Avatar URL",
-                "Buyer Avatar URL", "Status", "Crypto Currency"
-            ]
+        if not trades:
+            break
 
-            # Write to CSV file
-            with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(headers)  # Write header row
+        for t in trades:
+            # parse both dates
+            added = False
+            for field in ("started_at", "completed_at"):
+                dt_str = t.get(field)
+                if dt_str:
+                    try:
+                        if isoparse(dt_str).date() == today:
+                            collected.append(t)
+                            added = True
+                            break
+                    except Exception:
+                        pass
+            # (no early exit — we need to see all trades to catch completed‑today ones)
 
-                for trade in trades:
-                    writer.writerow([
-                        trade.get("trade_status", "N/A"),
-                        trade.get("trade_hash", "N/A"),
-                        trade.get("offer_hash", "N/A"),
-                        trade.get("location_iso", "N/A"),
-                        trade.get("fiat_amount_requested", "N/A"),
-                        trade.get("payment_method_name", "N/A"),
-                        trade.get("crypto_amount_requested", "N/A"),
-                        trade.get("started_at", "N/A"),
-                        trade.get("seller", "N/A"),
-                        trade.get("buyer", "N/A"),
-                        trade.get("fiat_currency_code", "N/A"),
-                        trade.get("ended_at", "N/A"),
-                        trade.get("completed_at", "N/A"),
-                        trade.get("offer_type", "N/A"),
-                        trade.get("seller_avatar_url", "N/A"),
-                        trade.get("buyer_avatar_url", "N/A"),
-                        trade.get("status", "N/A"),
-                        trade.get("crypto_currency_code", "N/A")
-                    ])
+        offset += limit
+        if total is not None and offset >= total:
+            break
 
-            print(f"Trade history saved for {account_name} as {csv_filename}.")
-        else:
-            print(f"{account_name}: No completed trades found.")
-    else:
-        print(f"{account_name}: Error fetching trades - {response.status_code} - {response.text}")
+    if not collected:
+        logging.info(f"{account['name']}: no trades for today.")
+        return
 
-# Main function to generate CSV reports for Joe and David
-def main():
-    get_trade_history(NOONES_API_KEY_JOE, NOONES_SECRET_KEY_JOE, "Joe")
-    get_trade_history(NOONES_API_KEY_DAVID, NOONES_SECRET_KEY_DAVID, "David")
+    # write CSV
+    out_dir = "trade_history"
+    os.makedirs(out_dir, exist_ok=True)
+    date_str = today.strftime("%Y%m%d")
+    fname = f"{account['name'].lower()}_trades_{date_str}.csv"
+    path = os.path.join(out_dir, fname)
+
+    csv_headers = [
+        "Trade Status", "Trade Hash", "Offer Hash", "Location", "Fiat Amount Requested",
+        "Payment Method", "Crypto Amount Requested", "Started At", "Seller", "Buyer",
+        "Fiat Currency", "Ended At", "Completed At", "Offer Type", "Seller Avatar URL",
+        "Buyer Avatar URL", "Status", "Crypto Currency"
+    ]
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(csv_headers)
+        for t in collected:
+            writer.writerow([
+                t.get("trade_status", "N/A"),
+                t.get("trade_hash", "N/A"),
+                t.get("offer_hash", "N/A"),
+                t.get("location_iso", "N/A"),
+                t.get("fiat_amount_requested", "N/A"),
+                t.get("payment_method_name", "N/A"),
+                t.get("crypto_amount_requested", "N/A"),
+                t.get("started_at", "N/A"),
+                t.get("seller", "N/A"),
+                t.get("buyer", "N/A"),
+                t.get("fiat_currency_code", "N/A"),
+                t.get("ended_at", "N/A"),
+                t.get("completed_at", "N/A"),
+                t.get("offer_type", "N/A"),
+                t.get("seller_avatar_url", "N/A"),
+                t.get("buyer_avatar_url", "N/A"),
+                t.get("status", "N/A"),
+                t.get("crypto_currency_code", "N/A"),
+            ])
+
+    logging.info(f"✅ Saved {len(collected)} trades for today to {path}")
+
 
 if __name__ == "__main__":
-    main()
+    threads = []
+    for acct in ACCOUNTS:
+        t = threading.Thread(target=get_all_trades_for_today, args=(acct,))
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()

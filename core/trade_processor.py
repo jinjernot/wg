@@ -56,7 +56,7 @@ def process_trades(account):
                     send_welcome_message(trade, account, headers)
 
                     # Send payment details after the welcome message, passing the owner username
-                    if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
+                    if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios","domestic-wire-transfer"]:
                         send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username)
 
                     save_processed_trade(trade, platform)

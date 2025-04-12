@@ -10,7 +10,7 @@ def send_welcome_message(trade, account, headers, max_retries=3):
     # Select the appropriate message dictionary based on the owner username
     if owner_username == "davidvs":
         message_dict = WELCOME_MESSAGES_DAVID
-    elif owner_username == "joewillgang":
+    elif owner_username == "JoeWillgang":
         message_dict = WELCOME_MESSAGES_JOE
     else:
         message_dict = WELCOME_MESSAGES_DAVID  # Default to David's messages (or set a general default if needed)
