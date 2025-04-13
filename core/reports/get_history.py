@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from dateutil.parser import isoparse
 
 from api.auth import fetch_token_with_retry
-from config import ACCOUNTS, GET_TRADE_URL_NOONES, GET_TRADE_URL_PAXFUL
+from config import ACCOUNTS, GET_TRADE_URL_NOONES, GET_TRADE_URL_PAXFUL, TRADE_HISTORY
 
 # Silence urllib3 connection logs
 logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -80,11 +80,11 @@ def get_all_trades_for_today(account, limit=100):
         return
 
     # write CSV
-    out_dir = "trade_history"
-    os.makedirs(out_dir, exist_ok=True)
+    
+    os.makedirs(TRADE_HISTORY, exist_ok=True)
     date_str = today.strftime("%Y%m%d")
     fname = f"{account['name'].lower()}_trades_{date_str}.csv"
-    path = os.path.join(out_dir, fname)
+    path = os.path.join(TRADE_HISTORY, fname)
 
     csv_headers = [
         "Trade Status", "Trade Hash", "Offer Hash", "Location", "Fiat Amount Requested",

@@ -3,4 +3,6 @@ config.py
 *.csv
 trades
 *.json
+config
 old
+test
