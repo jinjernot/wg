@@ -6,16 +6,24 @@ from core.messaging.message_sender import send_message_with_retry
 
 def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username, max_retries=3):
     try:
-        # Load the JSON data
-        json_filename = f"{payment_method_slug}.json"
+        # Normalize slug for shared bank-based methods
+        normalized_slug = payment_method_slug
+        if payment_method_slug in [
+            "spei-sistema-de-pagos-electronicos-interbancarios", 
+            "domestic-wire-transfer"
+        ]:
+            normalized_slug = "bank-transfer"
+
+        # Load the bank-transfer.json for all normalized slugs
+        json_filename = f"{normalized_slug}.json"
         json_path = os.path.join(JSON_PATH, json_filename)
 
         with open(json_path, "r") as f:
             payment_data = json.load(f)
 
-        # Get the accounts data for the selected payment method for the specific user
+        # Always look inside the "bank-transfer" section for these methods
         user_data = payment_data.get(owner_username, {})
-        method_data = user_data.get(payment_method_slug, {})
+        method_data = user_data.get("bank-transfer", {})
         selected_id = str(method_data.get("selected_id", ""))
 
         if not selected_id:
@@ -28,7 +36,7 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             print(f"No account found for selected_id: {selected_id} for {owner_username}")
             return
 
-        # Select the appropriate message dictionary based on the owner username
+        # Choose the right message template
         if owner_username == "davidvs":
             message_dict = PAYMENT_MESSAGES_DAVID
         elif owner_username == "JoeWillgang":
@@ -36,18 +44,16 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
         else:
             message_dict = PAYMENT_MESSAGES_DAVID  # fallback
 
-        # Get the appropriate message template
+        # Use the original slug to pick the message template
         template = message_dict.get(payment_method_slug, message_dict["default"])
 
-        # Fill in placeholders with account values
         message = template.format(
             bank=account.get("bank", "N/A"),
             name=account.get("name", "N/A"),
             SPEI=account.get("SPEI", "N/A"),
-            card_number=account.get("card_number", "N/A")
+            card_number=account.get("card_number", "N/A")  # only needed if OXXO
         )
 
-        # Prepare and send the message
         headers["Content-Type"] = "application/x-www-form-urlencoded"
         body = {"trade_hash": trade_hash, "message": message}
 
