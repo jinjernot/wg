@@ -197,7 +197,36 @@ def plot_successful_trades_per_account(all_trades):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+    
+def plot_top_10_buyers(all_trades):
+    # Count how many times each buyer appears
+    buyer_counts = Counter()
+    for trade in all_trades:
+        buyer = trade.get("buyer")
+        if buyer:
+            buyer_counts[buyer] += 1
 
+    # Get top 10 buyers
+    top_buyers = buyer_counts.most_common(10)
+
+    if not top_buyers:
+        logging.info("No buyers found for plotting.")
+        return
+
+    buyers = [buyer for buyer, count in top_buyers]
+    counts = [count for buyer, count in top_buyers]
+
+    # Plot
+    plt.figure(figsize=(12, 6))
+    plt.bar(buyers, counts, color='green')
+    plt.title("Top 10 Negros rifados")
+    plt.xlabel("Negros")
+    plt.ylabel("Numbero de trades")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+    
+    
 def save_all_trades_csv(trades):
     if not trades:
         logging.info("No combined trades to save.")
@@ -232,3 +261,4 @@ if __name__ == "__main__":
     save_all_trades_csv(ALL_TRADES)
     # Plot trade status distribution after all trades are collected
     plot_successful_trades_per_account(ALL_TRADES)
+    plot_top_10_buyers(ALL_TRADES)
