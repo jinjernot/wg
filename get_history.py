@@ -1,6 +1,7 @@
 import requests
 import logging
 import threading
+import pytz
 import os
 import csv
 import json
@@ -21,6 +22,11 @@ logging.basicConfig(level=logging.DEBUG)
 ALL_TRADES = []
 LOCK = Lock()
 
+
+def months_diff(d1, d2):
+    return (d1.year - d2.year) * 12 + d1.month - d2.month
+
+
 def fetch_completed_trades(account, limit=100):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     base_url = TRADE_COMPLETED_URL_PAXFUL if platform == "Paxful" else TRADE_COMPLETED_URL_NOONES
@@ -32,8 +38,6 @@ def fetch_completed_trades(account, limit=100):
 
     headers = {"Authorization": f"Bearer {token}"}
     today = datetime.now(timezone.utc)
-    current_month = today.month
-    current_year = today.year
 
     collected = []
     page = 1
@@ -71,7 +75,7 @@ def fetch_completed_trades(account, limit=100):
                 if dt_str:
                     try:
                         trade_date = isoparse(dt_str)
-                        if trade_date.month == current_month and trade_date.year == current_year:
+                        if months_diff(today, trade_date) <= 2:  # includes current + 2 previous months
                             normalized = normalize_trade(t, account["name"])
                             collected.append(normalized)
                             break
@@ -82,12 +86,11 @@ def fetch_completed_trades(account, limit=100):
         if page * limit >= total:
             break
 
-    logging.info(f"{account['name']}: collected {len(collected)} trades for this month.")
+    logging.info(f"{account['name']}: collected {len(collected)} trades in last 3 months.")
 
     save_normalized_trades(account, collected)
     save_trades_csv(account, collected)
 
-    # Add to shared list for final CSV
     with LOCK:
         ALL_TRADES.extend(collected)
 
@@ -168,65 +171,84 @@ def save_trades_csv(account, trades):
         logging.error(f"Error saving CSV for {account['name']}: {e}")
 
 
-
 def plot_successful_trades_per_account(all_trades):
-    # Group trades by account name and count successful trades
     account_success_counts = {}
-    
     for trade in all_trades:
-        account_name = trade['account_name']
-        if trade['status'] == 'successful':  # Count only successful trades
-            if account_name not in account_success_counts:
-                account_success_counts[account_name] = 0
-            account_success_counts[account_name] += 1
-    
-    # Prepare data for plotting
+        if trade['status'] == 'successful':  # Only successful trades
+            account_name = trade['account_name']
+            account_success_counts[account_name] = account_success_counts.get(account_name, 0) + 1
+
     accounts = list(account_success_counts.keys())
     success_counts = list(account_success_counts.values())
-    
-    # Plot the data
+
     plt.figure(figsize=(10, 6))
     plt.bar(accounts, success_counts, color='green')
-    
-    # Adding titles and labels
-    plt.title("Trades por plataforma primeros 15 días")
+    plt.title("Trades por plataforma")
     plt.xlabel("Cuentas")
-    plt.ylabel("Numbero de trades armados")
-    
-    # Display the plot
+    plt.ylabel("Número de trades armados")
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
-    
+
+
 def plot_top_10_buyers(all_trades):
-    # Count how many times each buyer appears
     buyer_counts = Counter()
     for trade in all_trades:
-        buyer = trade.get("buyer")
-        if buyer:
-            buyer_counts[buyer] += 1
+        if trade['status'] == 'successful':  # Only successful trades
+            buyer = trade.get("buyer")
+            if buyer:
+                buyer_counts[buyer] += 1
 
-    # Get top 10 buyers
     top_buyers = buyer_counts.most_common(10)
-
     if not top_buyers:
         logging.info("No buyers found for plotting.")
         return
 
     buyers = [buyer for buyer, count in top_buyers]
-    counts = [count for buyer, count in top_buyers]
+    counts = [count for _, count in top_buyers]
 
-    # Plot
     plt.figure(figsize=(12, 6))
     plt.bar(buyers, counts, color='green')
     plt.title("Top 10 Negros rifados")
     plt.xlabel("Negros")
-    plt.ylabel("Numbero de trades")
+    plt.ylabel("Número de trades")
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
-    
-    
+
+
+def plot_crypto_currency_distribution(all_trades):
+    from collections import defaultdict
+
+    account_crypto_counts = defaultdict(lambda: defaultdict(int))
+
+    for trade in all_trades:
+        if trade['status'] == 'successful':  # Only successful trades
+            account = trade.get("account_name")
+            crypto = trade.get("crypto_currency_code")
+            if account and crypto:
+                account_crypto_counts[account][crypto] += 1
+
+    accounts = list(account_crypto_counts.keys())
+    cryptos = list({crypto for sub in account_crypto_counts.values() for crypto in sub})
+    data = [[account_crypto_counts[acc].get(crypto, 0) for acc in accounts] for crypto in cryptos]
+
+    plt.figure(figsize=(12, 7))
+    bottom = [0] * len(accounts)
+
+    for i, crypto_counts in enumerate(data):
+        plt.bar(accounts, crypto_counts, label=cryptos[i], bottom=bottom)
+        bottom = [sum(x) for x in zip(bottom, crypto_counts)]
+
+    plt.title("Distribución de trades por cuenta y crypto")
+    plt.xlabel("Cuentas")
+    plt.ylabel("Número de trades")
+    plt.xticks(rotation=45)
+    plt.legend(title="Criptomoneda")
+    plt.tight_layout()
+    plt.show()
+
+
 def save_all_trades_csv(trades):
     if not trades:
         logging.info("No combined trades to save.")
@@ -248,17 +270,70 @@ def save_all_trades_csv(trades):
         logging.error(f"Error saving combined CSV: {e}")
 
 
-if __name__ == "__main__":
-    threads = []
-    for acct in ACCOUNTS:
-        t = threading.Thread(target=fetch_completed_trades, args=(acct,))
-        t.start()
-        threads.append(t)
+def plot_trades_per_time_of_day(all_trades):
+    from collections import Counter
+    
+    time_of_day_counts = Counter()
 
-    for t in threads:
-        t.join()
+    # Define the Mexico City timezone
+    mexico_tz = pytz.timezone('America/Mexico_City')
 
-    save_all_trades_csv(ALL_TRADES)
-    # Plot trade status distribution after all trades are collected
+    for trade in all_trades:
+        if trade['status'] == 'successful':  # Only successful trades
+            completed_at = trade.get("completed_at")
+            if completed_at:
+                try:
+                    # Parse the timestamp
+                    dt = isoparse(completed_at)
+
+                    # Convert to UTC first, assuming the timestamp is in UTC
+                    dt_utc = pytz.utc.localize(dt)
+
+                    # Convert to Mexico's timezone
+                    dt_mexico = dt_utc.astimezone(mexico_tz)
+
+                    # Get the hour of the day in Mexico's timezone
+                    hour = dt_mexico.hour  # Get the hour (0-23)
+                    time_of_day_counts[hour] += 1
+                except Exception as e:
+                    logging.warning(f"Invalid completed_at date: {completed_at} -> {e}")
+
+    if not time_of_day_counts:
+        logging.info("No valid completed_at dates for plotting trades per time of day.")
+        return
+
+    hours = list(range(24))  # Hours from 0 to 23
+    counts = [time_of_day_counts.get(hour, 0) for hour in hours]
+
+    plt.figure(figsize=(10, 6))
+    plt.bar(hours, counts, color='green')
+    plt.title("Número de trades por hora del día")
+    plt.xlabel("Hora del día")
+    plt.ylabel("Número de trades")
+    plt.xticks(hours)
+    plt.grid(True, axis='y')
+    plt.tight_layout()
+
+    plt.show()
+    
+
+def main():
+    for account in ACCOUNTS:
+        threading.Thread(target=fetch_completed_trades, args=(account,)).start()
+
+    # Wait for all threads to finish
+    for t in threading.enumerate():
+        if t is not threading.current_thread():
+            t.join()
+
+    logging.info(f"Fetched {len(ALL_TRADES)} total trades.")
+
+    plot_trades_per_time_of_day(ALL_TRADES)
     plot_successful_trades_per_account(ALL_TRADES)
     plot_top_10_buyers(ALL_TRADES)
+    plot_crypto_currency_distribution(ALL_TRADES)
+    save_all_trades_csv(ALL_TRADES)
+
+
+if __name__ == "__main__":
+    main()
