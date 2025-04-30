@@ -89,7 +89,7 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                         continue
 
                     if message_type == "trade_attach_uploaded":
-                        send_attachment_message(trade_hash, chat_url, headers, max_retries)
+                        send_attachment_message(trade_hash, account, headers, max_retries)
                         send_attachment_alert(trade_hash, author)
                     else:
                         message_text = message.get("text")
