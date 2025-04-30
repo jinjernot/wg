@@ -5,7 +5,7 @@ import pytz
 import os
 import csv
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from threading import Lock
 
@@ -23,11 +23,7 @@ ALL_TRADES = []
 LOCK = Lock()
 
 
-def months_diff(d1, d2):
-    return (d1.year - d2.year) * 12 + d1.month - d2.month
-
-
-def fetch_completed_trades(account, limit=100):
+def fetch_completed_trades(account, limit=1000):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     base_url = TRADE_COMPLETED_URL_PAXFUL if platform == "Paxful" else TRADE_COMPLETED_URL_NOONES
 
@@ -37,7 +33,9 @@ def fetch_completed_trades(account, limit=100):
         return
 
     headers = {"Authorization": f"Bearer {token}"}
-    today = datetime.now(timezone.utc)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+
+    logging.debug(f"Cutoff date: {cutoff_date}")
 
     collected = []
     page = 1
@@ -50,12 +48,11 @@ def fetch_completed_trades(account, limit=100):
         }
 
         try:
-            resp = requests.post(base_url, headers=headers, data=payload, timeout=15)
+            resp = requests.post(base_url, headers=headers, data=payload, timeout=30)
             resp.raise_for_status()
             json_data = resp.json()
             logging.debug(f"{account['name']} - page {page}: {json_data}")
             save_raw_json_response(account, json_data)
-
         except Exception as e:
             logging.error(f"{account['name']}: error fetching page {page}: {e}")
             break
@@ -70,31 +67,24 @@ def fetch_completed_trades(account, limit=100):
             break
 
         for t in trades:
-            for field in ("started_at", "completed_at"):
-                dt_str = t.get(field)
-                if dt_str:
-                    try:
-                        trade_date = isoparse(dt_str)
-                        if months_diff(today, trade_date) <= 5:  # includes current + 2 previous months
-                            normalized = normalize_trade(t, account["name"])
-                            collected.append(normalized)
-                            break
-                    except Exception as e:
-                        logging.warning(f"{account['name']}: invalid {field}: {dt_str} -> {e}")
+            # Filter or process each trade based on the required logic
+            if t.get("completed_at") is not None:
+                normalized = normalize_trade(t, account["name"])
+                collected.append(normalized)
 
         page += 1
         if page * limit >= total:
+            logging.debug(f"Finished fetching all trades, reached total count: {total}")
             break
 
-    logging.info(f"{account['name']}: collected {len(collected)} trades in last 3 months.")
+    logging.info(f"{account['name']}: collected {len(collected)} trades in last 15 days.")
 
     save_normalized_trades(account, collected)
     save_trades_csv(account, collected)
 
     with LOCK:
-        ALL_TRADES.extend(collected)
-
-
+        ALL_TRADES.extend(collected)        
+        
 def normalize_trade(trade, account_name):
     def safe_float(value):
         try:
@@ -174,7 +164,7 @@ def save_trades_csv(account, trades):
 def plot_successful_trades_per_account(all_trades):
     account_success_counts = {}
     for trade in all_trades:
-        if trade['status'] == 'successful':  # Only successful trades
+        if trade['status'] == 'successful':
             account_name = trade['account_name']
             account_success_counts[account_name] = account_success_counts.get(account_name, 0) + 1
 
@@ -194,7 +184,7 @@ def plot_successful_trades_per_account(all_trades):
 def plot_top_10_buyers(all_trades):
     buyer_counts = Counter()
     for trade in all_trades:
-        if trade['status'] == 'successful':  # Only successful trades
+        if trade['status'] == 'successful':
             buyer = trade.get("buyer")
             if buyer:
                 buyer_counts[buyer] += 1
@@ -223,7 +213,7 @@ def plot_crypto_currency_distribution(all_trades):
     account_crypto_counts = defaultdict(lambda: defaultdict(int))
 
     for trade in all_trades:
-        if trade['status'] == 'successful':  # Only successful trades
+        if trade['status'] == 'successful':
             account = trade.get("account_name")
             crypto = trade.get("crypto_currency_code")
             if account and crypto:
@@ -272,28 +262,19 @@ def save_all_trades_csv(trades):
 
 def plot_trades_per_time_of_day(all_trades):
     from collections import Counter
-    
-    time_of_day_counts = Counter()
 
-    # Define the Mexico City timezone
+    time_of_day_counts = Counter()
     mexico_tz = pytz.timezone('America/Mexico_City')
 
     for trade in all_trades:
-        if trade['status'] == 'successful':  # Only successful trades
+        if trade['status'] == 'successful':
             completed_at = trade.get("completed_at")
             if completed_at:
                 try:
-                    # Parse the timestamp
                     dt = isoparse(completed_at)
-
-                    # Convert to UTC first, assuming the timestamp is in UTC
                     dt_utc = pytz.utc.localize(dt)
-
-                    # Convert to Mexico's timezone
                     dt_mexico = dt_utc.astimezone(mexico_tz)
-
-                    # Get the hour of the day in Mexico's timezone
-                    hour = dt_mexico.hour  # Get the hour (0-23)
+                    hour = dt_mexico.hour
                     time_of_day_counts[hour] += 1
                 except Exception as e:
                     logging.warning(f"Invalid completed_at date: {completed_at} -> {e}")
@@ -302,7 +283,7 @@ def plot_trades_per_time_of_day(all_trades):
         logging.info("No valid completed_at dates for plotting trades per time of day.")
         return
 
-    hours = list(range(24))  # Hours from 0 to 23
+    hours = list(range(24))
     counts = [time_of_day_counts.get(hour, 0) for hour in hours]
 
     plt.figure(figsize=(10, 6))
@@ -313,27 +294,41 @@ def plot_trades_per_time_of_day(all_trades):
     plt.xticks(hours)
     plt.grid(True, axis='y')
     plt.tight_layout()
-
     plt.show()
-    
+
 
 def main():
+    # Fetch trades for each account
     for account in ACCOUNTS:
         threading.Thread(target=fetch_completed_trades, args=(account,)).start()
 
-    # Wait for all threads to finish
     for t in threading.enumerate():
         if t is not threading.current_thread():
             t.join()
 
     logging.info(f"Fetched {len(ALL_TRADES)} total trades.")
 
-    plot_trades_per_time_of_day(ALL_TRADES)
-    plot_successful_trades_per_account(ALL_TRADES)
-    plot_top_10_buyers(ALL_TRADES)
-    plot_crypto_currency_distribution(ALL_TRADES)
-    save_all_trades_csv(ALL_TRADES)
+    # Ensure that both 'completed_at' and 'cutoff_date' are timezone-aware
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
 
+    filtered_trades = [
+        trade for trade in ALL_TRADES
+        if trade['completed_at'] and 
+        # Ensure the 'completed_at' field is aware by localizing it if it's naive
+        isoparse(trade['completed_at']).astimezone(pytz.utc) > cutoff_date and 
+        trade['status'] == 'successful'
+    ]
+
+    logging.info(f"Filtered to {len(filtered_trades)} successful trades from the last 15 days.")
+
+    # Plot the successful trades
+    plot_trades_per_time_of_day(filtered_trades)
+    plot_successful_trades_per_account(filtered_trades)
+    plot_top_10_buyers(filtered_trades)
+    plot_crypto_currency_distribution(filtered_trades)
+
+    # Save the filtered successful trades to CSV
+    save_all_trades_csv(filtered_trades)
 
 if __name__ == "__main__":
     main()
