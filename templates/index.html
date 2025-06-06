@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WillGang Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>WillGang Dashboard</h1>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="card card-control">
+            <h2>Bot Control</h2>
+            <div class="control-buttons">
+                <button id="start-btn">Start Bot</button>
+                <button id="stop-btn">Stop Bot</button>
+            </div>
+            <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
+        </div>
+        
+        {% if user_grouped_data %}
+            {% for owner_name, methods in user_grouped_data.items() %}
+            <div class="card card-selector">
+                <h2>{{ owner_name }}'s Accounts</h2>
+                {% for method_name, data in methods.items() %}
+                    <div class="method-section">
+                        <h4>{{ method_name | replace('-', ' ') | title }}</h4>
+                        <form class="account-form">
+                            <input type="hidden" name="filename" value="{{ data.filename }}">
+                            <input type="hidden" name="owner_username" value="{{ owner_name }}">
+                            <input type="hidden" name="payment_method" value="{{ method_name }}">
+                            
+                            <select name="selected_id" class="account-select">
+                                {% for account in data.details.accounts %}
+                                    <option value="{{ account.id }}" {% if account.id|string == data.details.selected_id|string %}selected{% endif %}>
+                                        {{ account.name }} ({{ account.get('bank', 'N/A') }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            
+                            <button type="submit">Save</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card">
+                <h2>Account Selector</h2>
+                <p>No payment JSON files found in /data/json directory.</p>
+                <p>Please ensure your JSON files (e.g., oxxo.json) exist and are not empty.</p>
+            </div>
+        {% endif %}
+
+        <div class="card card-telegram">
+            <h2>Telegram Alerts</h2>
+            <div id="telegram-alerts-container">
+                <p>Waiting for alerts...</p>
+            </div>
+        </div>
+
+        <div class="card card-trades-table">
+            <h2>Active Trades</h2>
+            <div id="active-trades-container">
+                <p>Fetching trades...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

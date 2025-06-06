@@ -189,7 +189,7 @@ def plot_top_10_buyers(all_trades):
             if buyer:
                 buyer_counts[buyer] += 1
 
-    top_buyers = buyer_counts.most_common(10)
+    top_buyers = buyer_counts.most_common(20)
     if not top_buyers:
         logging.info("No buyers found for plotting.")
         return
@@ -309,7 +309,7 @@ def main():
     logging.info(f"Fetched {len(ALL_TRADES)} total trades.")
 
     # Ensure that both 'completed_at' and 'cutoff_date' are timezone-aware
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=15)
 
     filtered_trades = [
         trade for trade in ALL_TRADES

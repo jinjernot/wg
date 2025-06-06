@@ -1,0 +1,182 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1a202c;
+    color: #e2e8f0; 
+    margin: 0;
+}
+
+.header {
+    background-color: #2d3748; 
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #4a5568; 
+}
+
+h1, h2, h3, h4 {
+    margin: 0;
+    color: #ffffff;
+}
+
+h2 {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #4a5568;
+    padding-bottom: 1rem;
+    font-size: 1.2rem;
+}
+h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+h4 {
+    font-size: 1rem;
+    color: #a0aec0;
+    margin-bottom: 0.75rem;
+}
+
+.dashboard-container {
+    display: grid;
+ 
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.card {
+    background-color: #2d3748; 
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #4a5568;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-trades-table {
+    grid-column: 1 / -1; 
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.card-control button {
+    flex-grow: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+#start-btn { background-color: #38a169; }
+#start-btn:hover { background-color: #2f855a; }
+#stop-btn { background-color: #e53e3e; }
+#stop-btn:hover { background-color: #c53030; }
+
+.status-text {
+    font-size: 1rem;
+    font-weight: 500;
+}
+#status-indicator {
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: white;
+}
+#status-indicator.running { background-color: #38a169; }
+#status-indicator.stopped { background-color: #e53e3e; }
+#status-indicator.error { background-color: #dd6b20; }
+
+
+/* Account Selector Card */
+.account label {
+    color: #a0aec0;
+    cursor: pointer;
+}
+.account {
+    padding: 5px 0;
+}
+.account input[type="radio"] {
+    margin-right: 8px;
+}
+.account input[type="radio"]:checked + label {
+    color: #ffffff;
+    font-weight: bold;
+}
+.account-form button {
+    width: 100%;
+    margin-top: 15px;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #3b82f6;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+.account-form button:hover {
+    background-color: #2563eb;
+}
+.method-section {
+    margin-top: 1.5rem;
+}
+.owner-section + .owner-section {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #4a5568;
+}
+
+/* Trades Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #4a5568;
+    text-align: left;
+    font-size: 0.9rem;
+}
+th {
+    background-color: #4a5568;
+    color: #ffffff;
+    font-weight: 600;
+}
+tr:hover {
+    background-color: #4a5568;
+}
+
+.account-select {
+    width: 100%;
+    padding: 10px;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.account-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.account-form {
+    display: flex;
+    flex-direction: column;
+}
+
+/* New style for highlighting 'Paid' trade rows */
+tr.status-paid {
+    background-color: #2f855a; /* A dark green that fits the theme */
+    font-weight: bold;
+}
+
+/* Optional: a slightly different color when you hover over the paid row */
+tr.status-paid:hover {
+    background-color: #38a169;
+}

@@ -6,3 +6,5 @@ trades
 config
 old
 test
+venv
+*.log
