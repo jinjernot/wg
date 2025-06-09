@@ -19,6 +19,12 @@
                 <button id="stop-btn">Stop Bot</button>
             </div>
             <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
+
+            <div class="night-mode-toggle">
+                <input type="checkbox" id="night-mode-checkbox" {% if night_mode_enabled %}checked{% endif %}>
+                <label for="night-mode-checkbox">Enable Nighttime Messages</label>
+            </div>
+
         </div>
         
         {% if user_grouped_data %}

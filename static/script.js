@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusIndicator = document.getElementById('status-indicator');
     const tradesContainer = document.getElementById('active-trades-container');
     const telegramContainer = document.getElementById('telegram-alerts-container');
+    const nightModeCheckbox = document.getElementById('night-mode-checkbox');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -22,6 +23,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             alert(result.message);
             updateStatus();
+        });
+    }
+
+    // Event listener for the new checkbox
+    if (nightModeCheckbox) {
+        nightModeCheckbox.addEventListener('change', async () => {
+            const isEnabled = nightModeCheckbox.checked;
+            try {
+                const response = await fetch('/update_night_mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 'night_mode_enabled': isEnabled })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert(`Error: ${result.error}`);
+                } else {
+                    console.log(result.message); // Log success to console
+                }
+            } catch (error) {
+                console.error('Failed to update night mode:', error);
+                alert('An unexpected error occurred while updating night mode.');
+            }
         });
     }
 
@@ -116,8 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
         trades.forEach(trade => {
             const row = document.createElement('tr');
 
-            // --- THIS IS THE NEW LOGIC ---
-            // Check if the trade status is 'Paid'
             if (trade.trade_status === 'Paid') {
                 row.classList.add('status-paid');
             }
@@ -142,14 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/get_telegram_messages');
             const messages = await response.json();
             
-            telegramContainer.innerHTML = ''; // Clear old messages
+            telegramContainer.innerHTML = '';
 
             if (!messages || messages.length === 0) {
                 telegramContainer.innerHTML = '<p>No recent alerts.</p>';
                 return;
             }
 
-            // Display messages, newest first
             messages.reverse().forEach(msg => {
                 const p = document.createElement('p');
                 p.className = 'telegram-message';
