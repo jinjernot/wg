@@ -50,14 +50,14 @@ def send_welcome_message(trade, account, headers, max_retries=3):
 
     # Select the appropriate message dictionary based on owner and mode status
     if owner_username == "davidvs":
-        if afk_mode_is_active: # Prioritize AFK message if active
+        if afk_mode_is_active:
             message_dict = WELCOME_AFK_MESSAGES_DAVID
         elif night_mode_is_active:
             message_dict = WELCOME_NIGHT_MESSAGES_DAVID
         else:
             message_dict = WELCOME_MESSAGES_DAVID
     elif owner_username == "JoeWillgang":
-        if afk_mode_is_active: # Prioritize AFK message if active
+        if afk_mode_is_active:
             message_dict = WELCOME_AFK_MESSAGES_JOE
         elif night_mode_is_active:
             message_dict = WELCOME_NIGHT_MESSAGES_JOE

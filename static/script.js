@@ -43,6 +43,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     console.log(result.message); // Log success to console
                 }
+
+                // If night mode is enabled, disable AFK mode
+                if (isEnabled && afkModeCheckbox.checked) {
+                    afkModeCheckbox.checked = false;
+                    const afkResponse = await fetch('/update_afk_mode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 'afk_mode_enabled': false })
+                    });
+                    const afkResult = await afkResponse.json();
+                    if (!afkResult.success) {
+                        console.error(`Error disabling AFK mode: ${afkResult.error}`);
+                    } else {
+                        console.log(afkResult.message);
+                    }
+                }
+
             } catch (error) {
                 console.error('Failed to update night mode:', error);
                 alert('An unexpected error occurred while updating night mode.');
@@ -66,6 +83,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     console.log(result.message); // Log success to console
                 }
+
+                // If AFK mode is enabled, disable night mode
+                if (isEnabled && nightModeCheckbox.checked) {
+                    nightModeCheckbox.checked = false;
+                    const nightResponse = await fetch('/update_night_mode', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 'night_mode_enabled': false })
+                    });
+                    const nightResult = await nightResponse.json();
+                    if (!nightResult.success) {
+                        console.error(`Error disabling nighttime mode: ${nightResult.error}`);
+                    } else {
+                        console.log(nightResult.message);
+                    }
+                }
+
             } catch (error) {
                 console.error('Failed to update AFK mode:', error);
                 alert('An unexpected error occurred while updating AFK mode.');
@@ -138,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateTradesTable(trades) {
         if (!tradesContainer) return;
-        
-        tradesContainer.innerHTML = ''; 
+
+        tradesContainer.innerHTML = '';
 
         if (!trades || trades.length === 0) {
             tradesContainer.innerHTML = '<p>No active trades found.</p>';
@@ -178,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(row);
         });
-        
+
         tradesContainer.appendChild(table);
     }
 
@@ -187,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/get_telegram_messages');
             const messages = await response.json();
-            
+
             telegramContainer.innerHTML = '';
 
             if (!messages || messages.length === 0) {
