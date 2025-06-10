@@ -25,13 +25,17 @@ def get_app_settings():
     if not os.path.exists(SETTINGS_FILE):
         # If the file doesn't exist, create it with default values
         with open(SETTINGS_FILE, "w") as f:
-            json.dump({"night_mode_enabled": False}, f)
-        return {"night_mode_enabled": False}
+            json.dump({"night_mode_enabled": False, "afk_mode_enabled": False}, f) # Added afk_mode_enabled default
+        return {"night_mode_enabled": False, "afk_mode_enabled": False} # Added afk_mode_enabled default
     try:
         with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
+            settings = json.load(f)
+            # Ensure new settings are always present, add with default if missing
+            settings.setdefault("afk_mode_enabled", False) 
+            settings.setdefault("night_mode_enabled", False)
+            return settings
     except (json.JSONDecodeError, FileNotFoundError):
-        return {"night_mode_enabled": False} # Return default on error
+        return {"night_mode_enabled": False, "afk_mode_enabled": False} # Return default on error
 
 def update_app_settings(new_settings):
     """Writes the updated settings to the JSON file."""
@@ -83,7 +87,8 @@ def index():
     return render_template(
         "index.html",
         user_grouped_data=user_grouped_data,
-        night_mode_enabled=app_settings.get("night_mode_enabled", False)
+        night_mode_enabled=app_settings.get("night_mode_enabled", False),
+        afk_mode_enabled=app_settings.get("afk_mode_enabled", False) # Pass new AFK setting
     )
 
 @app.route("/update_selection", methods=["POST"])
@@ -153,6 +158,22 @@ def update_night_mode():
     
     status_text = "enabled" if is_enabled else "disabled"
     return jsonify({"success": True, "message": f"Nighttime trading {status_text}."})
+
+@app.route("/update_afk_mode", methods=["POST"]) # New route for AFK mode
+def update_afk_mode():
+    """Updates the AFK mode status."""
+    data = request.json
+    is_enabled = data.get("afk_mode_enabled")
+
+    if is_enabled is None:
+        return jsonify({"success": False, "error": "Missing parameter"}), 400
+
+    settings = get_app_settings()
+    settings["afk_mode_enabled"] = is_enabled
+    update_app_settings(settings)
+    
+    status_text = "enabled" if is_enabled else "disabled"
+    return jsonify({"success": True, "message": f"AFK mode {status_text}."})
 
 # --- Routes for Trading App Control ---
 @app.route("/start_trading", methods=["POST"])

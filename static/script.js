@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tradesContainer = document.getElementById('active-trades-container');
     const telegramContainer = document.getElementById('telegram-alerts-container');
     const nightModeCheckbox = document.getElementById('night-mode-checkbox');
+    const afkModeCheckbox = document.getElementById('afk-mode-checkbox'); // New AFK checkbox
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -26,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Event listener for the new checkbox
+    // Event listener for the night mode checkbox
     if (nightModeCheckbox) {
         nightModeCheckbox.addEventListener('change', async () => {
             const isEnabled = nightModeCheckbox.checked;
@@ -45,6 +46,29 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Failed to update night mode:', error);
                 alert('An unexpected error occurred while updating night mode.');
+            }
+        });
+    }
+
+    // New Event listener for the AFK mode checkbox
+    if (afkModeCheckbox) {
+        afkModeCheckbox.addEventListener('change', async () => {
+            const isEnabled = afkModeCheckbox.checked;
+            try {
+                const response = await fetch('/update_afk_mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 'afk_mode_enabled': isEnabled })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert(`Error: ${result.error}`);
+                } else {
+                    console.log(result.message); // Log success to console
+                }
+            } catch (error) {
+                console.error('Failed to update AFK mode:', error);
+                alert('An unexpected error occurred while updating AFK mode.');
             }
         });
     }
