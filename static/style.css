@@ -180,3 +180,13 @@ tr.status-paid {
 tr.status-paid:hover {
     background-color: #38a169;
 }
+
+/* New style for highlighting 'Disputed' trade rows */
+tr.status-disputed {
+    background-color: #b7791f; /* A dark yellow that fits the theme */
+    font-weight: bold;
+}
+
+tr.status-disputed:hover {
+    background-color: #d69e2e;
+}

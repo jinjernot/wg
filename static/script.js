@@ -200,6 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (trade.trade_status === 'Paid') {
                 row.classList.add('status-paid');
+            } else if (trade.trade_status === 'Dispute open') {
+                row.classList.add('status-disputed');
             }
 
             row.innerHTML = `
