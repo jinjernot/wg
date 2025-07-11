@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById('stop-btn');
     const statusIndicator = document.getElementById('status-indicator');
     const tradesContainer = document.getElementById('active-trades-container');
-    const telegramContainer = document.getElementById('telegram-alerts-container');
+    const statsContainer = document.getElementById('performance-stats-container'); // New element
     const nightModeCheckbox = document.getElementById('night-mode-checkbox');
-    const afkModeCheckbox = document.getElementById('afk-mode-checkbox'); // New AFK checkbox
+    const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Event listener for the night mode checkbox
     if (nightModeCheckbox) {
         nightModeCheckbox.addEventListener('change', async () => {
             const isEnabled = nightModeCheckbox.checked;
@@ -41,10 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!result.success) {
                     alert(`Error: ${result.error}`);
                 } else {
-                    console.log(result.message); // Log success to console
+                    console.log(result.message);
                 }
-
-                // If night mode is enabled, disable AFK mode
                 if (isEnabled && afkModeCheckbox.checked) {
                     afkModeCheckbox.checked = false;
                     const afkResponse = await fetch('/update_afk_mode', {
@@ -59,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log(afkResult.message);
                     }
                 }
-
             } catch (error) {
                 console.error('Failed to update night mode:', error);
                 alert('An unexpected error occurred while updating night mode.');
@@ -67,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // New Event listener for the AFK mode checkbox
     if (afkModeCheckbox) {
         afkModeCheckbox.addEventListener('change', async () => {
             const isEnabled = afkModeCheckbox.checked;
@@ -81,10 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!result.success) {
                     alert(`Error: ${result.error}`);
                 } else {
-                    console.log(result.message); // Log success to console
+                    console.log(result.message);
                 }
-
-                // If AFK mode is enabled, disable night mode
                 if (isEnabled && nightModeCheckbox.checked) {
                     nightModeCheckbox.checked = false;
                     const nightResponse = await fetch('/update_night_mode', {
@@ -99,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log(nightResult.message);
                     }
                 }
-
             } catch (error) {
                 console.error('Failed to update AFK mode:', error);
                 alert('An unexpected error occurred while updating AFK mode.');
@@ -172,14 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateTradesTable(trades) {
         if (!tradesContainer) return;
-
         tradesContainer.innerHTML = '';
-
         if (!trades || trades.length === 0) {
             tradesContainer.innerHTML = '<p>No active trades found.</p>';
             return;
         }
-
         const table = document.createElement('table');
         table.innerHTML = `
             <thead>
@@ -197,13 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = table.querySelector('tbody');
         trades.forEach(trade => {
             const row = document.createElement('tr');
-
             if (trade.trade_status === 'Paid') {
                 row.classList.add('status-paid');
             } else if (trade.trade_status === 'Dispute open') {
                 row.classList.add('status-disputed');
             }
-
             row.innerHTML = `
                 <td>${trade.account_name_source || 'N/A'}</td>
                 <td>${trade.trade_hash || 'N/A'}</td>
@@ -214,32 +201,34 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             tbody.appendChild(row);
         });
-
         tradesContainer.appendChild(table);
     }
 
-    async function fetchTelegramAlerts() {
-        if (!telegramContainer) return;
+    async function fetchTradeStats() {
+        if (!statsContainer) return;
         try {
-            const response = await fetch('/get_telegram_messages');
-            const messages = await response.json();
-
-            telegramContainer.innerHTML = '';
-
-            if (!messages || messages.length === 0) {
-                telegramContainer.innerHTML = '<p>No recent alerts.</p>';
-                return;
-            }
-
-            messages.reverse().forEach(msg => {
-                const p = document.createElement('p');
-                p.className = 'telegram-message';
-                p.textContent = msg;
-                telegramContainer.appendChild(p);
-            });
-
+            const response = await fetch('/get_trade_stats');
+            const stats = await response.json();
+            statsContainer.innerHTML = `
+                <div class="stat-item">
+                    <h4>Trades Today</h4>
+                    <p>${stats.trades_today}</p>
+                </div>
+                <div class="stat-item">
+                    <h4>Volume Today</h4>
+                    <p>$${stats.volume_today.toLocaleString()} MXN</p>
+                </div>
+                <div class="stat-item">
+                    <h4>Success Rate</h4>
+                    <p>${stats.success_rate}%</p>
+                </div>
+                <div class="stat-item">
+                    <h4>Top Payment Method</h4>
+                    <p>${stats.top_payment_method}</p>
+                </div>
+            `;
         } catch (error) {
-            telegramContainer.innerHTML = '<p>Error fetching alerts.</p>';
+            statsContainer.innerHTML = '<p>Error fetching stats.</p>';
             console.error(error);
         }
     }
@@ -247,8 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
-    fetchTelegramAlerts();
+    fetchTradeStats();
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
-    setInterval(fetchTelegramAlerts, 60000);
+    setInterval(fetchTradeStats, 60000);
 });
