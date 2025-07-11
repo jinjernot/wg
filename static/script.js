@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tradesContainer = document.getElementById('active-trades-container');
     const nightModeCheckbox = document.getElementById('night-mode-checkbox');
     const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
+    const saveAllBtn = document.getElementById('save-all-btn');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -98,38 +99,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.querySelectorAll('.account-form').forEach(form => {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const formData = new FormData(form);
-            const data = {
-                filename: formData.get('filename'),
-                owner_username: formData.get('owner_username'),
-                payment_method: formData.get('payment_method'),
-                selected_id: formData.get('selected_id')
-            };
-            if (!data.selected_id) {
-                alert('Please select an account.');
-                return;
-            }
+    if (saveAllBtn) {
+        saveAllBtn.addEventListener('click', async () => {
+            const forms = document.querySelectorAll('.account-form');
+            const selections = [];
+            forms.forEach(form => {
+                const formData = new FormData(form);
+                const data = {
+                    filename: formData.get('filename'),
+                    owner_username: formData.get('owner_username'),
+                    payment_method: formData.get('payment_method'),
+                    selected_id: formData.get('selected_id')
+                };
+                selections.push(data);
+            });
+
             try {
-                const response = await fetch('/update_selection', {
+                const response = await fetch('/update_all_selections', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(selections)
                 });
                 const result = await response.json();
                 if (result.success) {
-                    alert('Selection saved successfully!');
+                    alert('All selections saved successfully!');
                 } else {
                     alert(`Error: ${result.error}`);
                 }
             } catch (error) {
-                console.error('Failed to save selection:', error);
-                alert('An unexpected error occurred.');
+                console.error('Failed to save all selections:', error);
+                alert('An unexpected error occurred while saving selections.');
             }
         });
-    });
+    }
 
     // --- Data Fetching and UI Update Functions ---
     async function updateStatus() {

@@ -74,6 +74,22 @@ h4 {
 #stop-btn { background-color: #e53e3e; }
 #stop-btn:hover { background-color: #c53030; }
 
+#save-all-btn {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: background-color 0.2s;
+    background-color: #3b82f6; /* Blue Save Button */
+    margin-bottom: 15px;
+}
+#save-all-btn:hover {
+    background-color: #2563eb;
+}
+
 .status-text {
     font-size: 1rem;
     font-weight: 500;
