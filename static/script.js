@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById('stop-btn');
     const statusIndicator = document.getElementById('status-indicator');
     const tradesContainer = document.getElementById('active-trades-container');
-    const statsContainer = document.getElementById('performance-stats-container'); // New element
     const nightModeCheckbox = document.getElementById('night-mode-checkbox');
     const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
 
@@ -204,40 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tradesContainer.appendChild(table);
     }
 
-    async function fetchTradeStats() {
-        if (!statsContainer) return;
-        try {
-            const response = await fetch('/get_trade_stats');
-            const stats = await response.json();
-            statsContainer.innerHTML = `
-                <div class="stat-item">
-                    <h4>Trades Today</h4>
-                    <p>${stats.trades_today}</p>
-                </div>
-                <div class="stat-item">
-                    <h4>Volume Today</h4>
-                    <p>$${stats.volume_today.toLocaleString()} MXN</p>
-                </div>
-                <div class="stat-item">
-                    <h4>Success Rate</h4>
-                    <p>${stats.success_rate}%</p>
-                </div>
-                <div class="stat-item">
-                    <h4>Top Payment Method</h4>
-                    <p>${stats.top_payment_method}</p>
-                </div>
-            `;
-        } catch (error) {
-            statsContainer.innerHTML = '<p>Error fetching stats.</p>';
-            console.error(error);
-        }
-    }
-
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
-    fetchTradeStats();
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
-    setInterval(fetchTradeStats, 60000);
 });
