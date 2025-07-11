@@ -7,8 +7,11 @@ from datetime import datetime, timedelta, timezone
 from collections import deque, Counter
 from flask import Flask, render_template, request, jsonify
 
-# --- Import the TRADE_HISTORY variable from config ---
-from config import TRADE_HISTORY
+# --- Import variables from config and other modules ---
+from config import TRADE_HISTORY, ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
+from api.auth import fetch_token_with_retry
+from core.messaging.message_sender import send_message_with_retry
+
 
 app = Flask(__name__)
 
@@ -150,6 +153,7 @@ def update_all_selections():
 
     return jsonify({"success": True, "message": "All selections updated successfully."})
 
+
 @app.route("/get_trade_stats")
 def get_trade_stats():
     stats = {
@@ -285,6 +289,43 @@ def get_active_trades():
             except Exception as e:
                 print(f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)
+
+@app.route("/send_manual_message", methods=["POST"])
+def send_manual_message():
+    data = request.json
+    trade_hash = data.get("trade_hash")
+    account_name = data.get("account_name")
+    message = data.get("message")
+
+    if not all([trade_hash, account_name, message]):
+        return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
+
+    # Find the account from the config by matching the formatted name
+    formatted_account_name = account_name.replace(" ", "_")
+    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
+
+    if not target_account:
+        return jsonify({"success": False, "error": f"Account '{account_name}' not found in configuration."}), 404
+
+    # Fetch a token for the specific account
+    token = fetch_token_with_retry(target_account)
+    if not token:
+        return jsonify({"success": False, "error": "Could not authenticate with the platform."}), 500
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    # Determine the correct chat URL
+    chat_url = CHAT_URL_PAXFUL if "_Paxful" in target_account["name"] else CHAT_URL_NOONES
+    body = {"trade_hash": trade_hash, "message": message}
+
+    # Send the message
+    if send_message_with_retry(chat_url, body, headers):
+        return jsonify({"success": True, "message": "Message sent successfully!"})
+    else:
+        return jsonify({"success": False, "error": "Failed to send message via the platform API."}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

@@ -132,6 +132,54 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    if (tradesContainer) {
+        tradesContainer.addEventListener('click', async (event) => {
+            if (event.target.classList.contains('send-manual-message-btn')) {
+                const button = event.target;
+                const tradeHash = button.dataset.tradeHash;
+                const accountName = button.dataset.accountName;
+                const input = button.previousElementSibling;
+                const message = input.value.trim();
+
+                if (!message) {
+                    alert('Please type a message to send.');
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = '...';
+
+                try {
+                    const response = await fetch('/send_manual_message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            trade_hash: tradeHash,
+                            account_name: accountName,
+                            message: message
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(result.message);
+                        input.value = ''; // Clear input on success
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                } catch (error) {
+                    console.error('Failed to send manual message:', error);
+                    alert('An unexpected error occurred.');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Send';
+                }
+            }
+        });
+    }
+
 
     // --- Data Fetching and UI Update Functions ---
     async function updateStatus() {
@@ -180,6 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th>Amount</th>
                     <th>Payment Method</th>
                     <th>Status</th>
+                    <th>Send Message</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -199,6 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}</td>
                 <td>${trade.payment_method_name || 'N/A'}</td>
                 <td>${trade.trade_status || 'N/A'}</td>
+                <td class="message-cell">
+                    <input type="text" class="manual-message-input" placeholder="Type a message...">
+                    <button class="send-manual-message-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Send</button>
+                </td>
             `;
             tbody.appendChild(row);
         });
