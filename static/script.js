@@ -180,6 +180,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
+    // --- Data Fetching and UI Update Functions ---
+    async function updateStatus() {
+        try {
+            const response = await fetch('/trading_status');
+            const result = await response.json();
+            if (statusIndicator) {
+                statusIndicator.textContent = result.status;
+                statusIndicator.className = result.status.toLowerCase();
+            }
+        } catch (error) {
+            if (statusIndicator) {
+                statusIndicator.textContent = 'Error';
+                statusIndicator.className = 'error';
+            }
+        }
+    }
+
     async function fetchActiveTrades() {
         try {
             const response = await fetch('/get_active_trades');
