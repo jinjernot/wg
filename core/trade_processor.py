@@ -72,18 +72,26 @@ def process_trades(account):
 
                 # Check for status changes and send messages
                 if trade_status not in processed_trade_data.get('status_history', []):
-                    if trade_status == 'Completed':
+                    
+                    # Log the new status for easier debugging in the future
+                    logging.info(f"Trade {trade_hash} has a new status: '{trade_status}'")
+
+                    if trade_status == 'Successful':
                         send_trade_completion_message(trade_hash, account, headers)
                     elif trade_status == 'Paid':
                         send_payment_received_message(trade_hash, account, headers)
                     
+                    # Add the new status to the history and save the updated trade data
                     processed_trade_data.setdefault('status_history', []).append(trade_status)
                     save_processed_trade(trade, platform, processed_trade_data)
                 
                 # Payment Reminder Logic
-                if trade_status == 'Active' and not processed_trade_data.get('reminder_sent'):
+                if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
                     if started_at_str:
-                        start_time = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+                        # Parse the string and assume it's in UTC, making it timezone-aware
+                        start_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
+                        
+                        # Now we can safely compare two aware datetime objects
                         if (datetime.now(timezone.utc) - start_time).total_seconds() > PAYMENT_REMINDER_DELAY:
                             send_payment_reminder_message(trade_hash, account, headers)
                             processed_trade_data['reminder_sent'] = True
