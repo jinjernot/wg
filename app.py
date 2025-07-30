@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from collections import deque, Counter
 from flask import Flask, render_template, request, jsonify
 
-# --- Import variables from config and other modules ---
+
 from config import TRADE_HISTORY, ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
 from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
@@ -15,7 +15,7 @@ from core.messaging.message_sender import send_message_with_retry
 
 app = Flask(__name__)
 
-# --- Configuration ---
+
 JSON_PATH = "data/json"
 SETTINGS_FILE = "data/settings.json"
 
@@ -26,7 +26,6 @@ if not os.path.exists(JSON_PATH):
 # Global variable to hold the trading bot process
 trading_process = None
 
-# --- Helper Functions ---
 def get_app_settings():
     """Reads the application settings from the JSON file."""
     if not os.path.exists(SETTINGS_FILE):
@@ -64,7 +63,6 @@ def get_payment_data():
                     payment_data[filename] = {}
     return payment_data
 
-# --- Flask Routes ---
 @app.route("/")
 def index():
     payment_data_from_files = get_payment_data()
@@ -153,68 +151,6 @@ def update_all_selections():
 
     return jsonify({"success": True, "message": "All selections updated successfully."})
 
-
-@app.route("/get_trade_stats")
-def get_trade_stats():
-    stats = {
-        "trades_today": 0,
-        "volume_today": 0,
-        "success_rate": 100,
-        "top_payment_method": "N/A",
-    }
-    today_str = datetime.now(timezone.utc).strftime("%Y%m%d")
-    filename = f"all_accounts_trades_{today_str}.csv"
-    
-    # --- This now uses the correct, imported path from your config ---
-    filepath = os.path.join(TRADE_HISTORY, filename)
-
-    if not os.path.exists(filepath):
-        return jsonify(stats)
-
-    all_trades = []
-    with open(filepath, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        all_trades = list(reader)
-
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=1)
-    recent_trades = []
-    for trade in all_trades:
-        completed_at_str = trade.get("completed_at")
-        if completed_at_str:
-            try:
-                # Handle potential timezone differences in isoformat strings
-                if completed_at_str.endswith('Z'):
-                    completed_at = datetime.fromisoformat(completed_at_str[:-1] + '+00:00')
-                else:
-                    completed_at = datetime.fromisoformat(completed_at_str)
-                
-                if completed_at.tzinfo is None:
-                    completed_at = completed_at.replace(tzinfo=timezone.utc)
-
-                if completed_at > cutoff_date:
-                    recent_trades.append(trade)
-            except ValueError:
-                continue # Skip trades with malformed dates
-
-    if not recent_trades:
-        return jsonify(stats)
-
-    successful_trades = [t for t in recent_trades if t.get('status') == 'successful']
-    stats["trades_today"] = len(successful_trades)
-    
-    total_volume = sum(float(t.get("fiat_amount_requested", 0)) for t in successful_trades if t.get("fiat_amount_requested"))
-    stats["volume_today"] = round(total_volume, 2)
-    
-    if len(recent_trades) > 0:
-        stats["success_rate"] = round((len(successful_trades) / len(recent_trades)) * 100, 2)
-
-    if successful_trades:
-        payment_methods = [t.get("payment_method_name") for t in successful_trades if t.get("payment_method_name")]
-        if payment_methods:
-            stats["top_payment_method"] = Counter(payment_methods).most_common(1)[0][0]
-
-    return jsonify(stats)
-
 @app.route("/update_night_mode", methods=["POST"])
 def update_night_mode():
     data = request.json
@@ -299,15 +235,12 @@ def send_manual_message():
 
     if not all([trade_hash, account_name, message]):
         return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
-
-    # Find the account from the config by matching the formatted name
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
 
     if not target_account:
         return jsonify({"success": False, "error": f"Account '{account_name}' not found in configuration."}), 404
 
-    # Fetch a token for the specific account
     token = fetch_token_with_retry(target_account)
     if not token:
         return jsonify({"success": False, "error": "Could not authenticate with the platform."}), 500
@@ -316,12 +249,9 @@ def send_manual_message():
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/x-www-form-urlencoded"
     }
-
-    # Determine the correct chat URL
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in target_account["name"] else CHAT_URL_NOONES
     body = {"trade_hash": trade_hash, "message": message}
-
-    # Send the message
+    
     if send_message_with_retry(chat_url, body, headers):
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:

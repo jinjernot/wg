@@ -1,8 +1,11 @@
 import logging
 import json
 import os
+
 from core.messaging.message_sender import send_message_with_retry
-# Import all message constants from your config
+
+from config_messages.welcome_david import *
+from config_messages.welcome_joe import *
 from config import *
 
 def is_night_mode_enabled():
@@ -19,7 +22,7 @@ def is_night_mode_enabled():
         return settings.get("night_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
         logging.error(f"Could not read settings file: {e}")
-        return False # Safely default to disabled on error
+        return False
 
 def is_afk_mode_enabled():
     """
@@ -35,7 +38,7 @@ def is_afk_mode_enabled():
         return settings.get("afk_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
         logging.error(f"Could not read settings file: {e}")
-        return False # Safely default to disabled on error
+        return False
 
 
 def send_welcome_message(trade, account, headers, max_retries=3):

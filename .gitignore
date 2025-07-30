@@ -8,3 +8,4 @@ old
 test
 venv
 *.log
+config_messages

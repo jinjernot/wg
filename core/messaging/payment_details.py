@@ -1,7 +1,9 @@
 import os
 import json
 import logging
-from config import JSON_PATH, PAYMENT_MESSAGES_DAVID, PAYMENT_MESSAGES_JOE
+from config import JSON_PATH
+from config_messages.payment_david import PAYMENT_MESSAGES_DAVID
+from config_messages.payment_joe import PAYMENT_MESSAGES_JOE
 from core.messaging.message_sender import send_message_with_retry
 
 def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username, max_retries=3):

@@ -3,10 +3,8 @@ from core.messaging.message_sender import send_message_with_retry
 from config import (
     CHAT_URL_PAXFUL,
     CHAT_URL_NOONES,
-    TRADE_COMPLETION_MESSAGE,
-    PAYMENT_RECEIVED_MESSAGE,
-    PAYMENT_REMINDER_MESSAGE,
 )
+from config_messages.chat_messages import *
 
 def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
     """Sends a thank you and feedback request message when a trade is completed."""
