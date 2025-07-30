@@ -2,20 +2,9 @@ import requests
 import json
 import re
 from datetime import datetime
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE, NEW_CHAT_ALERT_MESSAGE, NEW_ATTACHMENT_ALERT_MESSAGE
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config_messages.telegram_messages import PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE, NEW_CHAT_ALERT_MESSAGE, NEW_ATTACHMENT_ALERT_MESSAGE
 
-# Define the log file path
-TELEGRAM_LOG_FILE = "telegram_alerts.log"
-
-def log_message_to_file(message_text):
-    """Appends a timestamped message to the log file."""
-    try:
-        with open(TELEGRAM_LOG_FILE, "a", encoding="utf-8") as f:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # We use a simple format, but JSON could also be used
-            f.write(f"[{timestamp}] {message_text}\n")
-    except Exception as e:
-        print(f"Failed to write to telegram log file: {e}")
 
 
 def extract_placeholders(message_template):
@@ -45,9 +34,6 @@ def send_telegram_alert(trade, platform):
         print(f"Error: Missing key {e} in trade data.")
         return
 
-    # --- LOG THE MESSAGE ---
-    log_message_to_file(message)
-
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown", "disable_web_page_preview": True }
     
@@ -72,9 +58,6 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
         print(f"Error: Missing key {e} in chat message data.")
         return
 
-    # --- LOG THE MESSAGE ---
-    log_message_to_file(message)
-
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown", "disable_web_page_preview": True }
     
@@ -87,9 +70,6 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
 def send_attachment_alert(trade_hash, author):
     """Sends a Telegram alert for attachments and logs it."""
     message = NEW_ATTACHMENT_ALERT_MESSAGE.format(trade_hash=trade_hash, author=author)
-    
-    # --- LOG THE MESSAGE ---
-    log_message_to_file(message)
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown", "disable_web_page_preview": True }

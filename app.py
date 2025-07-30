@@ -3,21 +3,15 @@ import os
 import subprocess
 import sys
 import csv
-from datetime import datetime, timedelta, timezone
-from collections import deque, Counter
+
 from flask import Flask, render_template, request, jsonify
 
 
-from config import TRADE_HISTORY, ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
+from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
 from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 
-
 app = Flask(__name__)
-
-
-JSON_PATH = "data/json"
-SETTINGS_FILE = "data/settings.json"
 
 # Create the JSON_PATH directory if it doesn't exist, to prevent errors on first run
 if not os.path.exists(JSON_PATH):
