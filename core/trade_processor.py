@@ -88,15 +88,16 @@ def process_trades(account):
                 # Payment Reminder Logic
                 if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
                     if started_at_str:
-                        # Parse the string and assume it's in UTC, making it timezone-aware
-                        start_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
-                        
-                        # Now we can safely compare two aware datetime objects
-                        if (datetime.now(timezone.utc) - start_time).total_seconds() > PAYMENT_REMINDER_DELAY:
-                            send_payment_reminder_message(trade_hash, account, headers)
-                            processed_trade_data['reminder_sent'] = True
-                            save_processed_trade(trade, platform, processed_trade_data)
-
+                        try:
+                            start_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
+                            
+                            # Now we can safely compare two aware datetime objects
+                            if (datetime.now(timezone.utc) - start_time).total_seconds() > PAYMENT_REMINDER_DELAY:
+                                send_payment_reminder_message(trade_hash, account, headers)
+                                processed_trade_data['reminder_sent'] = True
+                                save_processed_trade(trade, platform, processed_trade_data)
+                        except ValueError:
+                            logging.error(f"Could not parse start_date '{started_at_str}' for trade {trade_hash}. Reminder not sent.")
 
                 fetch_trade_chat_messages(trade_hash, account, headers)
 

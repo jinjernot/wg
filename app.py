@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 import sys
-import csv
 
 from flask import Flask, render_template, request, jsonify
 
