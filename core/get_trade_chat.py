@@ -4,18 +4,18 @@ import logging
 import time
 import os
 from config import GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL, CHAT_LOG_PATH
-from core.messaging.telegram_alert import send_chat_message_alert, send_attachment_alert
-from core.messaging.attachment_message import send_attachment_message
+from core.messaging.telegram_alert import send_chat_message_alert
 
 # Store last processed message IDs to avoid duplicate alerts
 LAST_MESSAGE_IDS = {}
 
-def save_chat_log(trade_hash, messages):
+def save_chat_log(trade_hash, messages, account_name):
     """
-    Save chat messages to a log file named by the trade_hash.
+    Save chat messages to a log file named by the trade_hash within an account-specific folder.
     """
-    os.makedirs(CHAT_LOG_PATH, exist_ok=True)
-    log_file_path = os.path.join(CHAT_LOG_PATH, f"{trade_hash}_chat_log.json")
+    account_log_path = os.path.join(CHAT_LOG_PATH, account_name)
+    os.makedirs(account_log_path, exist_ok=True)
+    log_file_path = os.path.join(account_log_path, f"{trade_hash}_chat_log.json")
 
     chat_log_data = {
         "trade_hash": trade_hash,
@@ -32,37 +32,40 @@ def save_chat_log(trade_hash, messages):
 
 def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
     """
-    Fetch messages from trade chat and send Telegram alerts or attachment messages
-    for all new messages since last check.
+    Fetch messages from trade chat, send alerts, and report new attachments
+    and the timestamp of the last buyer message.
+    Returns a tuple: (attachment_found, attachment_author, last_buyer_message_timestamp)
     """
     chat_url = GET_CHAT_URL_PAXFUL if "_Paxful" in account["name"] else GET_CHAT_URL_NOONES
+    account_name = account.get("name")
     data = {"trade_hash": trade_hash}
 
     for attempt in range(max_retries):
         try:
-            logging.debug(f"Attempt {attempt + 1} to fetch chat messages for trade {trade_hash} ({account['name']})")
-
+            logging.debug(f"Attempt {attempt + 1} to fetch chat for trade {trade_hash}")
             response = requests.post(chat_url, data=data, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 chat_data = response.json()
-
                 if chat_data.get("status") != "success":
                     logging.error(f"API returned error: {chat_data}")
-                    return False
+                    return False, None, None
 
                 messages = chat_data.get("data", {}).get("messages", [])
-
                 if not messages:
-                    logging.debug(f"No messages found for trade {trade_hash}.")
-                    return False
+                    return False, None, None
 
-                save_chat_log(trade_hash, messages)
+                save_chat_log(trade_hash, messages, account_name)
 
-                # Get last processed message ID for this trade
+                # Find the timestamp of the last message from the buyer
+                last_buyer_message_ts = None
+                for msg in reversed(messages):
+                    author = msg.get("author", "Unknown")
+                    if author not in ["davidvs", "JoeWillgang", None]:
+                        last_buyer_message_ts = msg.get("timestamp")
+                        break
+
                 last_processed_id = LAST_MESSAGE_IDS.get(trade_hash)
-
-                # Process all unprocessed messages (oldest to newest)
                 new_messages = []
                 new_seen = False
                 for msg in messages:
@@ -72,49 +75,44 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                     elif new_seen or last_processed_id is None:
                         new_messages.append(msg)
 
-                # If we’ve never processed this trade, take last 1 message only to avoid flooding
                 if last_processed_id is None and messages:
                     new_messages = [messages[-1]]
 
                 if not new_messages:
-                    logging.debug(f"No new messages to process for trade {trade_hash}.")
-                    return False
+                    return False, None, last_buyer_message_ts
+
+                attachment_found = False
+                attachment_author = None
+                latest_message_id = None
 
                 for message in new_messages:
-                    message_id = message.get("id")
-                    message_type = message.get("type")
+                    latest_message_id = message.get("id")
                     author = message.get("author", "Unknown")
 
                     if author in ["davidvs", "JoeWillgang"]:
                         continue
 
-                    if message_type == "trade_attach_uploaded":
-                        send_attachment_message(trade_hash, account, headers, max_retries)
-                        send_attachment_alert(trade_hash, author)
+                    if message.get("type") == "trade_attach_uploaded":
+                        attachment_found = True
+                        attachment_author = author
                     else:
                         message_text = message.get("text")
                         if isinstance(message_text, dict):
                             message_text = str(message_text)
                         send_chat_message_alert(message_text, trade_hash, account["name"], author)
 
-                    # Always update the last message ID after processing
-                    LAST_MESSAGE_IDS[trade_hash] = message_id
+                if latest_message_id:
+                    LAST_MESSAGE_IDS[trade_hash] = latest_message_id
 
-                return True
+                return attachment_found, attachment_author, last_buyer_message_ts
 
-            elif response.status_code == 404:
-                logging.error(f"Trade chat not found for {trade_hash}. API Response: {response.text}")
-                return False
             else:
-                logging.error(f"Failed to fetch messages for {trade_hash}. Status: {response.status_code} - {response.text}")
-
-            if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
-                logging.debug(f"Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
+                logging.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
 
         except requests.exceptions.RequestException as e:
-            logging.error(f"Request failed on attempt {attempt + 1}: {e}")
+            logging.error(f"Request failed for {trade_hash}: {e}")
 
-    logging.error(f"Max retries reached for fetching chat messages for trade {trade_hash}.")
-    return False
+        if attempt < max_retries - 1:
+            time.sleep(2 ** attempt)
+
+    return False, None, None

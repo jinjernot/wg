@@ -1,18 +1,16 @@
-import json
-import os
 import logging
-from config import *
+from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES
 from core.messaging.message_sender import send_message_with_retry
+from config_messages.chat_messages import ATTACHMENT_MESSAGE
 
 def send_attachment_message(trade_hash, account, headers, max_retries=3):
     """
     Sends an initial message to the chat saying "Checking, this may take a few minutes."
     """
     try:
-        message = "Checking, this may take a few minutes."
         body = {
             "trade_hash": trade_hash,
-            "message": message
+            "message": ATTACHMENT_MESSAGE
         }
 
         # Pick correct sending URL

@@ -9,4 +9,3 @@ test
 venv
 *.log
 config_messages
-chat_log

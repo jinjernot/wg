@@ -77,31 +77,6 @@ def index():
         afk_mode_enabled=app_settings.get("afk_mode_enabled", False)
     )
 
-@app.route("/update_selection", methods=["POST"])
-def update_selection():
-    data = request.json
-    filename = data.get("filename")
-    owner_username = data.get("owner_username")
-    payment_method = data.get("payment_method")
-    selected_id = data.get("selected_id")
-    if not all([filename, owner_username, payment_method, selected_id]):
-        return jsonify({"success": False, "error": "Missing data"}), 400
-    filepath = os.path.join(JSON_PATH, filename)
-    if not os.path.exists(filepath):
-        return jsonify({"success": False, "error": f"File not found: {filename}"}), 404
-    try:
-        with open(filepath, "r+", encoding="utf-8") as f:
-            file_data = json.load(f)
-            file_data[owner_username][payment_method]["selected_id"] = selected_id
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
-            f.truncate()
-    except (KeyError, json.JSONDecodeError) as e:
-        return jsonify({"success": False, "error": f"Error processing file: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Unexpected error: {str(e)}"}), 500
-    return jsonify({"success": True})
-
 @app.route("/update_all_selections", methods=["POST"])
 def update_all_selections():
     selections = request.json

@@ -7,8 +7,9 @@ from core.get_trade_chat import fetch_trade_chat_messages
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
-from core.messaging.telegram_alert import send_telegram_alert
+from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY
+from core.messaging.attachment_message import send_attachment_message
 from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
@@ -42,7 +43,6 @@ def process_trades(account):
                 trade_status = trade.get("trade_status")
                 started_at_str = trade.get("start_date")
 
-
                 if not trade_hash or not owner_username:
                     logging.error(f"Missing trade_hash or owner_username for trade: {trade}")
                     continue
@@ -70,38 +70,52 @@ def process_trades(account):
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
 
-                # Check for status changes and send messages
                 if trade_status not in processed_trade_data.get('status_history', []):
-                    
-                    # Log the new status for easier debugging in the future
                     logging.info(f"Trade {trade_hash} has a new status: '{trade_status}'")
-
                     if trade_status == 'Successful':
                         send_trade_completion_message(trade_hash, account, headers)
                     elif trade_status == 'Paid':
                         send_payment_received_message(trade_hash, account, headers)
-                    
-                    # Add the new status to the history and save the updated trade data
+
                     processed_trade_data.setdefault('status_history', []).append(trade_status)
                     save_processed_trade(trade, platform, processed_trade_data)
-                
-                # Payment Reminder Logic
-                if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
-                    if started_at_str:
-                        try:
-                            start_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
-                            
-                            # Now we can safely compare two aware datetime objects
-                            if (datetime.now(timezone.utc) - start_time).total_seconds() > PAYMENT_REMINDER_DELAY:
-                                send_payment_reminder_message(trade_hash, account, headers)
-                                processed_trade_data['reminder_sent'] = True
-                                save_processed_trade(trade, platform, processed_trade_data)
-                        except ValueError:
-                            logging.error(f"Could not parse start_date '{started_at_str}' for trade {trade_hash}. Reminder not sent.")
 
-                fetch_trade_chat_messages(trade_hash, account, headers)
+                # Fetch chat info once for both reminder and attachment logic
+                attachment_found, author, last_buyer_ts = fetch_trade_chat_messages(trade_hash, account, headers)
+
+                # --- New Payment Reminder Logic ---
+                if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
+                    reference_time = None
+                    # Use the buyer's last message time if available
+                    if last_buyer_ts:
+                        reference_time = datetime.fromtimestamp(last_buyer_ts, tz=timezone.utc)
+                    # Otherwise, fall back to the trade start time
+                    elif started_at_str:
+                        try:
+                            reference_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
+                        except ValueError:
+                            logging.error(f"Could not parse start_date '{started_at_str}' for trade {trade_hash}.")
+
+                    # If we have a valid time, check if the delay has passed
+                    if reference_time:
+                        if (datetime.now(timezone.utc) - reference_time).total_seconds() > PAYMENT_REMINDER_DELAY:
+                            logging.info(f"Sending payment reminder for trade {trade_hash} due to inactivity.")
+                            send_payment_reminder_message(trade_hash, account, headers)
+                            processed_trade_data['reminder_sent'] = True
+                            save_processed_trade(trade, platform, processed_trade_data)
+                    else:
+                        logging.warning(f"Cannot check for reminder for trade {trade_hash}: no valid reference time.")
+
+
+                # --- Attachment Handling Logic ---
+                if attachment_found and not processed_trade_data.get('attachment_message_sent'):
+                    logging.info(f"New attachment found for trade {trade_hash}. Sending one-time message.")
+                    send_attachment_message(trade_hash, account, headers)
+                    send_attachment_alert(trade_hash, author)
+                    processed_trade_data['attachment_message_sent'] = True
+                    save_processed_trade(trade, platform, processed_trade_data)
 
         else:
             logging.debug(f"No new trades found for {account['name']}.")
-        
+
         time.sleep(60)
