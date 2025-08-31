@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nightModeCheckbox = document.getElementById('night-mode-checkbox');
     const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
     const saveAllBtn = document.getElementById('save-all-btn');
+    const offersCheckbox = document.getElementById('offers-checkbox');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -129,6 +130,28 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Failed to save all selections:', error);
                 alert('An unexpected error occurred while saving selections.');
+            }
+        });
+    }
+
+    if (offersCheckbox) {
+        offersCheckbox.addEventListener('change', async () => {
+            const isEnabled = offersCheckbox.checked;
+            const endpoint = isEnabled ? '/offer/turn-on' : '/offer/turn-off';
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert(`Error: ${result.message}`);
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                console.error('Failed to update offers status:', error);
+                alert('An unexpected error occurred while updating offers status.');
             }
         });
     }

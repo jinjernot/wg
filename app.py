@@ -1,26 +1,22 @@
-import json
-import os
 import subprocess
+import requests
+import json
 import sys
+import os
 
-from flask import Flask, render_template, request, jsonify
-
-
-from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
 from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
+from flask import Flask, render_template, request, jsonify
+from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
 
 app = Flask(__name__)
 
-# Create the JSON_PATH directory if it doesn't exist, to prevent errors on first run
 if not os.path.exists(JSON_PATH):
     os.makedirs(JSON_PATH)
 
-# Global variable to hold the trading bot process
 trading_process = None
 
 def get_app_settings():
-    """Reads the application settings from the JSON file."""
     if not os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "w") as f:
             json.dump({"night_mode_enabled": False, "afk_mode_enabled": False}, f)
@@ -35,12 +31,10 @@ def get_app_settings():
         return {"night_mode_enabled": False, "afk_mode_enabled": False}
 
 def update_app_settings(new_settings):
-    """Writes the updated settings to the JSON file."""
     with open(SETTINGS_FILE, "w") as f:
         json.dump(new_settings, f, indent=4)
 
 def get_payment_data():
-    """Reads all payment JSON files from JSON_PATH and returns their content."""
     payment_data = {}
     if not os.path.exists(JSON_PATH):
         print(f"Warning: Directory {JSON_PATH} not found.")
@@ -224,6 +218,68 @@ def send_manual_message():
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:
         return jsonify({"success": False, "error": "Failed to send message via the platform API."}), 500
+
+def set_offer_status(turn_on):
+    results = []
+    for account in ACCOUNTS:
+        token = fetch_token_with_retry(account)
+        if not token:
+            results.append({"account": account["name"], "success": False, "error": "Could not authenticate."})
+            continue
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        
+        platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
+        endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
+        url = f"{platform_url}{endpoint}"
+
+        try:
+            response = requests.post(url, headers=headers)
+            if response.status_code == 200 and response.json().get("status") == "success":
+                results.append({"account": account["name"], "success": True})
+            else:
+                error_message = response.json().get("error_description", "Unknown error")
+                results.append({"account": account["name"], "success": False, "error": error_message})
+        except Exception as e:
+            results.append({"account": account["name"], "success": False, "error": str(e)})
+    
+    return results
+
+@app.route("/offer/turn-on", methods=["POST"])
+def turn_on_offers():
+    results = set_offer_status(turn_on=True)
+    successful_accounts = [r["account"] for r in results if r["success"]]
+    failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r["success"]]
+    
+    message = ""
+    if successful_accounts:
+        message += f"Offers turned on for: {', '.join(successful_accounts)}. "
+    if failed_accounts:
+        message += f"Failed to turn on offers for: {', '.join(failed_accounts)}."
+
+    success = len(successful_accounts) > 0
+
+    return jsonify({"success": success, "message": message})
+
+
+@app.route("/offer/turn-off", methods=["POST"])
+def turn_off_offers():
+    results = set_offer_status(turn_on=False)
+    successful_accounts = [r["account"] for r in results if r["success"]]
+    failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r['success']]
+
+    message = ""
+    if successful_accounts:
+        message += f"Offers turned off for: {', '.join(successful_accounts)}. "
+    if failed_accounts:
+        message += f"Failed to turn off offers for: {', '.join(failed_accounts)}."
+    
+    success = len(successful_accounts) > 0
+    
+    return jsonify({"success": success, "message": message})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
