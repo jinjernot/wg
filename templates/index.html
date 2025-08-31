@@ -21,24 +21,31 @@
             <button id="save-all-btn">Save All Selections</button>
             <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
 
-            <div class="night-mode-toggle">
-                <input type="checkbox" id="night-mode-checkbox" {% if night_mode_enabled %}checked{% endif %}>
-                <label for="night-mode-checkbox">Enable Nighttime Messages</label>
+            <div class="toggles-container">
+                <div class="offers-toggle">
+                    <span>Enable Nighttime Messages</span>
+                    <label class="switch">
+                        <input type="checkbox" id="night-mode-checkbox" {% if night_mode_enabled %}checked{% endif %}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <div class="offers-toggle">
+                    <span>Enable AFK Messages</span>
+                    <label class="switch">
+                        <input type="checkbox" id="afk-mode-checkbox" {% if afk_mode_enabled %}checked{% endif %}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+    
+                <div class="offers-toggle">
+                    <span>Enable All Offers</span>
+                    <label class="switch">
+                        <input type="checkbox" id="offers-checkbox">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
             </div>
-            
-            <div class="afk-mode-toggle">
-                <input type="checkbox" id="afk-mode-checkbox" {% if afk_mode_enabled %}checked{% endif %}>
-                <label for="afk-mode-checkbox">Enable AFK Messages</label>
-            </div>
-
-            <div class="offers-toggle">
-                <span>Enable All Offers</span>
-                <label class="switch">
-                    <input type="checkbox" id="offers-checkbox">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-
         </div>
         
         {% if user_grouped_data %}
