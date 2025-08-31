@@ -80,23 +80,20 @@ def process_trades(account):
                     processed_trade_data.setdefault('status_history', []).append(trade_status)
                     save_processed_trade(trade, platform, processed_trade_data)
 
-                # Fetch chat info once for both reminder and attachment logic
-                attachment_found, author, last_buyer_ts = fetch_trade_chat_messages(trade_hash, account, headers)
+                # Fetch chat info, now including the path to any new attachment
+                attachment_found, author, last_buyer_ts, new_attachment_path = fetch_trade_chat_messages(trade_hash, account, headers)
 
                 # --- New Payment Reminder Logic ---
                 if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
                     reference_time = None
-                    # Use the buyer's last message time if available
                     if last_buyer_ts:
                         reference_time = datetime.fromtimestamp(last_buyer_ts, tz=timezone.utc)
-                    # Otherwise, fall back to the trade start time
                     elif started_at_str:
                         try:
                             reference_time = datetime.fromisoformat(started_at_str).replace(tzinfo=timezone.utc)
                         except ValueError:
                             logging.error(f"Could not parse start_date '{started_at_str}' for trade {trade_hash}.")
-
-                    # If we have a valid time, check if the delay has passed
+                    
                     if reference_time:
                         if (datetime.now(timezone.utc) - reference_time).total_seconds() > PAYMENT_REMINDER_DELAY:
                             logging.info(f"Sending payment reminder for trade {trade_hash} due to inactivity.")
@@ -106,12 +103,15 @@ def process_trades(account):
                     else:
                         logging.warning(f"Cannot check for reminder for trade {trade_hash}: no valid reference time.")
 
-
                 # --- Attachment Handling Logic ---
                 if attachment_found and not processed_trade_data.get('attachment_message_sent'):
                     logging.info(f"New attachment found for trade {trade_hash}. Sending one-time message.")
                     send_attachment_message(trade_hash, account, headers)
-                    send_attachment_alert(trade_hash, author)
+                    
+                    # Only send a Telegram alert if a new image was actually downloaded
+                    if new_attachment_path:
+                        send_attachment_alert(trade_hash, author, new_attachment_path)
+                    
                     processed_trade_data['attachment_message_sent'] = True
                     save_processed_trade(trade, platform, processed_trade_data)
 
