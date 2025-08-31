@@ -7,7 +7,8 @@ from core.get_trade_chat import fetch_trade_chat_messages
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
-from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert
+# Import the new validation alert
+from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert, send_amount_validation_alert
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY
 from core.messaging.attachment_message import send_attachment_message
 from core.messaging.trade_lifecycle_messages import (
@@ -15,6 +16,8 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_received_message,
     send_payment_reminder_message,
 )
+# Import the new OCR functions
+from core.ocr_processor import extract_text_from_image, find_amount_in_text
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -42,6 +45,9 @@ def process_trades(account):
                 payment_method_name = trade.get("payment_method_name", "Unknown")
                 trade_status = trade.get("trade_status")
                 started_at_str = trade.get("start_date")
+                # Get trade amount and currency for validation
+                fiat_amount_requested = trade.get("fiat_amount_requested")
+                fiat_currency_code = trade.get("fiat_currency_code")
 
                 if not trade_hash or not owner_username:
                     logging.error(f"Missing trade_hash or owner_username for trade: {trade}")
@@ -83,7 +89,7 @@ def process_trades(account):
                 # Fetch chat info, now including the path to any new attachment
                 attachment_found, author, last_buyer_ts, new_attachment_path = fetch_trade_chat_messages(trade_hash, account, headers)
 
-                # --- New Payment Reminder Logic ---
+                # --- Payment Reminder Logic ---
                 if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
                     reference_time = None
                     if last_buyer_ts:
@@ -108,10 +114,19 @@ def process_trades(account):
                     logging.info(f"New attachment found for trade {trade_hash}. Sending one-time message.")
                     send_attachment_message(trade_hash, account, headers)
                     
-                    # Only send a Telegram alert if a new image was actually downloaded
+                    # This block now also handles OCR validation
                     if new_attachment_path:
+                        # 1. Send the image to Telegram immediately
                         send_attachment_alert(trade_hash, author, new_attachment_path)
-                    
+                        
+                        # 2. Perform OCR Validation
+                        logging.info(f"Performing OCR on {new_attachment_path}...")
+                        extracted_text = extract_text_from_image(new_attachment_path)
+                        found_amount = find_amount_in_text(extracted_text, fiat_amount_requested)
+
+                        # 3. Send the validation result alert to Telegram
+                        send_amount_validation_alert(trade_hash, fiat_amount_requested, found_amount, fiat_currency_code)
+
                     processed_trade_data['attachment_message_sent'] = True
                     save_processed_trade(trade, platform, processed_trade_data)
 

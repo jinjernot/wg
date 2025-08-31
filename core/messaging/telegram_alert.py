@@ -85,3 +85,29 @@ def send_attachment_alert(trade_hash, author, image_path):
         print(f"Error opening image file {image_path}: {e}")
     except Exception as e:
         print(f"An unexpected error occurred while sending attachment alert: {e}")
+        
+def send_amount_validation_alert(trade_hash, expected_amount, found_amount, currency):
+    """Sends a Telegram alert about the amount validation result."""
+    if found_amount is None:
+        message = f"⚠️ *Amount Not Found*\n\n*Trade:* `{trade_hash}`\nCould not automatically find the amount on the receipt."
+    elif float(expected_amount) == float(found_amount):
+        message = f"✅ *Amount Matched*\n\n*Trade:* `{trade_hash}`\n*Amount:* `{found_amount:.2f} {currency}`"
+    else:
+        message = (
+            f"❌ *AMOUNT MISMATCH*\n\n"
+            f"*Trade:* `{trade_hash}`\n"
+            f"*Expected:* `{float(expected_amount):.2f} {currency}`\n"
+            f"*Found:* `{float(found_amount):.2f} {currency}`"
+        )
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        print("Amount validation alert sent successfully.")
+    else:
+        print(f"Failed to send amount validation alert: {response.status_code} - {response.text}")
