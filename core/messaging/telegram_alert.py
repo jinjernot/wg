@@ -11,7 +11,6 @@ def extract_placeholders(message_template):
     return re.findall(r"{(.*?)}", message_template)
 
 def send_telegram_alert(trade, platform):
-    # ... (this function remains the same)
     if isinstance(trade, str):
         try:
             trade = json.loads(trade)
@@ -38,7 +37,6 @@ def send_telegram_alert(trade, platform):
         print(f"Failed to send Telegram alert: {response.status_code} - {response.text}")
 
 def send_chat_message_alert(chat_message, trade_hash, platform, author):
-    # ... (this function remains the same)
     if not isinstance(chat_message, str) or not isinstance(author, str):
         print("Error: Invalid chat message or author data.")
         return
@@ -58,7 +56,6 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
         print(f"Failed to send chat alert: {response.status_code} - {response.text}")
 
 def send_attachment_alert(trade_hash, author, image_path):
-    # ... (this function remains the same)
     if not os.path.exists(image_path):
         print(f"Error: Image path does not exist: {image_path}")
         return
@@ -87,7 +84,6 @@ def send_attachment_alert(trade_hash, author, image_path):
         print(f"An unexpected error occurred while sending attachment alert: {e}")
         
 def send_amount_validation_alert(trade_hash, expected_amount, found_amount, currency):
-    # ... (this function remains the same)
     if found_amount is None:
         message = f"⚠️ *Amount Not Found*\n\n*Trade:* `{trade_hash}`\nCould not automatically find the amount on the receipt."
     elif float(expected_amount) == float(found_amount):

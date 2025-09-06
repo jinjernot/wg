@@ -40,28 +40,45 @@ def get_gmail_service():
         logging.error(f"An error occurred connecting to Gmail API: {error}")
         return None
 
+# --- THIS FUNCTION HAS BEEN UPDATED TO BE MORE ROBUST ---
+def get_email_body(message_payload):
+    """
+    Recursively searches for the plain text or HTML part of an email and decodes it.
+    Prefers plain text, but falls back to HTML.
+    """
+    plain_text_body = None
+    html_body = None
 
-def get_email_body(message_part):
-    """
-    Recursively searches for the plain text part of an email and decodes it.
-    """
-    if message_part['mimeType'] == 'text/plain':
-        data = message_part['body']['data']
-        return base64.urlsafe_b64decode(data).decode('utf-8')
-    if 'parts' in message_part:
-        for part in message_part['parts']:
-            body = get_email_body(part)
-            if body:
-                return body
-    return ""
+    # Use a stack for an iterative search to handle nested parts
+    parts_to_check = [message_payload]
+
+    while parts_to_check:
+        part = parts_to_check.pop()
+        mime_type = part.get('mimeType', '')
+        body_data = part.get('body', {}).get('data')
+
+        if not body_data:
+            # If there's no data in this part, check its sub-parts
+            if 'parts' in part:
+                parts_to_check.extend(part['parts'])
+            continue
+
+        if mime_type == 'text/plain':
+            plain_text_body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+            # Found the best option (plain text), so we can stop searching.
+            break
+        elif mime_type == 'text/html':
+            # Store HTML as a fallback option in case plain text isn't found.
+            html_body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+
+    # Prioritize returning the plain text body, but use HTML if it's all we have.
+    return plain_text_body or html_body or ""
 
 
 def find_amount_in_email_body(body):
     """
     Uses regex to find the monetary value in the Scotiabank email body.
     """
-    # This pattern looks for '$' followed by digits, commas, and a decimal point.
-    # e.g., "$ 200.00"
     money_pattern = r'\$\s*(\d{1,3}(?:,\d{3})*\.\d{2})'
     match = re.search(money_pattern, body)
     if match:
@@ -79,7 +96,6 @@ def check_for_payment_email(service, trade_details):
         return False
         
     try:
-        # Search for emails from Scotiabank with the specific subject
         query = 'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI") newer_than:1d'
         
         logging.info(f"Searching Gmail with query: {query}")
@@ -95,7 +111,6 @@ def check_for_payment_email(service, trade_details):
 
         for message_summary in messages:
             msg_id = message_summary['id']
-            # Fetch the full email content
             full_message = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
             
             email_body = get_email_body(full_message['payload'])
@@ -108,7 +123,6 @@ def check_for_payment_email(service, trade_details):
             
             if found_amount is not None:
                 logging.info(f"Found amount in email: {found_amount}. Expected: {expected_amount}")
-                # Check if the found amount matches the trade amount
                 if found_amount == expected_amount:
                     logging.info(f"SUCCESS: Amount in email matches trade {trade_details['trade_hash']}.")
                     return True

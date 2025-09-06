@@ -8,7 +8,7 @@ from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
 from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert, send_amount_validation_alert, send_email_validation_alert
-from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY
+from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
 from core.messaging.attachment_message import send_attachment_message
 from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
@@ -24,7 +24,6 @@ def process_trades(account):
     processed_trades = {}
     payment_methods = set()
 
-    # Initialize Gmail Service at the start
     gmail_service = get_gmail_service()
     if not gmail_service:
         logging.warning("Failed to initialize Gmail service. Email checking will be disabled for this session.")
@@ -56,13 +55,8 @@ def process_trades(account):
                     logging.error(f"Missing trade_hash or owner_username for trade: {trade}")
                     continue
 
-                if payment_method_name not in payment_methods:
-                    payment_methods.add(payment_method_name)
-                    logging.info(f"New Payment Method Found for {account['name']}: {payment_method_name}")
-
                 platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
-                chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else CHAT_URL_NOONES
-
+                
                 processed_trades = load_processed_trades(owner_username, platform)
                 processed_trade_data = processed_trades.get(trade_hash, {})
 
@@ -71,33 +65,43 @@ def process_trades(account):
                     send_welcome_message(trade, account, headers)
 
                     if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios","domestic-wire-transfer"]:
-                        send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username)
+                        send_payment_details_message(trade_hash, payment_method_slug, headers, CHAT_URL_PAXFUL if platform == "Paxful" else CHAT_URL_NOONES, owner_username)
 
                     processed_trade_data['status_history'] = [trade_status]
                     save_processed_trade(trade, platform, processed_trade_data)
-                else:
-                    logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
-
+                
                 if trade_status not in processed_trade_data.get('status_history', []):
                     logging.info(f"Trade {trade_hash} has a new status: '{trade_status}'")
                     if trade_status == 'Successful':
                         send_trade_completion_message(trade_hash, account, headers)
                     elif trade_status == 'Paid':
                         send_payment_received_message(trade_hash, account, headers)
-                        
-                        if not processed_trade_data.get('email_verified'):
-                            logging.info(f"Trade {trade_hash} is Paid. Checking for confirmation email...")
-                            email_check_successful = check_for_payment_email(gmail_service, trade)
-                            send_email_validation_alert(trade_hash, email_check_successful)
-                            
-                            if email_check_successful:
-                                logging.info(f"PAYMENT VERIFIED via email for trade {trade_hash}.")
-                                processed_trade_data['email_verified'] = True
-                            else:
-                                logging.warning(f"Could NOT verify payment via email for trade {trade_hash}.")
+                        if 'paid_timestamp' not in processed_trade_data:
+                            processed_trade_data['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
 
                     processed_trade_data.setdefault('status_history', []).append(trade_status)
                     save_processed_trade(trade, platform, processed_trade_data)
+
+                is_paid = trade_status == 'Paid'
+                is_pending_email_check = not processed_trade_data.get('email_verified') and not processed_trade_data.get('email_check_timed_out')
+                
+                if is_paid and is_pending_email_check and 'paid_timestamp' in processed_trade_data:
+                    elapsed_time = datetime.now(timezone.utc).timestamp() - processed_trade_data['paid_timestamp']
+
+                    if elapsed_time < EMAIL_CHECK_DURATION:
+                        logging.info(f"Trade {trade_hash} is Paid. Re-checking for confirmation email ({int(elapsed_time)}s elapsed)...")
+                        email_check_successful = check_for_payment_email(gmail_service, trade)
+                        
+                        if email_check_successful:
+                            logging.info(f"PAYMENT VERIFIED via email for trade {trade_hash}.")
+                            send_email_validation_alert(trade_hash, success=True)
+                            processed_trade_data['email_verified'] = True
+                            save_processed_trade(trade, platform, processed_trade_data)
+                    else:
+                        logging.warning(f"Email check for trade {trade_hash} timed out after {EMAIL_CHECK_DURATION} seconds.")
+                        send_email_validation_alert(trade_hash, success=False)
+                        processed_trade_data['email_check_timed_out'] = True
+                        save_processed_trade(trade, platform, processed_trade_data)
 
                 attachment_found, author, last_buyer_ts, new_attachment_paths = fetch_trade_chat_messages(trade_hash, account, headers)
 
