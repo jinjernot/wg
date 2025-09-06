@@ -7,8 +7,7 @@ from core.get_trade_chat import fetch_trade_chat_messages
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.get_files import load_processed_trades, save_processed_trade
-# Import the new validation alert
-from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert, send_amount_validation_alert
+from core.messaging.telegram_alert import send_telegram_alert, send_attachment_alert, send_amount_validation_alert, send_email_validation_alert
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY
 from core.messaging.attachment_message import send_attachment_message
 from core.messaging.trade_lifecycle_messages import (
@@ -16,14 +15,19 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_received_message,
     send_payment_reminder_message,
 )
-# Import the new OCR functions
 from core.ocr_processor import extract_text_from_image, find_amount_in_text
+from core.email_checker import get_gmail_service, check_for_payment_email
 
 logging.basicConfig(level=logging.DEBUG)
 
 def process_trades(account):
     processed_trades = {}
     payment_methods = set()
+
+    # Initialize Gmail Service at the start
+    gmail_service = get_gmail_service()
+    if not gmail_service:
+        logging.warning("Failed to initialize Gmail service. Email checking will be disabled for this session.")
 
     access_token = fetch_token_with_retry(account)
     if not access_token:
@@ -45,7 +49,6 @@ def process_trades(account):
                 payment_method_name = trade.get("payment_method_name", "Unknown")
                 trade_status = trade.get("trade_status")
                 started_at_str = trade.get("start_date")
-                # Get trade amount and currency for validation
                 fiat_amount_requested = trade.get("fiat_amount_requested")
                 fiat_currency_code = trade.get("fiat_currency_code")
 
@@ -72,7 +75,6 @@ def process_trades(account):
 
                     processed_trade_data['status_history'] = [trade_status]
                     save_processed_trade(trade, platform, processed_trade_data)
-
                 else:
                     logging.debug(f"Trade {trade_hash} for {owner_username} ({account['name']}) already processed.")
 
@@ -82,14 +84,23 @@ def process_trades(account):
                         send_trade_completion_message(trade_hash, account, headers)
                     elif trade_status == 'Paid':
                         send_payment_received_message(trade_hash, account, headers)
+                        
+                        if not processed_trade_data.get('email_verified'):
+                            logging.info(f"Trade {trade_hash} is Paid. Checking for confirmation email...")
+                            email_check_successful = check_for_payment_email(gmail_service, trade)
+                            send_email_validation_alert(trade_hash, email_check_successful)
+                            
+                            if email_check_successful:
+                                logging.info(f"PAYMENT VERIFIED via email for trade {trade_hash}.")
+                                processed_trade_data['email_verified'] = True
+                            else:
+                                logging.warning(f"Could NOT verify payment via email for trade {trade_hash}.")
 
                     processed_trade_data.setdefault('status_history', []).append(trade_status)
                     save_processed_trade(trade, platform, processed_trade_data)
 
-                # Fetch chat info, now including the path to any new attachment
-                attachment_found, author, last_buyer_ts, new_attachment_path = fetch_trade_chat_messages(trade_hash, account, headers)
+                attachment_found, author, last_buyer_ts, new_attachment_paths = fetch_trade_chat_messages(trade_hash, account, headers)
 
-                # --- Payment Reminder Logic ---
                 if trade_status.startswith('Active') and not processed_trade_data.get('reminder_sent'):
                     reference_time = None
                     if last_buyer_ts:
@@ -109,23 +120,19 @@ def process_trades(account):
                     else:
                         logging.warning(f"Cannot check for reminder for trade {trade_hash}: no valid reference time.")
 
-                # --- Attachment Handling Logic ---
                 if attachment_found and not processed_trade_data.get('attachment_message_sent'):
                     logging.info(f"New attachment found for trade {trade_hash}. Sending one-time message.")
                     send_attachment_message(trade_hash, account, headers)
                     
-                    # This block now also handles OCR validation
-                    if new_attachment_path:
-                        # 1. Send the image to Telegram immediately
-                        send_attachment_alert(trade_hash, author, new_attachment_path)
-                        
-                        # 2. Perform OCR Validation
-                        logging.info(f"Performing OCR on {new_attachment_path}...")
-                        extracted_text = extract_text_from_image(new_attachment_path)
-                        found_amount = find_amount_in_text(extracted_text, fiat_amount_requested)
+                    if new_attachment_paths:
+                        for attachment_path in new_attachment_paths:
+                            send_attachment_alert(trade_hash, author, attachment_path)
+                            
+                            logging.info(f"Performing OCR on {attachment_path}...")
+                            extracted_text = extract_text_from_image(attachment_path)
+                            found_amount = find_amount_in_text(extracted_text, fiat_amount_requested)
 
-                        # 3. Send the validation result alert to Telegram
-                        send_amount_validation_alert(trade_hash, fiat_amount_requested, found_amount, fiat_currency_code)
+                            send_amount_validation_alert(trade_hash, fiat_amount_requested, found_amount, fiat_currency_code)
 
                     processed_trade_data['attachment_message_sent'] = True
                     save_processed_trade(trade, platform, processed_trade_data)

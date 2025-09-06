@@ -58,7 +58,7 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
         print(f"Failed to send chat alert: {response.status_code} - {response.text}")
 
 def send_attachment_alert(trade_hash, author, image_path):
-    """Sends a Telegram alert with the downloaded attachment image."""
+    # ... (this function remains the same)
     if not os.path.exists(image_path):
         print(f"Error: Image path does not exist: {image_path}")
         return
@@ -87,7 +87,7 @@ def send_attachment_alert(trade_hash, author, image_path):
         print(f"An unexpected error occurred while sending attachment alert: {e}")
         
 def send_amount_validation_alert(trade_hash, expected_amount, found_amount, currency):
-    """Sends a Telegram alert about the amount validation result."""
+    # ... (this function remains the same)
     if found_amount is None:
         message = f"⚠️ *Amount Not Found*\n\n*Trade:* `{trade_hash}`\nCould not automatically find the amount on the receipt."
     elif float(expected_amount) == float(found_amount):
@@ -111,3 +111,22 @@ def send_amount_validation_alert(trade_hash, expected_amount, found_amount, curr
         print("Amount validation alert sent successfully.")
     else:
         print(f"Failed to send amount validation alert: {response.status_code} - {response.text}")
+
+def send_email_validation_alert(trade_hash, success):
+    """Sends a Telegram alert about the email validation result."""
+    if success:
+        message = f"✅ *Email Payment Verified*\n\n*Trade:* `{trade_hash}`\nThe payment was successfully confirmed via email."
+    else:
+        message = f"⚠️ *Email Payment NOT Verified*\n\n*Trade:* `{trade_hash}`\nCould not automatically confirm payment via email."
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        print("Email validation alert sent successfully.")
+    else:
+        print(f"Failed to send email validation alert: {response.status_code} - {response.text}")

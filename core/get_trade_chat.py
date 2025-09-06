@@ -34,8 +34,8 @@ def save_chat_log(trade_hash, messages, account_name):
 
 def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
     """
-    Fetch messages, download attachments, and return the path of the first new attachment.
-    Returns: (attachment_found, author, last_buyer_ts, new_attachment_path)
+    Fetch messages, download attachments, and return a list of paths to new attachments.
+    Returns: (attachment_found, author, last_buyer_ts, new_attachment_paths)
     """
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
@@ -45,7 +45,6 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            # ... (rest of the try block up to the download logic is the same)
             logging.debug(f"Attempt {attempt + 1} to fetch chat for trade {trade_hash}")
             response = requests.post(chat_url, data=data, headers=headers, timeout=10)
 
@@ -53,17 +52,18 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                 chat_data = response.json()
                 if chat_data.get("status") != "success":
                     logging.error(f"API returned error fetching chat: {chat_data}")
-                    return False, None, None, None
+                    return False, None, None, []
 
                 messages = chat_data.get("data", {}).get("messages", [])
                 if not messages:
-                    return False, None, None, None
+                    return False, None, None, []
 
                 save_chat_log(trade_hash, messages, account_name)
 
                 attachment_found = False
                 attachment_author = None
-                new_attachment_path = None # Variable to hold the path of a new attachment
+                # --- CHANGE: Initialize as a list to hold all new paths ---
+                new_attachment_paths = [] 
 
                 for message in messages:
                     if message.get("type") == "trade_attach_uploaded":
@@ -89,14 +89,13 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                                                 with open(filepath, 'wb') as f:
                                                     f.write(image_response.content)
                                                 logging.info(f"Attachment for trade {trade_hash} saved to {filepath}")
-                                                if new_attachment_path is None:
-                                                    new_attachment_path = filepath # Capture the path
+                                                # --- CHANGE: Append each new path to the list ---
+                                                new_attachment_paths.append(filepath)
                                             else:
                                                 logging.error(f"Failed to download image hash {image_hash}. Status: {image_response.status_code}")
                                     except Exception as e:
                                         logging.error(f"An error occurred while processing attachment for {trade_hash}: {e}")
 
-                # ... (rest of the function is the same, just update the return value)
                 last_buyer_message_ts = None
                 for msg in reversed(messages):
                     author = msg.get("author", "Unknown")
@@ -126,7 +125,8 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                             send_chat_message_alert(message_text, trade_hash, account["name"], author)
                     if latest_message_id: LAST_MESSAGE_IDS[trade_hash] = latest_message_id
                 
-                return attachment_found, attachment_author, last_buyer_message_ts, new_attachment_path
+                # --- CHANGE: Return the list of paths ---
+                return attachment_found, attachment_author, last_buyer_message_ts, new_attachment_paths
 
             else:
                 logging.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
@@ -137,4 +137,4 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
         if attempt < max_retries - 1:
             time.sleep(2 ** attempt)
 
-    return False, None, None, None
+    return False, None, None, []

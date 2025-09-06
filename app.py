@@ -8,6 +8,7 @@ from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from flask import Flask, render_template, request, jsonify
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
+from core.offer_manager import set_offer_status # <-- Import the function
 
 app = Flask(__name__)
 
@@ -218,35 +219,6 @@ def send_manual_message():
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:
         return jsonify({"success": False, "error": "Failed to send message via the platform API."}), 500
-
-def set_offer_status(turn_on):
-    results = []
-    for account in ACCOUNTS:
-        token = fetch_token_with_retry(account)
-        if not token:
-            results.append({"account": account["name"], "success": False, "error": "Could not authenticate."})
-            continue
-
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        
-        platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
-        endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
-        url = f"{platform_url}{endpoint}"
-
-        try:
-            response = requests.post(url, headers=headers)
-            if response.status_code == 200 and response.json().get("status") == "success":
-                results.append({"account": account["name"], "success": True})
-            else:
-                error_message = response.json().get("error_description", "Unknown error")
-                results.append({"account": account["name"], "success": False, "error": error_message})
-        except Exception as e:
-            results.append({"account": account["name"], "success": False, "error": str(e)})
-    
-    return results
 
 @app.route("/offer/turn-on", methods=["POST"])
 def turn_on_offers():

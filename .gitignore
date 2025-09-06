@@ -11,3 +11,4 @@ venv
 config_messages
 chat_log
 attachments
+credentials.json
