@@ -1,3 +1,4 @@
+// static/script.js
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const startBtn = document.getElementById('start-btn');
@@ -8,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
     const saveAllBtn = document.getElementById('save-all-btn');
     const offersCheckbox = document.getElementById('offers-checkbox');
+    const verboseLoggingCheckbox = document.getElementById('verbose-logging-checkbox');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -146,12 +148,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 if (!result.success) {
                     alert(`Error: ${result.message}`);
+                    offersCheckbox.checked = !isEnabled;
                 } else {
                     alert(result.message);
                 }
             } catch (error) {
                 console.error('Failed to update offers status:', error);
                 alert('An unexpected error occurred while updating offers status.');
+                offersCheckbox.checked = !isEnabled;
+            }
+        });
+    }
+
+    if (verboseLoggingCheckbox) {
+        verboseLoggingCheckbox.addEventListener('change', async () => {
+            const isEnabled = verboseLoggingCheckbox.checked;
+            try {
+                const response = await fetch('/update_verbose_logging', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 'verbose_logging_enabled': isEnabled })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    alert(`Error: ${result.error}`);
+                } else {
+                    console.log(result.message);
+                }
+            } catch (error) {
+                console.error('Failed to update verbose logging:', error);
+                alert('An unexpected error occurred while updating logging settings.');
             }
         });
     }

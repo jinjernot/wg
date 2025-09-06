@@ -41,7 +41,15 @@
                 <div class="offers-toggle">
                     <span>Enable All Offers</span>
                     <label class="switch">
-                        <input type="checkbox" id="offers-checkbox">
+                        <input type="checkbox" id="offers-checkbox" {% if offers_enabled %}checked{% endif %}>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="offers-toggle">
+                    <span>Enable Verbose Logging</span>
+                    <label class="switch">
+                        <input type="checkbox" id="verbose-logging-checkbox" {% if verbose_logging_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>

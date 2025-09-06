@@ -3,14 +3,17 @@ import requests
 import json
 import sys
 import os
-
+import logging
 from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from flask import Flask, render_template, request, jsonify
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
-from core.offer_manager import set_offer_status # <-- Import the function
+from core.offer_manager import set_offer_status
+from core.log_config import setup_logging
 
 app = Flask(__name__)
+setup_logging()
+logger = logging.getLogger(__name__)
 
 if not os.path.exists(JSON_PATH):
     os.makedirs(JSON_PATH)
@@ -18,27 +21,42 @@ if not os.path.exists(JSON_PATH):
 trading_process = None
 
 def get_app_settings():
+    """Reads and ensures all keys are present in the settings file."""
     if not os.path.exists(SETTINGS_FILE):
+        default_settings = {
+            "night_mode_enabled": False, 
+            "afk_mode_enabled": False, 
+            "verbose_logging_enabled": True,
+            "offers_enabled": False
+        }
         with open(SETTINGS_FILE, "w") as f:
-            json.dump({"night_mode_enabled": False, "afk_mode_enabled": False}, f)
-        return {"night_mode_enabled": False, "afk_mode_enabled": False}
+            json.dump(default_settings, f)
+        return default_settings
     try:
         with open(SETTINGS_FILE, "r") as f:
             settings = json.load(f)
             settings.setdefault("afk_mode_enabled", False)
             settings.setdefault("night_mode_enabled", False)
+            settings.setdefault("verbose_logging_enabled", True)
+            settings.setdefault("offers_enabled", False)
             return settings
     except (json.JSONDecodeError, FileNotFoundError):
-        return {"night_mode_enabled": False, "afk_mode_enabled": False}
+        return {
+            "night_mode_enabled": False, 
+            "afk_mode_enabled": False, 
+            "verbose_logging_enabled": True,
+            "offers_enabled": False
+        }
 
 def update_app_settings(new_settings):
+    """Writes the updated settings to the file."""
     with open(SETTINGS_FILE, "w") as f:
         json.dump(new_settings, f, indent=4)
 
 def get_payment_data():
     payment_data = {}
     if not os.path.exists(JSON_PATH):
-        print(f"Warning: Directory {JSON_PATH} not found.")
+        logger.warning(f"Warning: Directory {JSON_PATH} not found.")
         return payment_data
     for filename in os.listdir(JSON_PATH):
         if filename.endswith(".json"):
@@ -47,7 +65,7 @@ def get_payment_data():
                 try:
                     payment_data[filename] = json.load(f)
                 except json.JSONDecodeError:
-                    print(f"Warning: Could not decode JSON from {filename}")
+                    logger.warning(f"Warning: Could not decode JSON from {filename}")
                     payment_data[filename] = {}
     return payment_data
 
@@ -69,7 +87,9 @@ def index():
         "index.html",
         user_grouped_data=user_grouped_data,
         night_mode_enabled=app_settings.get("night_mode_enabled", False),
-        afk_mode_enabled=app_settings.get("afk_mode_enabled", False)
+        afk_mode_enabled=app_settings.get("afk_mode_enabled", False),
+        verbose_logging_enabled=app_settings.get("verbose_logging_enabled", True),
+        offers_enabled=app_settings.get("offers_enabled", False)
     )
 
 @app.route("/update_all_selections", methods=["POST"])
@@ -138,6 +158,19 @@ def update_afk_mode():
     status_text = "enabled" if is_enabled else "disabled"
     return jsonify({"success": True, "message": f"AFK mode {status_text}."})
 
+@app.route("/update_verbose_logging", methods=["POST"])
+def update_verbose_logging():
+    data = request.json
+    is_enabled = data.get("verbose_logging_enabled")
+    if is_enabled is None:
+        return jsonify({"success": False, "error": "Missing parameter"}), 400
+    settings = get_app_settings()
+    settings["verbose_logging_enabled"] = is_enabled
+    update_app_settings(settings)
+    setup_logging()
+    status_text = "enabled" if is_enabled else "disabled"
+    return jsonify({"success": True, "message": f"Verbose logging {status_text}."})
+
 @app.route("/start_trading", methods=["POST"])
 def start_trading():
     global trading_process
@@ -186,7 +219,7 @@ def get_active_trades():
                             trade['account_name_source'] = account_name_source
                         active_trades_data.extend(trades_list)
             except Exception as e:
-                print(f"Could not read or parse trades file {filename}: {e}")
+                logger.error(f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)
 
 @app.route("/send_manual_message", methods=["POST"])
@@ -234,6 +267,11 @@ def turn_on_offers():
 
     success = len(successful_accounts) > 0
 
+    if success:
+        settings = get_app_settings()
+        settings["offers_enabled"] = True
+        update_app_settings(settings)
+
     return jsonify({"success": success, "message": message})
 
 
@@ -250,6 +288,11 @@ def turn_off_offers():
         message += f"Failed to turn off offers for: {', '.join(failed_accounts)}."
     
     success = len(successful_accounts) > 0
+    
+    if success:
+        settings = get_app_settings()
+        settings["offers_enabled"] = False
+        update_app_settings(settings)
     
     return jsonify({"success": success, "message": message})
 

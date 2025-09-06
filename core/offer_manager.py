@@ -1,8 +1,9 @@
-# core/offer_manager.py
 import requests
 import logging
 from api.auth import fetch_token_with_retry
 from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+logger = logging.getLogger(__name__)
 
 def set_offer_status(turn_on):
     """
@@ -49,8 +50,8 @@ def send_scheduled_task_alert(message):
     try:
         response = requests.post(url, json=payload)
         if response.status_code == 200:
-            logging.info("Scheduled task alert sent successfully.")
+            logger.info("Scheduled task alert sent successfully.")
         else:
-            logging.error(f"Failed to send scheduled task alert: {response.text}")
+            logger.error(f"Failed to send scheduled task alert: {response.text}")
     except Exception as e:
-        logging.error(f"Exception sending Telegram alert: {e}")
+        logger.error(f"Exception sending Telegram alert: {e}")

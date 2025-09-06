@@ -12,3 +12,4 @@ config_messages
 chat_log
 attachments
 credentials.json
+logs
