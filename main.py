@@ -1,8 +1,10 @@
+# main.py
 import threading
 import logging
+import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trade_processor import process_trades
-from config import ACCOUNTS
+from config import ACCOUNTS, TRADE_STORAGE_DIR # <-- Import TRADE_STORAGE_DIR
 from core.offer_manager import set_offer_status, send_scheduled_task_alert
 from core.log_config import setup_logging
 
@@ -29,6 +31,12 @@ def turn_on_offers_job():
         send_scheduled_task_alert(failure_message)
 
 def main():
+    # --- ENSURE DIRECTORY EXISTS ---
+    if not os.path.exists(TRADE_STORAGE_DIR):
+        logger.info(f"Creating trade storage directory at: {TRADE_STORAGE_DIR}")
+        os.makedirs(TRADE_STORAGE_DIR)
+    # -----------------------------
+
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
     # Schedule the job to run every day at 7:00 AM
     scheduler.add_job(turn_on_offers_job, 'cron', hour=7, minute=0)

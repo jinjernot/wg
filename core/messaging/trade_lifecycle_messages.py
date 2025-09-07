@@ -1,3 +1,4 @@
+# core/messaging/trade_lifecycle_messages.py
 import logging
 from core.messaging.message_sender import send_message_with_retry
 from config import (
@@ -6,6 +7,8 @@ from config import (
 )
 from config_messages.chat_messages import *
 
+logger = logging.getLogger(__name__)
+
 def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
     """Sends a thank you and feedback request message when a trade is completed."""
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
@@ -13,9 +16,9 @@ def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
     if send_message_with_retry(chat_url, body, headers, max_retries):
-        logging.info(f"Completion message sent for trade {trade_hash}.")
+        logger.info(f"Completion message sent for trade {trade_hash}.")
     else:
-        logging.error(f"Failed to send completion message for trade {trade_hash}.")
+        logger.error(f"Failed to send completion message for trade {trade_hash}.")
 
 
 def send_payment_received_message(trade_hash, account, headers, max_retries=3):
@@ -25,9 +28,9 @@ def send_payment_received_message(trade_hash, account, headers, max_retries=3):
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
     if send_message_with_retry(chat_url, body, headers, max_retries):
-        logging.info(f"Payment received message sent for trade {trade_hash}.")
+        logger.info(f"Payment received message sent for trade {trade_hash}.")
     else:
-        logging.error(f"Failed to send payment received message for trade {trade_hash}.")
+        logger.error(f"Failed to send payment received message for trade {trade_hash}.")
 
 
 def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
@@ -37,6 +40,6 @@ def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
     if send_message_with_retry(chat_url, body, headers, max_retries):
-        logging.info(f"Payment reminder sent for trade {trade_hash}.")
+        logger.info(f"Payment reminder sent for trade {trade_hash}.")
     else:
-        logging.error(f"Failed to send payment reminder for trade {trade_hash}.")
+        logger.error(f"Failed to send payment reminder for trade {trade_hash}.")

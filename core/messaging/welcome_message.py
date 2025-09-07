@@ -1,12 +1,13 @@
+# core/messaging/welcome_message.py
 import logging
 import json
 import os
-
 from core.messaging.message_sender import send_message_with_retry
-
 from config_messages.welcome_david import *
 from config_messages.welcome_joe import *
 from config import *
+
+logger = logging.getLogger(__name__)
 
 def is_night_mode_enabled():
     """
@@ -21,7 +22,7 @@ def is_night_mode_enabled():
             settings = json.load(f)
         return settings.get("night_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
-        logging.error(f"Could not read settings file: {e}")
+        logger.error(f"Could not read settings file: {e}")
         return False
 
 def is_afk_mode_enabled():
@@ -37,7 +38,7 @@ def is_afk_mode_enabled():
             settings = json.load(f)
         return settings.get("afk_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
-        logging.error(f"Could not read settings file: {e}")
+        logger.error(f"Could not read settings file: {e}")
         return False
 
 
@@ -49,7 +50,7 @@ def send_welcome_message(trade, account, headers, max_retries=3):
     # Determine if night mode or AFK mode is active
     night_mode_is_active = is_night_mode_enabled()
     afk_mode_is_active = is_afk_mode_enabled() # Check AFK mode
-    logging.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
+    logger.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
 
     # Select the appropriate message dictionary based on owner and mode status
     if owner_username == "davidvs":
@@ -87,6 +88,6 @@ def send_welcome_message(trade, account, headers, max_retries=3):
 
     # Send the message
     if send_message_with_retry(chat_url, body, headers, max_retries):
-        print(f"Welcome message sent for trade {trade_hash} ({account['name']})")
+        logger.info(f"Welcome message sent for trade {trade_hash} ({account['name']})")
     else:
-        print(f"Failed to send welcome message for trade {trade_hash} ({account['name']})")
+        logger.error(f"Failed to send welcome message for trade {trade_hash} ({account['name']})")
