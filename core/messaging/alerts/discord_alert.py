@@ -106,7 +106,7 @@ def create_amount_validation_embed(trade_hash, expected, found, currency):
         "color": COLORS["success"] if "✅" in template["title"] else (COLORS["warning"] if "⚠️" in template["title"] else COLORS["error"]),
         "fields": fields, "footer": {"text": f"Trade: {trade_hash}"}
     }
-    send_discord_embed(embed, alert_type="validations")
+    send_discord_embed(embed, alert_type="attachments")
 
 def create_email_validation_embed(trade_hash, success):
     """Builds and sends an email validation embed using templates."""
