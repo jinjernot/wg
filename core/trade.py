@@ -30,20 +30,19 @@ logger = logging.getLogger(__name__)
 
 class Trade:
     def __init__(self, trade_data, account, headers, gmail_service):
-        self.account = account
-        self.headers = headers
-        self.gmail_service = gmail_service
+            self.account = account
+            self.headers = headers
+            self.gmail_service = gmail_service
 
-        self.trade_hash = trade_data.get("trade_hash")
-        self.owner_username = trade_data.get("owner_username", "unknown_user")
-        self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
-        
-        # --- FIX: Create a single, unified source of truth for the trade's state ---
-        all_trades = load_processed_trades(self.owner_username, self.platform)
-        existing_data = all_trades.get(self.trade_hash, {})
-        # This merges saved data with fresh API data, ensuring we always have the latest info.
-        self.trade_state = {**existing_data, **trade_data}
-
+            self.trade_hash = trade_data.get("trade_hash")
+            self.owner_username = trade_data.get("owner_username", "unknown_user")
+            self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+            
+            all_trades = load_processed_trades(self.owner_username, self.platform)
+            existing_data = all_trades.get(self.trade_hash, {})
+            self.trade_state = {**existing_data, **trade_data}
+            self.trade_state.setdefault('processed_attachments', []) # Add this line
+            
     def save(self):
         """Saves the current, complete state of the trade."""
         save_processed_trade(self.trade_state, self.platform)
@@ -126,19 +125,29 @@ class Trade:
             self.trade_state['email_check_timed_out'] = True
 
     def check_chat_and_attachments(self):
-        """Fetches chat history and processes any new attachments."""
-        if self.trade_state.get('attachment_message_sent'):
-            return
-
-        attachment_found, author, last_buyer_ts, new_paths = fetch_trade_chat_messages(self.trade_hash, self.account, self.headers)
-        
-        if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
-
-        if attachment_found:
-            logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
-            send_attachment_message(self.trade_hash, self.account, self.headers)
+            """Fetches chat history and processes any new attachments."""
+            attachment_found, _, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
+                self.trade_hash, 
+                self.account, 
+                self.headers, 
+                processed_attachments=self.trade_state['processed_attachments']
+            )
             
-            for path in new_paths:
+            if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
+
+            if not new_attachments:
+                return
+
+            if not self.trade_state.get('attachment_message_sent'):
+                logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
+                send_attachment_message(self.trade_hash, self.account, self.headers)
+                self.trade_state['attachment_message_sent'] = True
+            
+            for attachment in new_attachments:
+                path = attachment['path']
+                url = attachment['url']
+                author = attachment['author']
+
                 send_attachment_alert(self.trade_hash, author, path)
                 create_attachment_embed(self.trade_hash, author, path)
                 
@@ -151,8 +160,8 @@ class Trade:
                 send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
                 create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
 
-            self.trade_state['attachment_message_sent'] = True
-
+                self.trade_state['processed_attachments'].append(url)
+            
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
