@@ -1,9 +1,11 @@
 import discord
 from discord import app_commands
+from discord.ext import tasks
 import logging
 import requests
 import datetime
-from config import DISCORD_BOT_TOKEN
+# --- UPDATED IMPORT ---
+from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
 # --- Basic Setup ---
 intents = discord.Intents.default()
@@ -14,23 +16,84 @@ tree = app_commands.CommandTree(client)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- ADD YOUR SERVER ID HERE FOR INSTANT COMMAND UPDATES ---
-MY_GUILD = discord.Object(id=123456789012345678) # <-- PASTE YOUR SERVER ID HERE
+# --- CONFIGURATION (Now loaded from config.py) ---
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID) 
+ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
 
-# --- Bot Events ---
+# --- Bot Events & Background Task ---
 @client.event
 async def on_ready():
     """Event that runs when the bot is connected and ready."""
-    # This will sync commands instantly to your specific server
     tree.copy_global_to(guild=MY_GUILD)
     await tree.sync(guild=MY_GUILD)
     
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
+    
+    # Start the background task
+    if not post_live_trades.is_running():
+        post_live_trades.start()
+
+@tasks.loop(minutes=2)
+async def post_live_trades():
+    """A background task that re-uses the logic from /active_trades to post a summary."""
+    channel = client.get_channel(ACTIVE_TRADES_CHANNEL_ID)
+    if not channel:
+        logger.error(f"Could not find channel {ACTIVE_TRADES_CHANNEL_ID}. Live feed is disabled.")
+        return
+
+    try:
+        response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
+        if response.status_code != 200:
+            logger.error(f"Live feed update failed: Server responded with {response.status_code}")
+            return
+        
+        trades = response.json()
+        
+        # --- This logic is copied directly from your /active_trades command ---
+        if not trades:
+            embed = discord.Embed(
+                title="📊 Live Active Trades",
+                description="No active trades found at the moment.",
+                color=0x00ff00
+            )
+        else:
+            embed = discord.Embed(
+                title=f"📊 Live Active Trades ({len(trades)})",
+                description="This list updates automatically.",
+                color=0x0000ff
+            )
+            for trade in trades[:20]: # Limit to 20 to avoid Discord limits
+                buyer = trade.get('responder_username', 'N/A')
+                amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
+                status = trade.get('trade_status', 'N/A')
+                
+                embed.add_field(
+                    name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
+                    value=f"**Amount**: {amount}\n**Status**: `{status}`",
+                    inline=False
+                )
+        
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        embed.set_footer(text="Last updated")
+        
+        # Clean the channel and post the new message
+        await channel.purge(limit=10, check=lambda m: m.author == client.user)
+        await channel.send(embed=embed)
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Could not connect to Flask app for live trades task: {e}")
+
+@post_live_trades.before_loop
+async def before_post_live_trades():
+    """Ensures the bot is ready before the task starts."""
+    await client.wait_until_ready()
 
 
 # --- Slash Commands ---
+# ... (all your other slash commands like /status, /bot, etc., remain here unchanged) ...
+
 @tree.command(name="status", description="Check the status of the trading bot.")
 async def status_command(interaction: discord.Interaction):
     """Handles the /status slash command."""
@@ -149,9 +212,9 @@ async def summary_command(interaction: discord.Interaction):
         embed.add_field(name="Total Trades Today", value=f"**{stats['total_trades']}**", inline=True)
         embed.add_field(name="Total Volume", value=f"**${stats['total_volume']:.2f}**", inline=True)
         embed.add_field(name="\u200b", value="\u200b", inline=False) # Divider
-        embed.add_field(name="✅ Successful", value=f"{stats['successful_trades']}", inline=True)
-        embed.add_field(name="💰 Paid (Pending BTC)", value=f"{stats['paid_trades']}", inline=True)
-        embed.add_field(name="🏃 Active", value=f"{stats['active_trades']}", inline=True)
+        embed.add_field(name="✅ Successful", value=f"**{stats['successful_trades']}**", inline=True)
+        embed.add_field(name="💰 Paid (Pending BTC)", value=f"**{stats['paid_trades']}**", inline=True)
+        embed.add_field(name="🏃 Active", value=f"**{stats['active_trades']}**", inline=True)
 
         await interaction.followup.send(embed=embed)
 
@@ -160,7 +223,7 @@ async def summary_command(interaction: discord.Interaction):
         logger.error(f"Could not connect to Flask app for /summary: {e}")
 
 
-# --- NEW COMMANDS START HERE ---
+
 
 @tree.command(name="bot", description="Start or stop the trading bot process.")
 @app_commands.describe(action="Choose whether to start or stop the bot")
@@ -280,7 +343,6 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
     except requests.exceptions.RequestException:
         await interaction.followup.send("⚠️ **Web server is unreachable.**")
 
-# --- NEW COMMANDS END HERE ---
 
 
 # --- Starting the Bot ---
