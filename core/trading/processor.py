@@ -12,10 +12,6 @@ def process_trades(account):
     """
     Main loop to fetch and process trades for a given account.
     """
-    gmail_service = get_gmail_service()
-    if not gmail_service:
-        logger.warning("Failed to initialize Gmail service. Email checking will be disabled.")
-
     while True:
         access_token = fetch_token_with_retry(account)
         if not access_token:
@@ -31,7 +27,7 @@ def process_trades(account):
         if trades:
             for trade_data in trades:
                 try:
-                    trade = Trade(trade_data, account, headers, gmail_service)
+                    trade = Trade(trade_data, account, headers)
                     trade.process()
                 except Exception as e:
                     logger.error(f"An unexpected error occurred processing trade {trade_data.get('trade_hash')}: {e}", exc_info=True)

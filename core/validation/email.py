@@ -1,4 +1,4 @@
-# core/email_checker.py
+# core/validation/email.py
 import os.path
 import logging
 import base64
@@ -15,30 +15,47 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-def get_gmail_service():
-    """Authenticates with the Gmail API and returns a service object."""
+def get_gmail_service(name_identifier):
+    """Authenticates with the Gmail API using a specific name identifier."""
+    if not name_identifier:
+        logger.error("No name identifier provided for Gmail service.")
+        return None
+
+    # Sanitize the name to create a valid filename (e.g., "Roberto Quintero" -> "Roberto_Quintero")
+    sanitized_name = name_identifier.replace(" ", "_")
+
     creds = None
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    token_file = f"token_{sanitized_name}.json"
+    creds_file = f"credentials_{sanitized_name}.json"
+
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
             except Exception as e:
-                logger.error(f"Failed to refresh token: {e}")
-                flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+                logger.error(f"Failed to refresh token for {sanitized_name}: {e}")
+                creds = None # Force re-authentication
+        
+        if not creds:
+            if os.path.exists(creds_file):
+                flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
                 creds = flow.run_local_server(port=0)
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as token:
+            else:
+                logger.error(f"Credentials file not found for '{sanitized_name}': {creds_file}")
+                return None
+        
+        with open(token_file, "w") as token:
             token.write(creds.to_json())
+
     try:
         service = build("gmail", "v1", credentials=creds)
-        logger.info("Successfully connected to Gmail API.")
+        logger.info(f"Successfully connected to Gmail API for '{sanitized_name}'.")
         return service
     except HttpError as error:
-        logger.error(f"An error occurred connecting to Gmail API: {error}")
+        logger.error(f"An error occurred connecting to Gmail API for '{sanitized_name}': {error}")
         return None
 
 def get_email_body(message_payload):
@@ -62,10 +79,8 @@ def get_email_body(message_payload):
 
     return html_body or plain_text_body or ""
 
-# --- FUNCTION RESTORED ---
 def find_amount_in_email_body(body):
     """Generic fallback function to find amount using regex."""
-    # This regex handles amounts like $1,000.00 and $1000.00
     money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})'
     match = re.search(money_pattern, str(body))
     if match:

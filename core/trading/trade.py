@@ -1,11 +1,15 @@
 # core/trading/trade.py
 import logging
+import json
+import os
 from datetime import datetime, timezone
-from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
-# --- Updated Imports ---
+from config import (
+    CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, 
+    EMAIL_CHECK_DURATION, JSON_PATH
+)
 from core.state.get_files import load_processed_trades, save_processed_trade
 from core.api_client.trade_chat import fetch_trade_chat_messages
-from core.validation.email import check_for_payment_email
+from core.validation.email import check_for_payment_email, get_gmail_service
 from core.validation.ocr import extract_text_from_image, find_amount_in_text
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
@@ -31,17 +35,17 @@ from core.messaging.alerts.discord_alert import (
 logger = logging.getLogger(__name__)
 
 class Trade:
-    def __init__(self, trade_data, account, headers, gmail_service):
-            self.account = account
-            self.headers = headers
-            self.gmail_service = gmail_service
-            self.trade_hash = trade_data.get("trade_hash")
-            self.owner_username = trade_data.get("owner_username", "unknown_user")
-            self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
-            all_trades = load_processed_trades(self.owner_username, self.platform)
-            existing_data = all_trades.get(self.trade_hash, {})
-            self.trade_state = {**existing_data, **trade_data}
-            
+    def __init__(self, trade_data, account, headers):
+        self.account = account
+        self.headers = headers
+        self.gmail_service = None
+        self.trade_hash = trade_data.get("trade_hash")
+        self.owner_username = trade_data.get("owner_username", "unknown_user")
+        self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+        all_trades = load_processed_trades(self.owner_username, self.platform)
+        existing_data = all_trades.get(self.trade_hash, {})
+        self.trade_state = {**existing_data, **trade_data}
+
     def save(self):
         """Saves the current, complete state of the trade."""
         save_processed_trade(self.trade_state, self.platform)
@@ -59,7 +63,7 @@ class Trade:
         self.check_chat_and_attachments()
         self.check_for_inactivity()
         self.save()
-        
+
     def handle_new_trade(self):
         """Handles logic for a trade seen for the first time."""
         logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
@@ -86,57 +90,113 @@ class Trade:
                     self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
             self.trade_state.setdefault('status_history', []).append(current_status)
 
+    def get_credential_identifier_for_trade(self):
+        """Finds the name identifier for credentials based on the payment method."""
+        slug = self.trade_state.get("payment_method_slug", "").lower()
+        
+        if slug == "oxxo":
+            json_filename = "oxxo.json"
+        elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
+            json_filename = "bank-transfer.json"
+        else:
+            return None
+
+        json_path = os.path.join(JSON_PATH, json_filename)
+        
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                payment_data = json.load(f)
+
+            user_data = payment_data.get(self.owner_username, {})
+
+            if slug == "oxxo":
+                return user_data.get("oxxo", {}).get("credential_name")
+
+            if "bank-transfer" in json_filename:
+                method_data = user_data.get("bank-transfer", {})
+                selected_id = str(method_data.get("selected_id", ""))
+                
+                if not selected_id:
+                    logger.warning(f"No selected_id found for {self.owner_username} in {json_filename}")
+                    return None
+
+                account = next((acc for acc in method_data.get("accounts", []) if str(acc.get("id")) == selected_id), None)
+                
+                if account and "name" in account:
+                    return account["name"]
+                else:
+                    logger.warning(f"No 'name' found for account id {selected_id} in {json_filename}")
+
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Could not read or parse {json_filename}: {e}")
+
+        return None
+
     def check_for_email_confirmation(self):
-            """Checks for payment confirmation emails if the trade is marked as Paid."""
-            is_paid = self.trade_state.get("trade_status") == 'Paid'
-            is_relevant = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
-            is_pending = not self.trade_state.get('email_verified') and not self.trade_state.get('email_check_timed_out')
-            if not (is_paid and is_relevant and is_pending): return
-            paid_timestamp = self.trade_state.get('paid_timestamp')
-            if not paid_timestamp: return
-            elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
-            if elapsed_time < EMAIL_CHECK_DURATION:
-                if self.gmail_service and check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
-                    logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
-                    if not self.trade_state.get('email_validation_alert_sent'):
-                        send_email_validation_alert(self.trade_hash, success=True)
-                        create_email_validation_embed(self.trade_hash, success=True)
-                        self.trade_state['email_validation_alert_sent'] = True
-                        self.save()
-                    self.trade_state['email_verified'] = True
-            else:
-                logger.warning(f"Email check for trade {self.trade_hash} timed out.")
+        """Checks for payment confirmation emails if the trade is marked as Paid."""
+        is_paid = self.trade_state.get("trade_status") == 'Paid'
+        is_relevant = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
+        is_pending = not self.trade_state.get('email_verified') and not self.trade_state.get('email_check_timed_out')
+
+        if not (is_paid and is_relevant and is_pending):
+            return
+
+        credential_identifier = self.get_credential_identifier_for_trade()
+        if not credential_identifier:
+            logger.warning(f"Could not determine credential identifier for trade {self.trade_hash}. Skipping email check.")
+            return
+
+        self.gmail_service = get_gmail_service(credential_identifier)
+        if not self.gmail_service:
+            return
+
+        paid_timestamp = self.trade_state.get('paid_timestamp')
+        if not paid_timestamp:
+            return
+
+        elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
+        if elapsed_time < EMAIL_CHECK_DURATION:
+            if check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
+                logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
                 if not self.trade_state.get('email_validation_alert_sent'):
-                    send_email_validation_alert(self.trade_hash, success=False)
-                    create_email_validation_embed(self.trade_hash, success=False)
+                    send_email_validation_alert(self.trade_hash, success=True)
+                    create_email_validation_embed(self.trade_hash, success=True)
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
-                self.trade_state['email_check_timed_out'] = True
-            
+                self.trade_state['email_verified'] = True
+        else:
+            logger.warning(f"Email check for trade {self.trade_hash} timed out.")
+            if not self.trade_state.get('email_validation_alert_sent'):
+                send_email_validation_alert(self.trade_hash, success=False)
+                create_email_validation_embed(self.trade_hash, success=False)
+                self.trade_state['email_validation_alert_sent'] = True
+                self.save()
+            self.trade_state['email_check_timed_out'] = True
+    
     def check_chat_and_attachments(self):
-                """Fetches chat history and processes any new attachments."""
-                attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
-                    self.trade_hash, self.account, self.headers)
-                if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
-                if not new_attachments: return
-                if not self.trade_state.get('attachment_message_sent'):
-                    logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
-                    send_attachment_message(self.trade_hash, self.account, self.headers)
-                    self.trade_state['attachment_message_sent'] = True
-                for attachment in new_attachments:
-                    path, author = attachment['path'], attachment['author']
-                    send_attachment_alert(self.trade_hash, author, path)
-                    create_attachment_embed(self.trade_hash, author, path)
-                    text = extract_text_from_image(path)
-                    found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
-                    if not self.trade_state.get('amount_validation_alert_sent'):
-                        expected = self.trade_state.get("fiat_amount_requested")
-                        currency = self.trade_state.get("fiat_currency_code")
-                        send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
-                        create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
-                        self.trade_state['amount_validation_alert_sent'] = True
-                        self.save()
-                                                    
+        """Fetches chat history and processes any new attachments."""
+        attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
+            self.trade_hash, self.account, self.headers)
+        if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
+        if not new_attachments: return
+        if not self.trade_state.get('attachment_message_sent'):
+            logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
+            send_attachment_message(self.trade_hash, self.account, self.headers)
+            self.trade_state['attachment_message_sent'] = True
+        for attachment in new_attachments:
+            path, author = attachment['path'], attachment['author']
+            send_attachment_alert(self.trade_hash, author, path)
+            create_attachment_embed(self.trade_hash, author, path)
+            text = extract_text_from_image(path)
+            found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
+            if not self.trade_state.get('amount_validation_alert_sent'):
+                expected = self.trade_state.get("fiat_amount_requested")
+                currency = self.trade_state.get("fiat_currency_code")
+                send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
+                create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
+                self.trade_state['amount_validation_alert_sent'] = True
+                self.save()
+                                            
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
