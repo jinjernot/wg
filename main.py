@@ -5,7 +5,7 @@ import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trading.processor import process_trades
 from config import ACCOUNTS, TRADE_STORAGE_DIR
-from core.api_client.offers import set_offer_status, send_scheduled_task_alert
+from core.api.offers import set_offer_status, send_scheduled_task_alert
 from core.utils.log_config import setup_logging
 
 setup_logging()

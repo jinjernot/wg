@@ -8,7 +8,7 @@ from config import (
     EMAIL_CHECK_DURATION, JSON_PATH
 )
 from core.state.get_files import load_processed_trades, save_processed_trade
-from core.api_client.trade_chat import fetch_trade_chat_messages
+from core.api.trade_chat import fetch_trade_chat_messages
 from core.validation.email import check_for_payment_email, get_gmail_service
 from core.validation.ocr import extract_text_from_image, find_amount_in_text
 from core.messaging.welcome_message import send_welcome_message
@@ -91,16 +91,18 @@ class Trade:
             self.trade_state.setdefault('status_history', []).append(current_status)
 
     def get_credential_identifier_for_trade(self):
-        """Finds the name identifier for credentials based on the payment method."""
+        """Finds the name identifier for credentials based on the selected payment account."""
         slug = self.trade_state.get("payment_method_slug", "").lower()
         
+        json_key_slug = ""
         if slug == "oxxo":
-            json_filename = "oxxo.json"
+            json_key_slug = "oxxo"
         elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
-            json_filename = "bank-transfer.json"
+            json_key_slug = "bank-transfer"
         else:
             return None
 
+        json_filename = f"{json_key_slug}.json"
         json_path = os.path.join(JSON_PATH, json_filename)
         
         try:
@@ -108,24 +110,19 @@ class Trade:
                 payment_data = json.load(f)
 
             user_data = payment_data.get(self.owner_username, {})
+            method_data = user_data.get(json_key_slug, {})
+            selected_id = str(method_data.get("selected_id", ""))
+            
+            if not selected_id:
+                logger.warning(f"No selected_id found for {self.owner_username} in {json_filename}")
+                return None
 
-            if slug == "oxxo":
-                return user_data.get("oxxo", {}).get("credential_name")
-
-            if "bank-transfer" in json_filename:
-                method_data = user_data.get("bank-transfer", {})
-                selected_id = str(method_data.get("selected_id", ""))
-                
-                if not selected_id:
-                    logger.warning(f"No selected_id found for {self.owner_username} in {json_filename}")
-                    return None
-
-                account = next((acc for acc in method_data.get("accounts", []) if str(acc.get("id")) == selected_id), None)
-                
-                if account and "name" in account:
-                    return account["name"]
-                else:
-                    logger.warning(f"No 'name' found for account id {selected_id} in {json_filename}")
+            account = next((acc for acc in method_data.get("accounts", []) if str(acc.get("id")) == selected_id), None)
+            
+            if account and "name" in account:
+                return account["name"]
+            else:
+                logger.warning(f"No 'name' found for account id {selected_id} in {json_filename}")
 
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Could not read or parse {json_filename}: {e}")
@@ -157,18 +154,18 @@ class Trade:
         elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
         if elapsed_time < EMAIL_CHECK_DURATION:
             if check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
-                logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
+                logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
                 if not self.trade_state.get('email_validation_alert_sent'):
-                    send_email_validation_alert(self.trade_hash, success=True)
-                    create_email_validation_embed(self.trade_hash, success=True)
+                    send_email_validation_alert(self.trade_hash, success=True, account_name=credential_identifier)
+                    create_email_validation_embed(self.trade_hash, success=True, account_name=credential_identifier)
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
                 self.trade_state['email_verified'] = True
         else:
             logger.warning(f"Email check for trade {self.trade_hash} timed out.")
             if not self.trade_state.get('email_validation_alert_sent'):
-                send_email_validation_alert(self.trade_hash, success=False)
-                create_email_validation_embed(self.trade_hash, success=False)
+                send_email_validation_alert(self.trade_hash, success=False, account_name=credential_identifier)
+                create_email_validation_embed(self.trade_hash, success=False, account_name=credential_identifier)
                 self.trade_state['email_validation_alert_sent'] = True
                 self.save()
             self.trade_state['email_check_timed_out'] = True
@@ -192,8 +189,8 @@ class Trade:
             if not self.trade_state.get('amount_validation_alert_sent'):
                 expected = self.trade_state.get("fiat_amount_requested")
                 currency = self.trade_state.get("fiat_currency_code")
-                send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
-                create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
+                send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
                 self.trade_state['amount_validation_alert_sent'] = True
                 self.save()
                                             

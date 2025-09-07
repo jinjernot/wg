@@ -1,3 +1,4 @@
+# core/messaging/alerts/telegram_alert.py
 import requests
 import json
 import re
@@ -115,18 +116,23 @@ def send_attachment_alert(trade_hash, author, image_path):
     except Exception as e:
         logger.error(f"An unexpected error occurred while sending attachment alert: {e}")
         
-def send_amount_validation_alert(trade_hash, expected_amount, found_amount, currency):
+def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     if found_amount is None:
-        message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(trade_hash=escape_markdown(trade_hash))
+        message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username)
+        )
     elif float(expected_amount) == float(found_amount):
         message = AMOUNT_VALIDATION_MATCH_ALERT.format(
             trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
             found_amount=escape_markdown(f"{found_amount:.2f}"),
             currency=escape_markdown(currency)
         )
     else:
         message = AMOUNT_VALIDATION_MISMATCH_ALERT.format(
             trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
             expected_amount=escape_markdown(f"{float(expected_amount):.2f}"),
             found_amount=escape_markdown(f"{float(found_amount):.2f}"),
             currency=escape_markdown(currency)
@@ -144,12 +150,18 @@ def send_amount_validation_alert(trade_hash, expected_amount, found_amount, curr
     else:
         logger.error(f"Failed to send amount validation alert: {response.status_code} - {response.text}")
 
-def send_email_validation_alert(trade_hash, success):
+def send_email_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the email validation result."""
     if success:
-        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash))
+        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(
+            trade_hash=escape_markdown(trade_hash), 
+            account_name=escape_markdown(account_name)
+        )
     else:
-        message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash))
+        message = EMAIL_VALIDATION_FAILURE_ALERT.format(
+            trade_hash=escape_markdown(trade_hash), 
+            account_name=escape_markdown(account_name)
+        )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {

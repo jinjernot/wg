@@ -8,10 +8,10 @@ import bot_process_manager
 import web_utils
 
 # Existing imports
-from core.api_client.auth import fetch_token_with_retry
+from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
-from core.api_client.offers import set_offer_status
+from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
 from core.utils.reporting import generate_daily_summary
 

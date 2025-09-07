@@ -1,6 +1,6 @@
 import requests
 import logging
-from core.api_client.auth import fetch_token_with_retry
+from core.api.auth import fetch_token_with_retry
 from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 logger = logging.getLogger(__name__)

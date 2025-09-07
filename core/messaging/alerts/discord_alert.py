@@ -1,4 +1,4 @@
-# core/messaging/discord_alert.py
+# core/messaging/alerts/discord_alert.py
 import requests
 import logging
 import json
@@ -89,17 +89,17 @@ def create_attachment_embed(trade_hash, author, image_path):
     }
     send_discord_embed_with_image(embed, image_path, alert_type="attachments")
 
-def create_amount_validation_embed(trade_hash, expected, found, currency):
+def create_amount_validation_embed(trade_hash, owner_username, expected, found, currency):
     """Builds and sends an amount validation embed using templates."""
     if found is None:
         template = AMOUNT_VALIDATION_EMBEDS["not_found"]
-        fields = template["fields"]
+        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
     elif float(expected) == float(found):
         template = AMOUNT_VALIDATION_EMBEDS["matched"]
-        fields = [{"name": f["name"], "value": f["value"].format(found=found, currency=currency)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, found=found, currency=currency)} for f in template["fields"]]
     else:
         template = AMOUNT_VALIDATION_EMBEDS["mismatch"]
-        fields = [{"name": f["name"], "value": f["value"].format(expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
     
     embed = {
         "title": template["title"],
@@ -108,12 +108,21 @@ def create_amount_validation_embed(trade_hash, expected, found, currency):
     }
     send_discord_embed(embed, alert_type="attachments")
 
-def create_email_validation_embed(trade_hash, success):
+def create_email_validation_embed(trade_hash, success, account_name):
     """Builds and sends an email validation embed using templates."""
     template = EMAIL_VALIDATION_EMBEDS["success"] if success else EMAIL_VALIDATION_EMBEDS["failure"]
+    
+    # Format the fields with the account_name
+    formatted_fields = [
+        {"name": field["name"], "value": field["value"].format(account_name=account_name)}
+        for field in template["fields"]
+    ]
+
     embed = {
-        "title": template["title"], "color": COLORS["success"] if success else COLORS["error"],
-        "fields": template["fields"], "footer": {"text": f"Trade: {trade_hash}"}
+        "title": template["title"],
+        "color": COLORS["success"] if success else COLORS["error"],
+        "fields": formatted_fields,
+        "footer": {"text": f"Trade: {trade_hash}"}
     }
     send_discord_embed(embed, alert_type="validations")
 
