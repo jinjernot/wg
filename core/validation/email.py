@@ -79,14 +79,29 @@ def get_email_body(message_payload):
 
     return html_body or plain_text_body or ""
 
-def find_amount_in_email_body(body):
-    """Generic fallback function to find amount using regex."""
-    money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})'
-    match = re.search(money_pattern, str(body))
-    if match:
-        amount_str = match.group(1).replace(',', '').strip()
-        return float(amount_str)
-    return None
+def extract_oxxo_details(html_body):
+    """Parses the OXXO HTML email to extract the payment amount."""
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+        # Find the <strong> tag that contains the key phrase "depósito de efectivo"
+        strong_tag = soup.find('strong', string=re.compile(r'depósito de efectivo'))
+        if not strong_tag:
+            logger.warning("Could not find the specific OXXO amount tag in the email.")
+            return None
+
+        # Use regex to find the monetary value within the found tag's text
+        money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})'
+        match = re.search(money_pattern, strong_tag.get_text(strip=True))
+        if match:
+            amount_str = match.group(1).replace(',', '').strip()
+            logger.info(f"Successfully parsed OXXO amount: {amount_str}")
+            return float(amount_str)
+            
+        logger.warning("OXXO amount tag was found, but no monetary value could be extracted.")
+        return None
+    except Exception as e:
+        logger.error(f"An error occurred while parsing the OXXO email: {e}")
+        return None
 
 def extract_scotiabank_details(html_body):
     """Parses the Scotiabank HTML email to extract amount and concept."""
@@ -117,7 +132,7 @@ def check_for_payment_email(service, trade_details, platform):
 
     if payment_method_slug == "oxxo":
         query = 'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo; (OXXO)")'
-        log_folder, validator = "oxxo", "generic"
+        log_folder, validator = "oxxo", "oxxo"
     elif payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
         query = 'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI")'
         log_folder, validator = "bank-transfer", "scotiabank"
@@ -140,8 +155,8 @@ def check_for_payment_email(service, trade_details, platform):
             found_amount = None
             if validator == "scotiabank":
                 found_amount, _ = extract_scotiabank_details(email_body)
-            else: # Generic validator
-                found_amount = find_amount_in_email_body(email_body)
+            elif validator == "oxxo":
+                found_amount = extract_oxxo_details(email_body)
             
             account_folder_name = f"{owner_username}_{platform}"
             log_directory = os.path.join("data", "logs", log_folder, account_folder_name)
