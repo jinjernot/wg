@@ -59,7 +59,7 @@ def send_telegram_alert(trade, platform):
     else:
         logger.error(f"Failed to send Telegram alert: {response.status_code} - {response.text}")
 
-def send_chat_message_alert(chat_message, trade_hash, platform, author):
+def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     if not isinstance(chat_message, str) or not isinstance(author, str):
         logger.error("Error: Invalid chat message or author data.")
         return
@@ -68,7 +68,8 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
     chat_data = { 
         "chat_message": escape_markdown(chat_message), 
         "author": escape_markdown(author), 
-        "trade_hash": escape_markdown(trade_hash) 
+        "trade_hash": escape_markdown(trade_hash),
+        "owner_username": escape_markdown(owner_username)
     }
     
     try:
@@ -85,13 +86,14 @@ def send_chat_message_alert(chat_message, trade_hash, platform, author):
     else:
         logger.error(f"Failed to send chat alert: {response.status_code} - {response.text}")
 
-def send_attachment_alert(trade_hash, author, image_path):
+def send_attachment_alert(trade_hash, owner_username, author, image_path):
     if not os.path.exists(image_path):
         logger.error(f"Error: Image path does not exist: {image_path}")
         return
 
     caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(
         trade_hash=escape_markdown(trade_hash), 
+        owner_username=escape_markdown(owner_username),
         author=escape_markdown(author)
     )
     
