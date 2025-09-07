@@ -29,14 +29,12 @@ def turn_on_offers_job():
         send_scheduled_task_alert(failure_message)
 
 def main():
-    # --- SCHEDULER SETUP ---
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
     # Schedule the job to run every day at 7:00 AM
     scheduler.add_job(turn_on_offers_job, 'cron', hour=7, minute=0)
     scheduler.start()
     logger.info("Scheduler started. Offers will be turned on daily at 7:00 AM Central Time.")
-    
-    # --- TRADE PROCESSOR THREADS ---
+
     threads = []
     for account in ACCOUNTS:
         thread = threading.Thread(target=process_trades, args=(account,))

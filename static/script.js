@@ -5,11 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopBtn = document.getElementById('stop-btn');
     const statusIndicator = document.getElementById('status-indicator');
     const tradesContainer = document.getElementById('active-trades-container');
-    const nightModeCheckbox = document.getElementById('night-mode-checkbox');
-    const afkModeCheckbox = document.getElementById('afk-mode-checkbox');
     const saveAllBtn = document.getElementById('save-all-btn');
     const offersCheckbox = document.getElementById('offers-checkbox');
-    const verboseLoggingCheckbox = document.getElementById('verbose-logging-checkbox');
+    const settingToggles = document.querySelectorAll('.setting-toggle');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -30,74 +28,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (nightModeCheckbox) {
-        nightModeCheckbox.addEventListener('change', async () => {
-            const isEnabled = nightModeCheckbox.checked;
+    // Consolidated handler for all settings toggles
+    settingToggles.forEach(toggle => {
+        toggle.addEventListener('change', async () => {
+            const key = toggle.dataset.key;
+            const isEnabled = toggle.checked;
+
             try {
-                const response = await fetch('/update_night_mode', {
+                const response = await fetch('/update_setting', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 'night_mode_enabled': isEnabled })
+                    body: JSON.stringify({ key: key, enabled: isEnabled })
                 });
                 const result = await response.json();
                 if (!result.success) {
                     alert(`Error: ${result.error}`);
+                    toggle.checked = !isEnabled; // Revert on error
                 } else {
                     console.log(result.message);
                 }
-                if (isEnabled && afkModeCheckbox.checked) {
-                    afkModeCheckbox.checked = false;
-                    const afkResponse = await fetch('/update_afk_mode', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 'afk_mode_enabled': false })
-                    });
-                    const afkResult = await afkResponse.json();
-                    if (!afkResult.success) {
-                        console.error(`Error disabling AFK mode: ${afkResult.error}`);
-                    } else {
-                        console.log(afkResult.message);
-                    }
-                }
             } catch (error) {
-                console.error('Failed to update night mode:', error);
-                alert('An unexpected error occurred while updating night mode.');
+                console.error(`Failed to update setting ${key}:`, error);
+                alert('An unexpected error occurred.');
+                toggle.checked = !isEnabled; // Revert on error
             }
         });
-    }
+    });
 
-    if (afkModeCheckbox) {
-        afkModeCheckbox.addEventListener('change', async () => {
-            const isEnabled = afkModeCheckbox.checked;
+    // Specific handler for the offers toggle
+    if (offersCheckbox) {
+        offersCheckbox.addEventListener('change', async () => {
+            const isEnabled = offersCheckbox.checked;
             try {
-                const response = await fetch('/update_afk_mode', {
+                const response = await fetch('/offer/toggle', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 'afk_mode_enabled': isEnabled })
+                    body: JSON.stringify({ enabled: isEnabled })
                 });
                 const result = await response.json();
                 if (!result.success) {
-                    alert(`Error: ${result.error}`);
+                    alert(`Error: ${result.message}`);
+                    offersCheckbox.checked = !isEnabled;
                 } else {
-                    console.log(result.message);
-                }
-                if (isEnabled && nightModeCheckbox.checked) {
-                    nightModeCheckbox.checked = false;
-                    const nightResponse = await fetch('/update_night_mode', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 'night_mode_enabled': false })
-                    });
-                    const nightResult = await nightResponse.json();
-                    if (!nightResult.success) {
-                        console.error(`Error disabling nighttime mode: ${nightResult.error}`);
-                    } else {
-                        console.log(nightResult.message);
-                    }
+                    alert(result.message);
                 }
             } catch (error) {
-                console.error('Failed to update AFK mode:', error);
-                alert('An unexpected error occurred while updating AFK mode.');
+                console.error('Failed to update offers status:', error);
+                alert('An unexpected error occurred.');
+                offersCheckbox.checked = !isEnabled;
             }
         });
     }
@@ -132,52 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Failed to save all selections:', error);
                 alert('An unexpected error occurred while saving selections.');
-            }
-        });
-    }
-
-    if (offersCheckbox) {
-        offersCheckbox.addEventListener('change', async () => {
-            const isEnabled = offersCheckbox.checked;
-            const endpoint = isEnabled ? '/offer/turn-on' : '/offer/turn-off';
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-                const result = await response.json();
-                if (!result.success) {
-                    alert(`Error: ${result.message}`);
-                    offersCheckbox.checked = !isEnabled;
-                } else {
-                    alert(result.message);
-                }
-            } catch (error) {
-                console.error('Failed to update offers status:', error);
-                alert('An unexpected error occurred while updating offers status.');
-                offersCheckbox.checked = !isEnabled;
-            }
-        });
-    }
-
-    if (verboseLoggingCheckbox) {
-        verboseLoggingCheckbox.addEventListener('change', async () => {
-            const isEnabled = verboseLoggingCheckbox.checked;
-            try {
-                const response = await fetch('/update_verbose_logging', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 'verbose_logging_enabled': isEnabled })
-                });
-                const result = await response.json();
-                if (!result.success) {
-                    alert(`Error: ${result.error}`);
-                } else {
-                    console.log(result.message);
-                }
-            } catch (error) {
-                console.error('Failed to update verbose logging:', error);
-                alert('An unexpected error occurred while updating logging settings.');
             }
         });
     }

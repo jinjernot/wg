@@ -25,7 +25,7 @@
                 <div class="offers-toggle">
                     <span>Enable Nighttime Messages</span>
                     <label class="switch">
-                        <input type="checkbox" id="night-mode-checkbox" {% if night_mode_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if app_settings.night_mode_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -33,7 +33,7 @@
                 <div class="offers-toggle">
                     <span>Enable AFK Messages</span>
                     <label class="switch">
-                        <input type="checkbox" id="afk-mode-checkbox" {% if afk_mode_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if app_settings.afk_mode_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -41,7 +41,7 @@
                 <div class="offers-toggle">
                     <span>Enable All Offers</span>
                     <label class="switch">
-                        <input type="checkbox" id="offers-checkbox" {% if offers_enabled %}checked{% endif %}>
+                        <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -49,7 +49,7 @@
                 <div class="offers-toggle">
                     <span>Enable Verbose Logging</span>
                     <label class="switch">
-                        <input type="checkbox" id="verbose-logging-checkbox" {% if verbose_logging_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if app_settings.verbose_logging_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>

@@ -2,9 +2,28 @@ import requests
 import json
 import re
 import os
-from datetime import datetime
+import logging
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-from config_messages.telegram_messages import PAXFUL_ALERT_MESSAGE, NOONES_ALERT_MESSAGE, NEW_CHAT_ALERT_MESSAGE, NEW_ATTACHMENT_ALERT_MESSAGE
+from config_messages.telegram_messages import (
+    PAXFUL_ALERT_MESSAGE, 
+    NOONES_ALERT_MESSAGE, 
+    NEW_CHAT_ALERT_MESSAGE, 
+    NEW_ATTACHMENT_ALERT_MESSAGE,
+    AMOUNT_VALIDATION_NOT_FOUND_ALERT,
+    AMOUNT_VALIDATION_MATCH_ALERT,
+    AMOUNT_VALIDATION_MISMATCH_ALERT,
+    EMAIL_VALIDATION_SUCCESS_ALERT,
+    EMAIL_VALIDATION_FAILURE_ALERT
+)
+
+logger = logging.getLogger(__name__)
+
+def escape_markdown(text):
+    """Escapes special characters for Telegram's MarkdownV2 parse mode."""
+    if not isinstance(text, str):
+        text = str(text)
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 def extract_placeholders(message_template):
     """Extracts placeholders from the message template."""
@@ -15,58 +34,71 @@ def send_telegram_alert(trade, platform):
         try:
             trade = json.loads(trade)
         except json.JSONDecodeError:
-            print("Error: Trade data is not a valid JSON string.")
+            logger.error("Error: Trade data is not a valid JSON string.")
             return
     if not isinstance(trade, dict):
-        print("Error: Trade data is not a dictionary.")
+        logger.error("Error: Trade data is not a dictionary.")
         return
+        
     message_template = PAXFUL_ALERT_MESSAGE if platform == "Paxful" else NOONES_ALERT_MESSAGE
     placeholders = extract_placeholders(message_template)
-    trade_data = {key: trade.get(key, "N/A") for key in placeholders}
+    trade_data = {key: escape_markdown(trade.get(key, "N/A")) for key in placeholders}
+
     try:
         message = message_template.format(**trade_data)
     except KeyError as e:
-        print(f"Error: Missing key {e} in trade data.")
+        logger.error(f"Error: Missing key {e} in trade data.")
         return
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown", "disable_web_page_preview": True }
+    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
-        print("Telegram alert sent successfully.")
+        logger.info("Telegram alert sent successfully.")
     else:
-        print(f"Failed to send Telegram alert: {response.status_code} - {response.text}")
+        logger.error(f"Failed to send Telegram alert: {response.status_code} - {response.text}")
 
 def send_chat_message_alert(chat_message, trade_hash, platform, author):
     if not isinstance(chat_message, str) or not isinstance(author, str):
-        print("Error: Invalid chat message or author data.")
+        logger.error("Error: Invalid chat message or author data.")
         return
+        
     message_template = NEW_CHAT_ALERT_MESSAGE
-    chat_data = { "chat_message": chat_message, "author": author, "trade_hash": trade_hash }
+    chat_data = { 
+        "chat_message": escape_markdown(chat_message), 
+        "author": escape_markdown(author), 
+        "trade_hash": escape_markdown(trade_hash) 
+    }
+    
     try:
         message = message_template.format(**chat_data)
     except KeyError as e:
-        print(f"Error: Missing key {e} in chat message data.")
+        logger.error(f"Error: Missing key {e} in chat message data.")
         return
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown", "disable_web_page_preview": True }
+    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
-        print("New chat message alert sent successfully.")
+        logger.info("New chat message alert sent successfully.")
     else:
-        print(f"Failed to send chat alert: {response.status_code} - {response.text}")
+        logger.error(f"Failed to send chat alert: {response.status_code} - {response.text}")
 
 def send_attachment_alert(trade_hash, author, image_path):
     if not os.path.exists(image_path):
-        print(f"Error: Image path does not exist: {image_path}")
+        logger.error(f"Error: Image path does not exist: {image_path}")
         return
 
-    caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(trade_hash=trade_hash, author=author)
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(
+        trade_hash=escape_markdown(trade_hash), 
+        author=escape_markdown(author)
+    )
     
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     data = {
         "chat_id": TELEGRAM_CHAT_ID,
         "caption": caption,
-        "parse_mode": "Markdown"
+        "parse_mode": "MarkdownV2"
     }
 
     try:
@@ -75,54 +107,58 @@ def send_attachment_alert(trade_hash, author, image_path):
             response = requests.post(url, data=data, files=files)
         
         if response.status_code == 200:
-            print("Attachment alert with image sent successfully.")
+            logger.info("Attachment alert with image sent successfully.")
         else:
-            print(f"Failed to send attachment alert with image: {response.status_code} - {response.text}")
+            logger.error(f"Failed to send attachment alert with image: {response.status_code} - {response.text}")
     except IOError as e:
-        print(f"Error opening image file {image_path}: {e}")
+        logger.error(f"Error opening image file {image_path}: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred while sending attachment alert: {e}")
+        logger.error(f"An unexpected error occurred while sending attachment alert: {e}")
         
 def send_amount_validation_alert(trade_hash, expected_amount, found_amount, currency):
     if found_amount is None:
-        message = f"⚠️ *Amount Not Found*\n\n*Trade:* `{trade_hash}`\nCould not automatically find the amount on the receipt."
+        message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(trade_hash=escape_markdown(trade_hash))
     elif float(expected_amount) == float(found_amount):
-        message = f"✅ *Amount Matched*\n\n*Trade:* `{trade_hash}`\n*Amount:* `{found_amount:.2f} {currency}`"
+        message = AMOUNT_VALIDATION_MATCH_ALERT.format(
+            trade_hash=escape_markdown(trade_hash),
+            found_amount=escape_markdown(f"{found_amount:.2f}"),
+            currency=escape_markdown(currency)
+        )
     else:
-        message = (
-            f"❌ *AMOUNT MISMATCH*\n\n"
-            f"*Trade:* `{trade_hash}`\n"
-            f"*Expected:* `{float(expected_amount):.2f} {currency}`\n"
-            f"*Found:* `{float(found_amount):.2f} {currency}`"
+        message = AMOUNT_VALIDATION_MISMATCH_ALERT.format(
+            trade_hash=escape_markdown(trade_hash),
+            expected_amount=escape_markdown(f"{float(expected_amount):.2f}"),
+            found_amount=escape_markdown(f"{float(found_amount):.2f}"),
+            currency=escape_markdown(currency)
         )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "MarkdownV2"
     }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
-        print("Amount validation alert sent successfully.")
+        logger.info("Amount validation alert sent successfully.")
     else:
-        print(f"Failed to send amount validation alert: {response.status_code} - {response.text}")
+        logger.error(f"Failed to send amount validation alert: {response.status_code} - {response.text}")
 
 def send_email_validation_alert(trade_hash, success):
     """Sends a Telegram alert about the email validation result."""
     if success:
-        message = f"✅ *Email Payment Verified*\n\n*Trade:* `{trade_hash}`\nThe payment was successfully confirmed via email."
+        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash))
     else:
-        message = f"⚠️ *Email Payment NOT Verified*\n\n*Trade:* `{trade_hash}`\nCould not automatically confirm payment via email."
+        message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash))
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "MarkdownV2"
     }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
-        print("Email validation alert sent successfully.")
+        logger.info("Email validation alert sent successfully.")
     else:
-        print(f"Failed to send email validation alert: {response.status_code} - {response.text}")
+        logger.error(f"Failed to send email validation alert: {response.status_code} - {response.text}")
