@@ -3,17 +3,14 @@ import os
 import logging
 from flask import Flask, render_template, request, jsonify
 
-# New modular imports
 import bot_process_manager
 import web_utils
 
-# Existing imports
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
 from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
-from core.utils.reporting import generate_daily_summary
 
 app = Flask(__name__)
 setup_logging()
@@ -120,14 +117,7 @@ def get_active_trades():
                 logger.error(f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)
 
-@app.route("/get_summary")
-def get_summary():
-    summary = generate_daily_summary()
-    if summary:
-        return jsonify(summary)
-    else:
-        return jsonify({"error": "Could not generate summary"}), 500
-
+# --- /get_summary route has been removed ---
 @app.route("/offer/toggle", methods=["POST"])
 def toggle_offers():
     data = request.json
@@ -183,7 +173,7 @@ def send_manual_message():
     else:
         return jsonify({"success": False, "error": "Failed to send message via API."}), 500
 
-# --- Bot Process Routes (Delegated to manager) ---
+# --- Bot Process Routes ---
 @app.route("/start_trading", methods=["POST"])
 def start_trading_route():
     result = bot_process_manager.start_trading()

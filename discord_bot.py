@@ -8,7 +8,6 @@ import datetime
 from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_ACTIVE_TRADES_CHANNEL_ID
 from config_messages.discord_messages import *
 
-# --- Basic Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
@@ -202,39 +201,7 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
         await interaction.followup.send(SERVER_UNREACHABLE)
         logger.error(f"Could not connect to Flask app for /toggle_offers: {e}")
 
-
-@tree.command(name="summary", description="Get a summary of today's trading activity.")
-async def summary_command(interaction: discord.Interaction):
-    """Handles the /summary slash command."""
-    await interaction.response.defer(ephemeral=True)
-
-    try:
-        response = requests.get("http://127.0.0.1:5001/get_summary", timeout=10)
-        if response.status_code != 200:
-            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.")
-            return
-
-        stats = response.json()
-
-        embed_data = SUMMARY_EMBED.copy()
-        embed_data["title"] = embed_data["title"].format(date=datetime.date.today().isoformat())
-        embed = discord.Embed.from_dict(embed_data)
-
-        for key, field in SUMMARY_EMBED["fields"].items():
-            if "total_volume" in key:
-                 embed.add_field(name=field["name"], value=field["value"].format(total_volume=stats.get('total_volume', 0)), inline=field["inline"])
-            else:
-                 embed.add_field(name=field["name"], value=field["value"].format(**stats), inline=field["inline"])
-
-
-        await interaction.followup.send(embed=embed)
-
-    except requests.exceptions.RequestException as e:
-        await interaction.followup.send(SERVER_UNREACHABLE)
-        logger.error(f"Could not connect to Flask app for /summary: {e}")
-
-
-
+# --- /summary command has been removed ---
 
 @tree.command(name="bot", description="Start or stop the trading bot process.")
 @app_commands.describe(action="Choose whether to start or stop the bot")
