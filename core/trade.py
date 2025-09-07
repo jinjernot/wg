@@ -47,22 +47,23 @@ class Trade:
         save_processed_trade(self.data, self.platform, self.processed_data)
 
     def process(self):
-        """Main entry point to process a trade's lifecycle."""
-        if not self.trade_hash or not self.owner_username:
-            logger.error(f"Missing trade_hash or owner_username for trade: {self.data}")
-            return
+            """Main entry point to process a trade's lifecycle."""
+            if not self.trade_hash or not self.owner_username:
+                logger.error(f"Missing trade_hash or owner_username for trade: {self.data}")
+                return
 
-        is_new = not self.processed_data
-        if is_new:
-            self.handle_new_trade()
+            is_new = 'first_seen_utc' not in self.processed_data
+            
+            if is_new:
+                self.handle_new_trade()
 
-        self.check_status_change()
-        self.check_for_email_confirmation()
-        self.check_chat_and_attachments()
-        self.check_for_inactivity()
+            self.check_status_change()
+            self.check_for_email_confirmation()
+            self.check_chat_and_attachments()
+            self.check_for_inactivity()
+            
+            self.save()
         
-        self.save()
-
     def handle_new_trade(self):
             """Handles logic for a trade seen for the first time."""
             logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
