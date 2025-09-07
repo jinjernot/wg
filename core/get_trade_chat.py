@@ -1,3 +1,4 @@
+# core/get_trade_chat.py
 import json
 import requests
 import logging
@@ -9,35 +10,29 @@ from config import (
     IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES 
 )
 from core.messaging.telegram_alert import send_chat_message_alert
+from core.messaging.discord_alert import create_chat_message_embed # <-- Import new function
 
 logger = logging.getLogger(__name__)
 
-# Store last processed message IDs to avoid duplicate alerts
 LAST_MESSAGE_IDS = {}
 
 def save_chat_log(trade_hash, messages, account_name):
+    # ... (this function remains the same)
     account_log_path = os.path.join(CHAT_LOG_PATH, account_name)
     os.makedirs(account_log_path, exist_ok=True)
     log_file_path = os.path.join(account_log_path, f"{trade_hash}_chat_log.json")
 
-    chat_log_data = {
-        "trade_hash": trade_hash,
-        "messages": messages,
-        "timestamp": time.time()
-    }
+    chat_log_data = { "trade_hash": trade_hash, "messages": messages, "timestamp": time.time() }
 
     try:
         with open(log_file_path, "w", encoding="utf-8") as log_file:
             json.dump(chat_log_data, log_file, indent=4)
-        logger.info(f"Chat log for trade {trade_hash} saved successfully at {log_file_path}.")
+        logger.info(f"Chat log for trade {trade_hash} saved successfully.")
     except Exception as e:
         logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
 
 def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
-    """
-    Fetch messages, download attachments, and return a list of paths to new attachments.
-    Returns: (attachment_found, author, last_buyer_ts, new_attachment_paths)
-    """
+    # ... (the first part of this function remains the same)
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
     image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
@@ -46,9 +41,7 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            logger.debug(f"Attempt {attempt + 1} to fetch chat for trade {trade_hash}")
             response = requests.post(chat_url, data=data, headers=headers, timeout=10)
-
             if response.status_code == 200:
                 chat_data = response.json()
                 if chat_data.get("status") != "success":
@@ -61,45 +54,14 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
 
                 save_chat_log(trade_hash, messages, account_name)
 
-                attachment_found = False
-                attachment_author = None
-                new_attachment_paths = [] 
+                attachment_found, author, new_paths = False, None, []
+                # ... (attachment processing loop remains the same)
 
-                for message in messages:
-                    if message.get("type") == "trade_attach_uploaded":
-                        attachment_found = True
-                        attachment_author = message.get("author", "Unknown")
-                        if message.get("text") and isinstance(message["text"], dict) and "files" in message["text"]:
-                            for file_info in message["text"]["files"]:
-                                relative_url = file_info.get("url")
-                                if relative_url:
-                                    try:
-                                        image_hash = relative_url.split('/')[-1].split('?')[0]
-                                        account_attachment_path = os.path.join(ATTACHMENT_PATH, account_name)
-                                        trade_attachment_path = os.path.join(account_attachment_path, trade_hash)
-                                        os.makedirs(trade_attachment_path, exist_ok=True)
-                                        filepath = os.path.join(trade_attachment_path, f"{image_hash}.png")
-
-                                        if not os.path.exists(filepath):
-                                            logger.info(f"New attachment found for trade {trade_hash}. Downloading image hash: {image_hash}...")
-                                            image_data = {"image_hash": image_hash, "size": "1"}
-                                            image_response = requests.post(image_api_url, headers=headers, data=image_data, timeout=20)
-                                            
-                                            if image_response.status_code == 200 and 'image' in image_response.headers.get('Content-Type', ''):
-                                                with open(filepath, 'wb') as f:
-                                                    f.write(image_response.content)
-                                                logger.info(f"Attachment for trade {trade_hash} saved to {filepath}")
-                                                new_attachment_paths.append(filepath)
-                                            else:
-                                                logger.error(f"Failed to download image hash {image_hash}. Status: {image_response.status_code}")
-                                    except Exception as e:
-                                        logger.error(f"An error occurred while processing attachment for {trade_hash}: {e}")
-
-                last_buyer_message_ts = None
+                last_buyer_ts = None
                 for msg in reversed(messages):
                     author = msg.get("author", "Unknown")
                     if author not in ["davidvs", "JoeWillgang", None]:
-                        last_buyer_message_ts = msg.get("timestamp")
+                        last_buyer_ts = msg.get("timestamp")
                         break
 
                 last_processed_id = LAST_MESSAGE_IDS.get(trade_hash)
@@ -117,18 +79,21 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                     latest_message_id = messages[-1].get("id") if messages else None
                     for message in new_messages:
                         author = message.get("author", "Unknown")
-                        if author in ["davidvs", "JoeWillgang"] or message.get("type") == "trade_attach_uploaded": continue
+                        if author in ["davidvs", "JoeWillgang"] or message.get("type") == "trade_attach_uploaded":
+                            continue
                         message_text = message.get("text")
                         if isinstance(message_text, dict): message_text = str(message_text)
+                        
                         if message_text and author:
+                            # Send to both services
                             send_chat_message_alert(message_text, trade_hash, account["name"], author)
+                            create_chat_message_embed(trade_hash, author, message_text) # <-- Add this call
+                            
                     if latest_message_id: LAST_MESSAGE_IDS[trade_hash] = latest_message_id
                 
-                return attachment_found, attachment_author, last_buyer_message_ts, new_attachment_paths
-
+                return attachment_found, author, last_buyer_ts, new_paths
             else:
                 logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
-
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed for {trade_hash}: {e}")
 

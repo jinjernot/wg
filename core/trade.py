@@ -1,3 +1,4 @@
+# core/trade.py
 import logging
 from datetime import datetime, timezone
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
@@ -18,6 +19,12 @@ from .messaging.telegram_alert import (
     send_attachment_alert,
     send_amount_validation_alert,
     send_email_validation_alert
+)
+from .messaging.discord_alert import (
+    create_new_trade_embed,
+    create_attachment_embed,
+    create_amount_validation_embed,
+    create_email_validation_embed
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +68,8 @@ class Trade:
         """Handles logic for a trade seen for the first time."""
         logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.data, self.platform)
+        create_new_trade_embed(self.data, self.platform)
+        
         send_welcome_message(self.data, self.account, self.headers)
 
         payment_method_slug = self.data.get("payment_method_slug", "").lower()
@@ -94,20 +103,20 @@ class Trade:
             return
 
         paid_timestamp = self.processed_data.get('paid_timestamp')
-        if not paid_timestamp:
-            return
+        if not paid_timestamp: return
             
         elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
         if elapsed_time < EMAIL_CHECK_DURATION:
             logger.info(f"Trade {self.trade_hash} is Paid. Re-checking for confirmation email...")
-            # --- UPDATED: Pass self.platform to the function ---
             if self.gmail_service and check_for_payment_email(self.gmail_service, self.data, self.platform):
                 logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
                 send_email_validation_alert(self.trade_hash, success=True)
+                create_email_validation_embed(self.trade_hash, success=True)
                 self.processed_data['email_verified'] = True
         else:
             logger.warning(f"Email check for trade {self.trade_hash} timed out.")
             send_email_validation_alert(self.trade_hash, success=False)
+            create_email_validation_embed(self.trade_hash, success=False)
             self.processed_data['email_check_timed_out'] = True
 
     def check_chat_and_attachments(self):
@@ -117,8 +126,7 @@ class Trade:
 
         attachment_found, author, last_buyer_ts, new_paths = fetch_trade_chat_messages(self.trade_hash, self.account, self.headers)
         
-        if last_buyer_ts:
-            self.processed_data['last_buyer_ts'] = last_buyer_ts
+        if last_buyer_ts: self.processed_data['last_buyer_ts'] = last_buyer_ts
 
         if attachment_found:
             logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
@@ -126,10 +134,17 @@ class Trade:
             
             for path in new_paths:
                 send_attachment_alert(self.trade_hash, author, path)
+                create_attachment_embed(self.trade_hash, author, path)
+                
                 logger.info(f"Performing OCR on {path}...")
                 text = extract_text_from_image(path)
                 found_amount = find_amount_in_text(text, self.data.get("fiat_amount_requested"))
-                send_amount_validation_alert(self.trade_hash, self.data.get("fiat_amount_requested"), found_amount, self.data.get("fiat_currency_code"))
+                
+                # Send alerts to both services
+                expected = self.data.get("fiat_amount_requested")
+                currency = self.data.get("fiat_currency_code")
+                send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
+                create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
 
             self.processed_data['attachment_message_sent'] = True
 
