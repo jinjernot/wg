@@ -99,69 +99,73 @@ class Trade:
             self.trade_state.setdefault('status_history', []).append(current_status)
 
     def check_for_email_confirmation(self):
-        """Checks for payment confirmation emails if the trade is marked as Paid."""
-        is_paid = self.trade_state.get("trade_status") == 'Paid'
-        is_relevant_method = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
-        is_pending = not self.trade_state.get('email_verified') and not self.trade_state.get('email_check_timed_out')
+            """Checks for payment confirmation emails if the trade is marked as Paid."""
+            is_paid = self.trade_state.get("trade_status") == 'Paid'
+            is_relevant_method = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
+            is_pending = not self.trade_state.get('email_verified') and not self.trade_state.get('email_check_timed_out')
 
-        if not (is_paid and is_relevant_method and is_pending):
-            return
-
-        paid_timestamp = self.trade_state.get('paid_timestamp')
-        if not paid_timestamp: return
-            
-        elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
-        if elapsed_time < EMAIL_CHECK_DURATION:
-            logger.info(f"Trade {self.trade_hash} is Paid. Re-checking for confirmation email...")
-            if self.gmail_service and check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
-                logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
-                send_email_validation_alert(self.trade_hash, success=True)
-                create_email_validation_embed(self.trade_hash, success=True)
-                self.trade_state['email_verified'] = True
-        else:
-            logger.warning(f"Email check for trade {self.trade_hash} timed out.")
-            send_email_validation_alert(self.trade_hash, success=False)
-            create_email_validation_embed(self.trade_hash, success=False)
-            self.trade_state['email_check_timed_out'] = True
-
-    def check_chat_and_attachments(self):
-            """Fetches chat history and processes any new attachments."""
-            attachment_found, _, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
-                self.trade_hash, 
-                self.account, 
-                self.headers, 
-                processed_attachments=self.trade_state['processed_attachments']
-            )
-            
-            if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
-
-            if not new_attachments:
+            if not (is_paid and is_relevant_method and is_pending):
                 return
 
-            if not self.trade_state.get('attachment_message_sent'):
-                logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
-                send_attachment_message(self.trade_hash, self.account, self.headers)
-                self.trade_state['attachment_message_sent'] = True
-            
-            for attachment in new_attachments:
-                path = attachment['path']
-                url = attachment['url']
-                author = attachment['author']
-
-                send_attachment_alert(self.trade_hash, author, path)
-                create_attachment_embed(self.trade_hash, author, path)
+            paid_timestamp = self.trade_state.get('paid_timestamp')
+            if not paid_timestamp: return
                 
-                logger.info(f"Performing OCR on {path}...")
-                text = extract_text_from_image(path)
-                found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
-                
-                expected = self.trade_state.get("fiat_amount_requested")
-                currency = self.trade_state.get("fiat_currency_code")
-                send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
-                create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
-
-                self.trade_state['processed_attachments'].append(url)
+            elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
+            if elapsed_time < EMAIL_CHECK_DURATION:
+                logger.info(f"Trade {self.trade_hash} is Paid. Re-checking for confirmation email...")
+                if self.gmail_service and check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
+                    logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
+                    if not self.trade_state.get('email_validation_alert_sent'):
+                        send_email_validation_alert(self.trade_hash, success=True)
+                        create_email_validation_embed(self.trade_hash, success=True)
+                        self.trade_state['email_validation_alert_sent'] = True
+                        self.save() # --- FIX: Save state immediately
+                    self.trade_state['email_verified'] = True
+            else:
+                logger.warning(f"Email check for trade {self.trade_hash} timed out.")
+                if not self.trade_state.get('email_validation_alert_sent'):
+                    send_email_validation_alert(self.trade_hash, success=False)
+                    create_email_validation_embed(self.trade_hash, success=False)
+                    self.trade_state['email_validation_alert_sent'] = True
+                    self.save() # --- FIX: Save state immediately
+                self.trade_state['email_check_timed_out'] = True
             
+    def check_chat_and_attachments(self):
+                """Fetches chat history and processes any new attachments."""
+                # Note: The reference to processed_attachments was removed from the function call
+                # because the new logic in get_trade_chat handles this based on message ID.
+                attachment_found, author, last_buyer_ts, new_paths = fetch_trade_chat_messages(
+                    self.trade_hash, 
+                    self.account, 
+                    self.headers
+                )
+                
+                if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
+
+                if not new_paths: # Changed from new_attachments to new_paths to match return value
+                    return
+
+                if not self.trade_state.get('attachment_message_sent'):
+                    logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
+                    send_attachment_message(self.trade_hash, self.account, self.headers)
+                    self.trade_state['attachment_message_sent'] = True
+                
+                for path in new_paths: # Iterate over paths directly
+                    send_attachment_alert(self.trade_hash, author, path)
+                    create_attachment_embed(self.trade_hash, author, path)
+                    
+                    logger.info(f"Performing OCR on {path}...")
+                    text = extract_text_from_image(path)
+                    found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
+                    
+                    if not self.trade_state.get('amount_validation_alert_sent'):
+                        expected = self.trade_state.get("fiat_amount_requested")
+                        currency = self.trade_state.get("fiat_currency_code")
+                        send_amount_validation_alert(self.trade_hash, expected, found_amount, currency)
+                        create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
+                        self.trade_state['amount_validation_alert_sent'] = True
+                        self.save()
+                                
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
