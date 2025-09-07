@@ -132,9 +132,7 @@ class Trade:
             
     def check_chat_and_attachments(self):
                 """Fetches chat history and processes any new attachments."""
-                # Note: The reference to processed_attachments was removed from the function call
-                # because the new logic in get_trade_chat handles this based on message ID.
-                attachment_found, author, last_buyer_ts, new_paths = fetch_trade_chat_messages(
+                attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
                     self.trade_hash, 
                     self.account, 
                     self.headers
@@ -142,7 +140,7 @@ class Trade:
                 
                 if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
 
-                if not new_paths: # Changed from new_attachments to new_paths to match return value
+                if not new_attachments:
                     return
 
                 if not self.trade_state.get('attachment_message_sent'):
@@ -150,7 +148,11 @@ class Trade:
                     send_attachment_message(self.trade_hash, self.account, self.headers)
                     self.trade_state['attachment_message_sent'] = True
                 
-                for path in new_paths: # Iterate over paths directly
+                # --- FIX: Loop through the list of attachment dictionaries ---
+                for attachment in new_attachments:
+                    path = attachment['path']
+                    author = attachment['author']
+
                     send_attachment_alert(self.trade_hash, author, path)
                     create_attachment_embed(self.trade_hash, author, path)
                     
@@ -165,7 +167,7 @@ class Trade:
                         create_amount_validation_embed(self.trade_hash, expected, found_amount, currency)
                         self.trade_state['amount_validation_alert_sent'] = True
                         self.save()
-                                
+                                                    
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
