@@ -24,11 +24,11 @@ def format_status_for_discord(status):
     """Formats the trade status with color coding for Discord embeds."""
     status_lower = status.lower()
     if 'paid' in status_lower:
-        return f"```diff\n+ {status}\n```"  # Green text
+        return f"```diff\n+ {status}\n```"
     elif 'dispute' in status_lower:
-        return f"```fix\n{status}\n```"  # Yellow text
+        return f"```fix\n{status}\n```"
     elif 'active' in status_lower:
-        return f"```ini\n[{status}]\n```"  # Blue text
+        return f"```ini\n[{status}]\n```"
     return f"`{status}`"
 
 # --- Bot Events & Background Task ---
@@ -41,7 +41,6 @@ async def on_ready():
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
 
-    # Start the background task
     if not post_live_trades.is_running():
         post_live_trades.start()
 
@@ -83,7 +82,6 @@ async def post_live_trades():
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         embed.set_footer(text="Last updated")
 
-        # Clean the channel and post the new message
         await channel.purge(limit=10, check=lambda m: m.author == client.user)
         await channel.send(embed=embed)
 
@@ -119,7 +117,7 @@ async def status_command(interaction: discord.Interaction):
         embed_data = STATUS_EMBED["unreachable"]
         logger.error(f"Could not connect to Flask app for status check: {e}")
 
-    await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
+    await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
 
 
 @tree.command(name="active_trades", description="Get a list of currently active trades.")
@@ -130,21 +128,21 @@ async def active_trades_command(interaction: discord.Interaction):
     try:
         response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
         if response.status_code != 200:
-            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.")
+            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.", ephemeral=True)
             return
 
         trades = response.json()
 
         if not trades:
             embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         embed_data = ACTIVE_TRADES_EMBED.copy()
         embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
         embed = discord.Embed.from_dict(embed_data)
 
-        for trade in trades[:10]: # Limit to 10 trades to avoid hitting Discord limits
+        for trade in trades[:10]:
             buyer = trade.get('responder_username', 'N/A')
             amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
             payment_method = trade.get('payment_method_name', 'N/A')
@@ -157,11 +155,16 @@ async def active_trades_command(interaction: discord.Interaction):
                 value=f"**Amount**: {amount}\n**Method**: {payment_method}\n**Account**: {account_name}\n**Status**:{formatted_status}",
                 inline=False
             )
+        
+        # --- THIS SECTION IS CORRECTED ---
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        embed.set_footer(text="Live data")
+        # --- END OF CORRECTION ---
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send(SERVER_UNREACHABLE)
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         logger.error(f"Could not connect to Flask app for active trades: {e}")
 
 
@@ -195,13 +198,11 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
             embed_data["description"] = embed_data["description"].format(status_code=response.status_code)
             embed = discord.Embed.from_dict(embed_data)
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send(SERVER_UNREACHABLE)
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         logger.error(f"Could not connect to Flask app for /toggle_offers: {e}")
-
-# --- /summary command has been removed ---
 
 @tree.command(name="bot", description="Start or stop the trading bot process.")
 @app_commands.describe(action="Choose whether to start or stop the bot")
@@ -231,10 +232,10 @@ async def bot_command(interaction: discord.Interaction, action: app_commands.Cho
             embed_data["title"] = embed_data["title"].format(action=action.name)
             embed_data["description"] = embed_data["description"].format(message=data.get("message", "An unknown error occurred."))
 
-        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
+        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send(SERVER_UNREACHABLE)
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         logger.error(f"Could not connect to Flask app for /bot command: {e}")
 
 @tree.command(name="settings", description="Change a bot setting.")
@@ -270,10 +271,10 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
             embed_data = SETTINGS_EMBEDS["error"].copy()
             embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown server error occurred."))
 
-        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
+        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
 
     except requests.exceptions.RequestException:
-        await interaction.followup.send(SERVER_UNREACHABLE)
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
 @tree.command(name="send_message", description="Send a manual message to a trade chat.")
 @app_commands.describe(
@@ -306,10 +307,10 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
             embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown error occurred."))
             embed = discord.Embed.from_dict(embed_data)
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     except requests.exceptions.RequestException:
-        await interaction.followup.send(SERVER_UNREACHABLE)
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
 # --- Starting the Bot ---
 if __name__ == "__main__":
