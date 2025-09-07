@@ -25,8 +25,8 @@ def get_app_settings():
     """Reads and ensures all keys are present in the settings file."""
     if not os.path.exists(SETTINGS_FILE):
         default_settings = {
-            "night_mode_enabled": False, 
-            "afk_mode_enabled": False, 
+            "night_mode_enabled": False,
+            "afk_mode_enabled": False,
             "verbose_logging_enabled": True,
             "offers_enabled": False
         }
@@ -82,6 +82,66 @@ def index():
         app_settings=app_settings
     )
 
+@app.route("/accounts", methods=["GET", "POST"])
+def manage_accounts():
+    """Endpoint to list accounts or update the selected account."""
+    if request.method == "GET":
+        owner_username = request.args.get("owner_username")
+        payment_method = request.args.get("payment_method")
+        
+        if not all([owner_username, payment_method]):
+            return jsonify({"success": False, "error": "Missing owner_username or payment_method"}), 400
+
+        # Normalize payment method to find the correct JSON file
+        normalized_slug = "bank-transfer" if payment_method in ["spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"] else payment_method
+        filename = f"{normalized_slug}.json"
+        filepath = os.path.join(JSON_PATH, filename)
+
+        if not os.path.exists(filepath):
+            return jsonify({"success": False, "error": f"Payment file not found: {filename}"}), 404
+
+        try:
+            with open(filepath, "r") as f:
+                data = json.load(f)
+            
+            accounts = data.get(owner_username, {}).get(payment_method, {}).get("accounts", [])
+            selected_id = data.get(owner_username, {}).get(payment_method, {}).get("selected_id")
+            
+            return jsonify({"success": True, "accounts": accounts, "selected_id": selected_id})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    if request.method == "POST":
+        data = request.json
+        owner_username = data.get("owner_username")
+        payment_method = data.get("payment_method")
+        selected_id = data.get("selected_id")
+
+        if not all([owner_username, payment_method, selected_id]):
+            return jsonify({"success": False, "error": "Incomplete data"}), 400
+        
+        normalized_slug = "bank-transfer" if payment_method in ["spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"] else payment_method
+        filename = f"{normalized_slug}.json"
+        filepath = os.path.join(JSON_PATH, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"success": False, "error": f"Payment file not found: {filename}"}), 404
+
+        try:
+            with open(filepath, "r+") as f:
+                file_data = json.load(f)
+                if owner_username in file_data and payment_method in file_data[owner_username]:
+                    file_data[owner_username][payment_method]["selected_id"] = selected_id
+                    f.seek(0)
+                    json.dump(file_data, f, indent=4)
+                    f.truncate()
+                    return jsonify({"success": True, "message": "Account selection updated."})
+                else:
+                    return jsonify({"success": False, "error": "Owner or payment method not found in file."}), 404
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/update_all_selections", methods=["POST"])
 def update_all_selections():
     selections = request.json
@@ -130,22 +190,22 @@ def update_setting():
     data = request.json
     key = data.get("key")
     is_enabled = data.get("enabled")
-    
+
     if key is None or is_enabled is None:
         return jsonify({"success": False, "error": "Missing key or enabled parameter"}), 400
-    
+
     settings = get_app_settings()
-    
+
     if key not in settings:
         return jsonify({"success": False, "error": f"Invalid setting key: {key}"}), 400
-        
+
     settings[key] = is_enabled
     update_app_settings(settings)
-    
+
     # If the setting is for verbose logging, re-setup the logger
     if key == "verbose_logging_enabled":
         setup_logging()
-        
+
     status_text = "enabled" if is_enabled else "disabled"
     return jsonify({"success": True, "message": f"Setting '{key}' has been {status_text}."})
 
@@ -156,11 +216,11 @@ def toggle_offers():
     is_enabled = data.get("enabled")
     if is_enabled is None:
         return jsonify({"success": False, "error": "Missing 'enabled' parameter."}), 400
-    
+
     results = set_offer_status(turn_on=is_enabled)
     successful_accounts = [r["account"] for r in results if r["success"]]
     failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r["success"]]
-    
+
     message = ""
     if successful_accounts:
         status_text = "on" if is_enabled else "off"
@@ -253,7 +313,7 @@ def send_manual_message():
     }
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in target_account["name"] else CHAT_URL_NOONES
     body = {"trade_hash": trade_hash, "message": message}
-    
+
     if send_message_with_retry(chat_url, body, headers):
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:

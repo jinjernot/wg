@@ -1,20 +1,21 @@
-# core/get_trade_chat.py
 import json
 import requests
 import logging
 import time
 import os
 from config import (
-    GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL, 
+    GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL,
     CHAT_LOG_PATH, ATTACHMENT_PATH,
-    IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES 
+    IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES
 )
 from core.messaging.telegram_alert import send_chat_message_alert
 from core.messaging.discord_alert import create_chat_message_embed # <-- Import new function
+from core.persistent_state import load_last_message_ids, save_last_message_id
 
 logger = logging.getLogger(__name__)
 
-LAST_MESSAGE_IDS = {}
+# Load the last processed message IDs from a file at startup
+LAST_MESSAGE_IDS = load_last_message_ids()
 
 def save_chat_log(trade_hash, messages, account_name):
     # ... (this function remains the same)
@@ -69,11 +70,16 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                 if last_processed_id is None:
                     new_messages = messages
                 else:
-                    temp_messages, new_seen = [], False
-                    for msg in messages:
-                        if str(msg.get("id")) == str(last_processed_id): new_seen = True
-                        elif new_seen: temp_messages.append(msg)
-                    new_messages = temp_messages
+                    last_index = -1
+                    for i, msg in enumerate(messages):
+                        if str(msg.get("id")) == str(last_processed_id):
+                            last_index = i
+                            break
+                    if last_index != -1:
+                        new_messages = messages[last_index + 1:]
+                    else:
+                        new_messages = []
+                        logger.warning(f"Last processed message ID {last_processed_id} not found for trade {trade_hash}. Not processing chat to prevent spam.")
 
                 if new_messages:
                     latest_message_id = messages[-1].get("id") if messages else None
@@ -83,14 +89,17 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                             continue
                         message_text = message.get("text")
                         if isinstance(message_text, dict): message_text = str(message_text)
-                        
+
                         if message_text and author:
                             # Send to both services
                             send_chat_message_alert(message_text, trade_hash, account["name"], author)
                             create_chat_message_embed(trade_hash, author, message_text) # <-- Add this call
-                            
-                    if latest_message_id: LAST_MESSAGE_IDS[trade_hash] = latest_message_id
-                
+
+                    if latest_message_id:
+                        # Save the latest message ID to the file and update the in-memory dictionary
+                        save_last_message_id(trade_hash, latest_message_id)
+                        LAST_MESSAGE_IDS[trade_hash] = latest_message_id
+
                 return attachment_found, author, last_buyer_ts, new_paths
             else:
                 logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")

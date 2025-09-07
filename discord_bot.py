@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- CONFIGURATION (Now loaded from config.py) ---
-MY_GUILD = discord.Object(id=DISCORD_GUILD_ID) 
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
 
@@ -27,10 +27,10 @@ async def on_ready():
     """Event that runs when the bot is connected and ready."""
     tree.copy_global_to(guild=MY_GUILD)
     await tree.sync(guild=MY_GUILD)
-    
+
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
-    
+
     # Start the background task
     if not post_live_trades.is_running():
         post_live_trades.start()
@@ -48,9 +48,9 @@ async def post_live_trades():
         if response.status_code != 200:
             logger.error(f"Live feed update failed: Server responded with {response.status_code}")
             return
-        
+
         trades = response.json()
-        
+
         # --- This logic is copied directly from your /active_trades command ---
         if not trades:
             embed = discord.Embed(
@@ -68,16 +68,16 @@ async def post_live_trades():
                 buyer = trade.get('responder_username', 'N/A')
                 amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
                 status = trade.get('trade_status', 'N/A')
-                
+
                 embed.add_field(
                     name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
                     value=f"**Amount**: {amount}\n**Status**: `{status}`",
                     inline=False
                 )
-        
+
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         embed.set_footer(text="Last updated")
-        
+
         # Clean the channel and post the new message
         await channel.purge(limit=10, check=lambda m: m.author == client.user)
         await channel.send(embed=embed)
@@ -92,16 +92,92 @@ async def before_post_live_trades():
 
 
 # --- Slash Commands ---
-# ... (all your other slash commands like /status, /bot, etc., remain here unchanged) ...
+@tree.command(name="list_accounts", description="List available accounts for a payment method.")
+@app_commands.describe(
+    owner_username="The owner of the accounts (e.g., davidvs, JoeWillgang)",
+    payment_method="The payment method (e.g., oxxo, bank-transfer)"
+)
+async def list_accounts_command(interaction: discord.Interaction, owner_username: str, payment_method: str):
+    """Handles the /list_accounts slash command."""
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        params = {"owner_username": owner_username, "payment_method": payment_method}
+        response = requests.get("http://127.0.0.1:5001/accounts", params=params, timeout=10)
+        
+        if response.status_code != 200:
+            await interaction.followup.send(f"Error: Server responded with {response.status_code}")
+            return
+        
+        data = response.json()
+        if not data.get("success"):
+            await interaction.followup.send(f"Error: {data.get('error', 'Unknown error')}")
+            return
+
+        accounts = data.get("accounts", [])
+        selected_id = data.get("selected_id")
+
+        if not accounts:
+            embed = discord.Embed(title=f"Accounts for {owner_username}", description="No accounts found for this payment method.", color=0xffa500)
+        else:
+            embed = discord.Embed(title=f"🏦 Accounts for {owner_username} - {payment_method}", color=0x3498DB)
+            for acc in accounts:
+                is_selected = "✅" if str(acc.get('id')) == str(selected_id) else ""
+                embed.add_field(
+                    name=f"{is_selected} {acc.get('name', 'N/A')} ({acc.get('bank', 'N/A')})",
+                    value=f"ID: `{acc.get('id')}`",
+                    inline=False
+                )
+        await interaction.followup.send(embed=embed)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**")
+        logger.error(f"Could not connect to Flask app for /list_accounts: {e}")
+
+@tree.command(name="set_account", description="Set the active account for a payment method.")
+@app_commands.describe(
+    owner_username="The owner of the account",
+    payment_method="The payment method",
+    account_id="The ID of the account to set as active"
+)
+async def set_account_command(interaction: discord.Interaction, owner_username: str, payment_method: str, account_id: str):
+    """Handles the /set_account slash command."""
+    await interaction.response.defer(ephemeral=True)
+    
+    payload = {
+        "owner_username": owner_username,
+        "payment_method": payment_method,
+        "selected_id": account_id
+    }
+    
+    try:
+        response = requests.post("http://127.0.0.1:5001/accounts", json=payload, timeout=10)
+        
+        if response.status_code != 200:
+            await interaction.followup.send(f"Error: Server responded with {response.status_code}")
+            return
+        
+        data = response.json()
+        if data.get("success"):
+            embed = discord.Embed(title="✅ Account Updated", description=f"Successfully set account `{account_id}` as active for **{owner_username}** on **{payment_method}**.", color=0x00ff00)
+        else:
+            embed = discord.Embed(title="❌ Error", description=data.get("error", "An unknown error occurred."), color=0xff0000)
+        
+        await interaction.followup.send(embed=embed)
+        
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**")
+        logger.error(f"Could not connect to Flask app for /set_account: {e}")
+
 
 @tree.command(name="status", description="Check the status of the trading bot.")
 async def status_command(interaction: discord.Interaction):
     """Handles the /status slash command."""
     await interaction.response.defer(ephemeral=True)
-    
+
     status_text = "Unknown"
     color = 0x808080
-    
+
     try:
         response = requests.get("http://127.0.0.1:5001/trading_status", timeout=5)
         if response.status_code == 200:
@@ -129,15 +205,15 @@ async def status_command(interaction: discord.Interaction):
 async def active_trades_command(interaction: discord.Interaction):
     """Handles the /active_trades slash command."""
     await interaction.response.defer(ephemeral=True)
-    
+
     try:
         response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
         if response.status_code != 200:
             await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.")
             return
-            
+
         trades = response.json()
-        
+
         if not trades:
             embed = discord.Embed(title="Active Trades", description="No active trades found.", color=0x00ff00)
             await interaction.followup.send(embed=embed)
@@ -149,13 +225,13 @@ async def active_trades_command(interaction: discord.Interaction):
             amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
             payment_method = trade.get('payment_method_name', 'N/A')
             account_name = trade.get('account_name_source', 'N/A')
-            
+
             embed.add_field(
                 name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
                 value=f"**Amount**: {amount}\n**Method**: {payment_method}\n**Account**: {account_name}",
                 inline=False
             )
-            
+
         await interaction.followup.send(embed=embed)
 
     except requests.exceptions.RequestException as e:
@@ -176,10 +252,10 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
     endpoint = "/offer/toggle"
     url = f"http://127.0.0.1:5001{endpoint}"
     is_enabled = True if status.value == "on" else False
-    
+
     try:
         response = requests.post(url, json={"enabled": is_enabled}, timeout=15)
-        
+
         if response.status_code == 200:
             data = response.json()
             message = data.get("message", f"Offers are now {status.name}.")
@@ -205,9 +281,9 @@ async def summary_command(interaction: discord.Interaction):
         if response.status_code != 200:
             await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.")
             return
-            
+
         stats = response.json()
-        
+
         embed = discord.Embed(title=f"📊 Daily Summary for {datetime.date.today().isoformat()}", color=0x3498DB)
         embed.add_field(name="Total Trades Today", value=f"**{stats['total_trades']}**", inline=True)
         embed.add_field(name="Total Volume", value=f"**${stats['total_volume']:.2f}**", inline=True)
@@ -234,14 +310,14 @@ async def summary_command(interaction: discord.Interaction):
 async def bot_command(interaction: discord.Interaction, action: app_commands.Choice[str]):
     """Handles starting and stopping the bot."""
     await interaction.response.defer(ephemeral=True)
-    
+
     endpoint = "/start_trading" if action.value == "start" else "/stop_trading"
     url = f"http://127.0.0.1:5001{endpoint}"
-    
+
     try:
         response = requests.post(url, timeout=10)
         data = response.json()
-        
+
         if data.get("success"):
             color = 0x00ff00 if action.value == "start" else 0xff0000
             embed = discord.Embed(
@@ -278,7 +354,7 @@ async def bot_command(interaction: discord.Interaction, action: app_commands.Cho
 async def settings_command(interaction: discord.Interaction, setting: app_commands.Choice[str], status: app_commands.Choice[str]):
     """Handles changing application settings."""
     await interaction.response.defer(ephemeral=True)
-    
+
     url = "http://127.0.0.1:5001/update_setting"
     is_enabled = True if status.value == "true" else False
     payload = {"key": setting.value, "enabled": is_enabled}
@@ -286,7 +362,7 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
     try:
         response = requests.post(url, json=payload, timeout=10)
         data = response.json()
-        
+
         if response.status_code == 200 and data.get("success"):
             embed = discord.Embed(
                 title="⚙️ Setting Updated",
@@ -313,7 +389,7 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
 async def send_message_command(interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
     """Handles sending a manual message to a trade."""
     await interaction.response.defer(ephemeral=True)
-    
+
     url = "http://127.0.0.1:5001/send_manual_message"
     payload = {
         "trade_hash": trade_hash,
