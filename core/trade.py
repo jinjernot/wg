@@ -1,4 +1,3 @@
-# core/trade.py
 import logging
 from datetime import datetime, timezone
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
@@ -65,19 +64,21 @@ class Trade:
         self.save()
 
     def handle_new_trade(self):
-        """Handles logic for a trade seen for the first time."""
-        logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
-        send_telegram_alert(self.data, self.platform)
-        create_new_trade_embed(self.data, self.platform)
-        
-        send_welcome_message(self.data, self.account, self.headers)
+            """Handles logic for a trade seen for the first time."""
+            logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
+            send_telegram_alert(self.data, self.platform)
+            create_new_trade_embed(self.data, self.platform)
+            
+            self.processed_data['first_seen_utc'] = datetime.now(timezone.utc).isoformat()
+            
+            send_welcome_message(self.data, self.account, self.headers)
 
-        payment_method_slug = self.data.get("payment_method_slug", "").lower()
-        if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios","domestic-wire-transfer"]:
-            chat_url = CHAT_URL_PAXFUL if self.platform == "Paxful" else CHAT_URL_NOONES
-            send_payment_details_message(self.trade_hash, payment_method_slug, self.headers, chat_url, self.owner_username)
+            payment_method_slug = self.data.get("payment_method_slug", "").lower()
+            if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios","domestic-wire-transfer"]:
+                chat_url = CHAT_URL_PAXFUL if self.platform == "Paxful" else CHAT_URL_NOONES
+                send_payment_details_message(self.trade_hash, payment_method_slug, self.headers, chat_url, self.owner_username)
 
-        self.processed_data['status_history'] = [self.data.get("trade_status")]
+            self.processed_data['status_history'] = [self.data.get("trade_status")]
 
     def check_status_change(self):
         """Checks for and handles changes in the trade's status."""

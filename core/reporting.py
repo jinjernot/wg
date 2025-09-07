@@ -1,14 +1,29 @@
 import os
 import json
 import logging
-from datetime import date
+from datetime import datetime, timezone
 from config import TRADE_STORAGE_DIR
 
 logger = logging.getLogger(__name__)
 
+def get_trade_start_date(trade_data):
+    """
+    Finds and returns the start date from a trade, checking multiple possible keys.
+    This makes the function more robust if the API data changes.
+    """
+    # --- FIX: Prioritize our new reliable timestamp first ---
+    possible_keys = ["first_seen_utc", "start_date", "initiated_date", "created_at"]
+    for key in possible_keys:
+        if key in trade_data:
+            return trade_data[key]
+    return "" # Return empty string if no known date key is found
+
+
 def generate_daily_summary():
     """Reads all trade files and generates a daily performance summary."""
-    today_str = date.today().isoformat()
+    # Use the current UTC date to match the trade data's timezone
+    today_str = datetime.now(timezone.utc).date().isoformat()
+    
     stats = {
         "total_trades": 0,
         "successful_trades": 0,
@@ -31,7 +46,10 @@ def generate_daily_summary():
                 trades = json.load(f)
 
             for trade_hash, trade in trades.items():
-                if trade.get("start_date", "").startswith(today_str):
+                # --- FIX: Use the new helper function to get the correct date ---
+                trade_date = get_trade_start_date(trade)
+                
+                if trade_date.startswith(today_str):
                     stats["total_trades"] += 1
                     status = trade.get("trade_status")
 
