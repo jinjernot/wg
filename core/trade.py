@@ -30,21 +30,22 @@ logger = logging.getLogger(__name__)
 
 class Trade:
     def __init__(self, trade_data, account, headers, gmail_service):
-        self.data = trade_data
-        self.account = account
-        self.headers = headers
-        self.gmail_service = gmail_service
+            self.data = trade_data
+            self.account = account
+            self.headers = headers
+            self.gmail_service = gmail_service
 
-        self.trade_hash = self.data.get("trade_hash")
-        self.owner_username = self.data.get("owner_username", "unknown_user")
-        self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+            self.trade_hash = self.data.get("trade_hash")
+            self.owner_username = self.data.get("owner_username", "unknown_user")
+            self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+            
+            all_processed = load_processed_trades(self.owner_username, self.platform)
+            existing_data = all_processed.get(self.trade_hash, {})
+            self.processed_data = {**existing_data, **self.data}
         
-        all_processed = load_processed_trades(self.owner_username, self.platform)
-        self.processed_data = all_processed.get(self.trade_hash, {})
-
     def save(self):
         """Saves the current state of the trade's processed data."""
-        save_processed_trade(self.data, self.platform, self.processed_data)
+        save_processed_trade(self.processed_data, self.platform)
 
     def process(self):
             """Main entry point to process a trade's lifecycle."""
