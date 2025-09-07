@@ -4,8 +4,9 @@ from discord.ext import tasks
 import logging
 import requests
 import datetime
-# --- UPDATED IMPORT ---
+
 from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_ACTIVE_TRADES_CHANNEL_ID
+from config_messages.discord_messages import *
 
 # --- Basic Setup ---
 intents = discord.Intents.default()
@@ -20,6 +21,17 @@ logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
+
+def format_status_for_discord(status):
+    """Formats the trade status with color coding for Discord embeds."""
+    status_lower = status.lower()
+    if 'paid' in status_lower:
+        return f"```diff\n+ {status}\n```"  # Green text
+    elif 'dispute' in status_lower:
+        return f"```fix\n{status}\n```"  # Yellow text
+    elif 'active' in status_lower:
+        return f"```ini\n[{status}]\n```"  # Blue text
+    return f"`{status}`"
 
 # --- Bot Events & Background Task ---
 @client.event
@@ -51,27 +63,22 @@ async def post_live_trades():
 
         trades = response.json()
 
-        # --- This logic is copied directly from your /active_trades command ---
         if not trades:
-            embed = discord.Embed(
-                title="📊 Live Active Trades",
-                description="No active trades found at the moment.",
-                color=0x00ff00
-            )
+            embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
         else:
-            embed = discord.Embed(
-                title=f"📊 Live Active Trades ({len(trades)})",
-                description="This list updates automatically.",
-                color=0x0000ff
-            )
+            embed_data = ACTIVE_TRADES_EMBED.copy()
+            embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
+            embed = discord.Embed.from_dict(embed_data)
+
             for trade in trades[:20]: # Limit to 20 to avoid Discord limits
                 buyer = trade.get('responder_username', 'N/A')
                 amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
                 status = trade.get('trade_status', 'N/A')
+                formatted_status = format_status_for_discord(status)
 
                 embed.add_field(
                     name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                    value=f"**Amount**: {amount}\n**Status**: `{status}`",
+                    value=f"**Amount**: {amount}\n**Status**:{formatted_status}",
                     inline=False
                 )
 
@@ -92,113 +99,29 @@ async def before_post_live_trades():
 
 
 # --- Slash Commands ---
-@tree.command(name="list_accounts", description="List available accounts for a payment method.")
-@app_commands.describe(
-    owner_username="The owner of the accounts (e.g., davidvs, JoeWillgang)",
-    payment_method="The payment method (e.g., oxxo, bank-transfer)"
-)
-async def list_accounts_command(interaction: discord.Interaction, owner_username: str, payment_method: str):
-    """Handles the /list_accounts slash command."""
-    await interaction.response.defer(ephemeral=True)
-
-    try:
-        params = {"owner_username": owner_username, "payment_method": payment_method}
-        response = requests.get("http://127.0.0.1:5001/accounts", params=params, timeout=10)
-        
-        if response.status_code != 200:
-            await interaction.followup.send(f"Error: Server responded with {response.status_code}")
-            return
-        
-        data = response.json()
-        if not data.get("success"):
-            await interaction.followup.send(f"Error: {data.get('error', 'Unknown error')}")
-            return
-
-        accounts = data.get("accounts", [])
-        selected_id = data.get("selected_id")
-
-        if not accounts:
-            embed = discord.Embed(title=f"Accounts for {owner_username}", description="No accounts found for this payment method.", color=0xffa500)
-        else:
-            embed = discord.Embed(title=f"🏦 Accounts for {owner_username} - {payment_method}", color=0x3498DB)
-            for acc in accounts:
-                is_selected = "✅" if str(acc.get('id')) == str(selected_id) else ""
-                embed.add_field(
-                    name=f"{is_selected} {acc.get('name', 'N/A')} ({acc.get('bank', 'N/A')})",
-                    value=f"ID: `{acc.get('id')}`",
-                    inline=False
-                )
-        await interaction.followup.send(embed=embed)
-
-    except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**")
-        logger.error(f"Could not connect to Flask app for /list_accounts: {e}")
-
-@tree.command(name="set_account", description="Set the active account for a payment method.")
-@app_commands.describe(
-    owner_username="The owner of the account",
-    payment_method="The payment method",
-    account_id="The ID of the account to set as active"
-)
-async def set_account_command(interaction: discord.Interaction, owner_username: str, payment_method: str, account_id: str):
-    """Handles the /set_account slash command."""
-    await interaction.response.defer(ephemeral=True)
-    
-    payload = {
-        "owner_username": owner_username,
-        "payment_method": payment_method,
-        "selected_id": account_id
-    }
-    
-    try:
-        response = requests.post("http://127.0.0.1:5001/accounts", json=payload, timeout=10)
-        
-        if response.status_code != 200:
-            await interaction.followup.send(f"Error: Server responded with {response.status_code}")
-            return
-        
-        data = response.json()
-        if data.get("success"):
-            embed = discord.Embed(title="✅ Account Updated", description=f"Successfully set account `{account_id}` as active for **{owner_username}** on **{payment_method}**.", color=0x00ff00)
-        else:
-            embed = discord.Embed(title="❌ Error", description=data.get("error", "An unknown error occurred."), color=0xff0000)
-        
-        await interaction.followup.send(embed=embed)
-        
-    except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**")
-        logger.error(f"Could not connect to Flask app for /set_account: {e}")
-
-
 @tree.command(name="status", description="Check the status of the trading bot.")
 async def status_command(interaction: discord.Interaction):
     """Handles the /status slash command."""
     await interaction.response.defer(ephemeral=True)
 
-    status_text = "Unknown"
-    color = 0x808080
-
+    embed_data = {}
     try:
         response = requests.get("http://127.0.0.1:5001/trading_status", timeout=5)
         if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "Running":
-                status_text = "✅ Trading process is **Running**."
-                color = 0x00ff00
+            status = response.json().get("status")
+            if status == "Running":
+                embed_data = STATUS_EMBED["running"]
             else:
-                status_text = "❌ Trading process is **Stopped**."
-                color = 0xff0000
+                embed_data = STATUS_EMBED["stopped"]
         else:
-            status_text = f"⚠️ Could not get status. The web server responded with: {response.status_code}"
-            color = 0xffa500
+            embed_data = STATUS_EMBED["error"].copy()
+            embed_data["description"] = embed_data["description"].format(status_code=response.status_code)
 
     except requests.exceptions.RequestException as e:
-        status_text = "⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running."
-        color = 0xffa500
+        embed_data = STATUS_EMBED["unreachable"]
         logger.error(f"Could not connect to Flask app for status check: {e}")
 
-    embed = discord.Embed(title="Bot Status", description=status_text, color=color)
-    await interaction.followup.send(embed=embed)
+    await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
 
 
 @tree.command(name="active_trades", description="Get a list of currently active trades.")
@@ -215,27 +138,32 @@ async def active_trades_command(interaction: discord.Interaction):
         trades = response.json()
 
         if not trades:
-            embed = discord.Embed(title="Active Trades", description="No active trades found.", color=0x00ff00)
+            embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
             await interaction.followup.send(embed=embed)
             return
 
-        embed = discord.Embed(title=f"📊 Active Trades ({len(trades)})", color=0x0000ff)
+        embed_data = ACTIVE_TRADES_EMBED.copy()
+        embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
+        embed = discord.Embed.from_dict(embed_data)
+
         for trade in trades[:10]: # Limit to 10 trades to avoid hitting Discord limits
             buyer = trade.get('responder_username', 'N/A')
             amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
             payment_method = trade.get('payment_method_name', 'N/A')
             account_name = trade.get('account_name_source', 'N/A')
+            status = trade.get('trade_status', 'N/A')
+            formatted_status = format_status_for_discord(status)
 
             embed.add_field(
                 name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                value=f"**Amount**: {amount}\n**Method**: {payment_method}\n**Account**: {account_name}",
+                value=f"**Amount**: {amount}\n**Method**: {payment_method}\n**Account**: {account_name}\n**Status**:{formatted_status}",
                 inline=False
             )
 
         await interaction.followup.send(embed=embed)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        await interaction.followup.send(SERVER_UNREACHABLE)
         logger.error(f"Could not connect to Flask app for active trades: {e}")
 
 
@@ -249,8 +177,7 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
     """Handles the /toggle_offers command by calling the specific turn-on/off routes."""
     await interaction.response.defer(ephemeral=True)
 
-    endpoint = "/offer/toggle"
-    url = f"http://127.0.0.1:5001{endpoint}"
+    url = "http://127.0.0.1:5001/offer/toggle"
     is_enabled = True if status.value == "on" else False
 
     try:
@@ -258,16 +185,22 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
 
         if response.status_code == 200:
             data = response.json()
-            message = data.get("message", f"Offers are now {status.name}.")
-            color = 0x00ff00 if status.value == "on" else 0xff0000
-            embed = discord.Embed(title=f"✅ Offers Toggled {status.name}", description=message, color=color)
-            await interaction.followup.send(embed=embed)
+            embed_data = TOGGLE_OFFERS_EMBED["success"].copy()
+            embed_data["title"] = embed_data["title"].format(status=status.name)
+            embed_data["description"] = embed_data["description"].format(message=data.get("message", f"Offers are now {status.name}."))
+            if status.value == 'off':
+                embed_data['color'] = COLORS['error']
+
+            embed = discord.Embed.from_dict(embed_data)
         else:
-            embed = discord.Embed(title="❌ Error Toggling Offers", description=f"The server responded with: {response.status_code}", color=0xffa500)
-            await interaction.followup.send(embed=embed)
+            embed_data = TOGGLE_OFFERS_EMBED["error"].copy()
+            embed_data["description"] = embed_data["description"].format(status_code=response.status_code)
+            embed = discord.Embed.from_dict(embed_data)
+
+        await interaction.followup.send(embed=embed)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        await interaction.followup.send(SERVER_UNREACHABLE)
         logger.error(f"Could not connect to Flask app for /toggle_offers: {e}")
 
 
@@ -284,18 +217,21 @@ async def summary_command(interaction: discord.Interaction):
 
         stats = response.json()
 
-        embed = discord.Embed(title=f"📊 Daily Summary for {datetime.date.today().isoformat()}", color=0x3498DB)
-        embed.add_field(name="Total Trades Today", value=f"**{stats['total_trades']}**", inline=True)
-        embed.add_field(name="Total Volume", value=f"**${stats['total_volume']:.2f}**", inline=True)
-        embed.add_field(name="\u200b", value="\u200b", inline=False) # Divider
-        embed.add_field(name="✅ Successful", value=f"**{stats['successful_trades']}**", inline=True)
-        embed.add_field(name="💰 Paid (Pending BTC)", value=f"**{stats['paid_trades']}**", inline=True)
-        embed.add_field(name="🏃 Active", value=f"**{stats['active_trades']}**", inline=True)
+        embed_data = SUMMARY_EMBED.copy()
+        embed_data["title"] = embed_data["title"].format(date=datetime.date.today().isoformat())
+        embed = discord.Embed.from_dict(embed_data)
+
+        for key, field in SUMMARY_EMBED["fields"].items():
+            if "total_volume" in key:
+                 embed.add_field(name=field["name"], value=field["value"].format(total_volume=stats.get('total_volume', 0)), inline=field["inline"])
+            else:
+                 embed.add_field(name=field["name"], value=field["value"].format(**stats), inline=field["inline"])
+
 
         await interaction.followup.send(embed=embed)
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        await interaction.followup.send(SERVER_UNREACHABLE)
         logger.error(f"Could not connect to Flask app for /summary: {e}")
 
 
@@ -319,22 +255,20 @@ async def bot_command(interaction: discord.Interaction, action: app_commands.Cho
         data = response.json()
 
         if data.get("success"):
-            color = 0x00ff00 if action.value == "start" else 0xff0000
-            embed = discord.Embed(
-                title=f"Bot {action.name}ed Successfully",
-                description=data.get("message"),
-                color=color
-            )
+            if action.value == "start":
+                embed_data = BOT_CONTROL_EMBEDS["start_success"].copy()
+            else:
+                embed_data = BOT_CONTROL_EMBEDS["stop_success"].copy()
+            embed_data["description"] = embed_data["description"].format(message=data.get("message"))
         else:
-            embed = discord.Embed(
-                title=f"Error {action.name}ing Bot",
-                description=data.get("message", "An unknown error occurred."),
-                color=0xffa500
-            )
-        await interaction.followup.send(embed=embed)
+            embed_data = BOT_CONTROL_EMBEDS["error"].copy()
+            embed_data["title"] = embed_data["title"].format(action=action.name)
+            embed_data["description"] = embed_data["description"].format(message=data.get("message", "An unknown error occurred."))
+
+        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
 
     except requests.exceptions.RequestException as e:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        await interaction.followup.send(SERVER_UNREACHABLE)
         logger.error(f"Could not connect to Flask app for /bot command: {e}")
 
 @tree.command(name="settings", description="Change a bot setting.")
@@ -364,21 +298,16 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
         data = response.json()
 
         if response.status_code == 200 and data.get("success"):
-            embed = discord.Embed(
-                title="⚙️ Setting Updated",
-                description=f"**{setting.name}** has been turned **{status.name}**.",
-                color=0x00ff00
-            )
+            embed_data = SETTINGS_EMBEDS["success"].copy()
+            embed_data["description"] = embed_data["description"].format(setting_name=setting.name, status_name=status.name)
         else:
-            embed = discord.Embed(
-                title="❌ Error Updating Setting",
-                description=data.get("error", "An unknown server error occurred."),
-                color=0xff0000
-            )
-        await interaction.followup.send(embed=embed)
+            embed_data = SETTINGS_EMBEDS["error"].copy()
+            embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown server error occurred."))
+
+        await interaction.followup.send(embed=discord.Embed.from_dict(embed_data))
 
     except requests.exceptions.RequestException:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**")
+        await interaction.followup.send(SERVER_UNREACHABLE)
 
 @tree.command(name="send_message", description="Send a manual message to a trade chat.")
 @app_commands.describe(
@@ -402,24 +331,19 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
         data = response.json()
 
         if response.status_code == 200 and data.get("success"):
-            embed = discord.Embed(
-                title="✉️ Message Sent",
-                description=f"Successfully sent message to `{trade_hash}`.",
-                color=0x3498DB
-            )
-            embed.add_field(name="Message", value=message)
+            embed_data = SEND_MESSAGE_EMBEDS["success"].copy()
+            embed_data["description"] = embed_data["description"].format(trade_hash=trade_hash)
+            embed = discord.Embed.from_dict(embed_data)
+            embed.add_field(name=SEND_MESSAGE_EMBEDS["success"]["field_name"], value=message)
         else:
-            embed = discord.Embed(
-                title="❌ Failed to Send Message",
-                description=data.get("error", "An unknown error occurred."),
-                color=0xff0000
-            )
+            embed_data = SEND_MESSAGE_EMBEDS["error"].copy()
+            embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown error occurred."))
+            embed = discord.Embed.from_dict(embed_data)
+
         await interaction.followup.send(embed=embed)
 
     except requests.exceptions.RequestException:
-        await interaction.followup.send("⚠️ **Web server is unreachable.**")
-
-
+        await interaction.followup.send(SERVER_UNREACHABLE)
 
 # --- Starting the Bot ---
 if __name__ == "__main__":
