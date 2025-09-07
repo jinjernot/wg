@@ -1,8 +1,9 @@
 import time
 import logging
 from api.auth import fetch_token_with_retry
-from .get_trade_list import get_trade_list
-from .email_checker import get_gmail_service
+from core.api_client.trade_list import get_trade_list
+from core.validation.email import get_gmail_service
+from core.trading.trade import Trade
 from .trade import Trade # <-- Import the new Trade class
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,6 @@ def process_trades(account):
         if trades:
             for trade_data in trades:
                 try:
-                    # Create a Trade object and process it
                     trade = Trade(trade_data, account, headers, gmail_service)
                     trade.process()
                 except Exception as e:

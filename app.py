@@ -11,9 +11,9 @@ import web_utils
 from api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
-from core.offer_manager import set_offer_status
-from core.log_config import setup_logging
-from core.reporting import generate_daily_summary
+from core.api_client.offers import set_offer_status
+from core.utils.log_config import setup_logging
+from core.utils import generate_daily_summary
 
 app = Flask(__name__)
 setup_logging()

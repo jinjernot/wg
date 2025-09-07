@@ -1,25 +1,27 @@
+# core/trading/trade.py
 import logging
 from datetime import datetime, timezone
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
-from .state.get_files import load_processed_trades, save_processed_trade
-from .get_trade_chat import fetch_trade_chat_messages
-from .email_checker import check_for_payment_email
-from .ocr_processor import extract_text_from_image, find_amount_in_text
-from .messaging.welcome_message import send_welcome_message
-from .messaging.payment_details import send_payment_details_message
-from .messaging.trade_lifecycle_messages import (
+# --- Updated Imports ---
+from core.state.get_files import load_processed_trades, save_processed_trade
+from core.api_client.trade_chat import fetch_trade_chat_messages
+from core.validation.email import check_for_payment_email
+from core.validation.ocr import extract_text_from_image, find_amount_in_text
+from core.messaging.welcome_message import send_welcome_message
+from core.messaging.payment_details import send_payment_details_message
+from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
     send_payment_reminder_message
 )
-from .messaging.attachment_message import send_attachment_message
-from .messaging.alerts.telegram_alert import (
+from core.messaging.attachment_message import send_attachment_message
+from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
     send_amount_validation_alert,
     send_email_validation_alert
 )
-from .messaging.alerts.discord_alert import (
+from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
     create_attachment_embed,
     create_amount_validation_embed,
@@ -33,11 +35,9 @@ class Trade:
             self.account = account
             self.headers = headers
             self.gmail_service = gmail_service
-
             self.trade_hash = trade_data.get("trade_hash")
             self.owner_username = trade_data.get("owner_username", "unknown_user")
             self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
-            
             all_trades = load_processed_trades(self.owner_username, self.platform)
             existing_data = all_trades.get(self.trade_hash, {})
             self.trade_state = {**existing_data, **trade_data}
@@ -51,17 +51,13 @@ class Trade:
         if not self.trade_hash or not self.owner_username:
             logger.error(f"Missing trade_hash or owner_username for trade: {self.trade_state}")
             return
-
         is_new = 'first_seen_utc' not in self.trade_state
-        
         if is_new:
             self.handle_new_trade()
-
         self.check_status_change()
         self.check_for_email_confirmation()
         self.check_chat_and_attachments()
         self.check_for_inactivity()
-        
         self.save()
         
     def handle_new_trade(self):
@@ -69,16 +65,12 @@ class Trade:
         logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
         create_new_trade_embed(self.trade_state, self.platform)
-        
         self.trade_state['first_seen_utc'] = datetime.now(timezone.utc).isoformat()
-        
         send_welcome_message(self.trade_state, self.account, self.headers)
-
         payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
         if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios","domestic-wire-transfer"]:
             chat_url = CHAT_URL_PAXFUL if self.platform == "Paxful" else CHAT_URL_NOONES
             send_payment_details_message(self.trade_hash, payment_method_slug, self.headers, chat_url, self.owner_username)
-
         self.trade_state['status_history'] = [self.trade_state.get("trade_status")]
 
     def check_status_change(self):
@@ -92,24 +84,18 @@ class Trade:
                 send_payment_received_message(self.trade_hash, self.account, self.headers)
                 if 'paid_timestamp' not in self.trade_state:
                     self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
-            
             self.trade_state.setdefault('status_history', []).append(current_status)
 
     def check_for_email_confirmation(self):
             """Checks for payment confirmation emails if the trade is marked as Paid."""
             is_paid = self.trade_state.get("trade_status") == 'Paid'
-            is_relevant_method = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
+            is_relevant = self.trade_state.get("payment_method_slug", "").lower() in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
             is_pending = not self.trade_state.get('email_verified') and not self.trade_state.get('email_check_timed_out')
-
-            if not (is_paid and is_relevant_method and is_pending):
-                return
-
+            if not (is_paid and is_relevant and is_pending): return
             paid_timestamp = self.trade_state.get('paid_timestamp')
             if not paid_timestamp: return
-                
             elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
             if elapsed_time < EMAIL_CHECK_DURATION:
-                logger.info(f"Trade {self.trade_hash} is Paid. Re-checking for confirmation email...")
                 if self.gmail_service and check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
                     logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash}.")
                     if not self.trade_state.get('email_validation_alert_sent'):
@@ -130,32 +116,19 @@ class Trade:
     def check_chat_and_attachments(self):
                 """Fetches chat history and processes any new attachments."""
                 attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
-                    self.trade_hash, 
-                    self.account, 
-                    self.headers
-                )
-                
+                    self.trade_hash, self.account, self.headers)
                 if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
-
-                if not new_attachments:
-                    return
-
+                if not new_attachments: return
                 if not self.trade_state.get('attachment_message_sent'):
                     logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
                     send_attachment_message(self.trade_hash, self.account, self.headers)
                     self.trade_state['attachment_message_sent'] = True
-                
                 for attachment in new_attachments:
-                    path = attachment['path']
-                    author = attachment['author']
-
+                    path, author = attachment['path'], attachment['author']
                     send_attachment_alert(self.trade_hash, author, path)
                     create_attachment_embed(self.trade_hash, author, path)
-                    
-                    logger.info(f"Performing OCR on {path}...")
                     text = extract_text_from_image(path)
                     found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
-                    
                     if not self.trade_state.get('amount_validation_alert_sent'):
                         expected = self.trade_state.get("fiat_amount_requested")
                         currency = self.trade_state.get("fiat_currency_code")
@@ -167,9 +140,7 @@ class Trade:
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
-        if not is_active or self.trade_state.get('reminder_sent'):
-            return
-
+        if not is_active or self.trade_state.get('reminder_sent'): return
         reference_time = None
         if self.trade_state.get('last_buyer_ts'):
             reference_time = datetime.fromtimestamp(self.trade_state['last_buyer_ts'], tz=timezone.utc)
@@ -178,7 +149,6 @@ class Trade:
                 reference_time = datetime.fromisoformat(self.trade_state["start_date"]).replace(tzinfo=timezone.utc)
             except (ValueError, TypeError):
                 logger.error(f"Could not parse start_date for trade {self.trade_hash}.")
-        
         if reference_time and (datetime.now(timezone.utc) - reference_time).total_seconds() > PAYMENT_REMINDER_DELAY:
             logger.info(f"Sending payment reminder for trade {self.trade_hash} due to inactivity.")
             send_payment_reminder_message(self.trade_hash, self.account, self.headers)

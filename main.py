@@ -3,10 +3,10 @@ import threading
 import logging
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
-from core.trade_processor import process_trades
-from config import ACCOUNTS, TRADE_STORAGE_DIR # <-- Import TRADE_STORAGE_DIR
-from core.offer_manager import set_offer_status, send_scheduled_task_alert
-from core.log_config import setup_logging
+from core.trading.processor import process_trades
+from config import ACCOUNTS, TRADE_STORAGE_DIR
+from core.api_client.offers import set_offer_status, send_scheduled_task_alert
+from core.utils.log_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
