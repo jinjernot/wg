@@ -10,6 +10,7 @@ from flask import Flask, render_template, request, jsonify
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, SETTINGS_FILE
 from core.offer_manager import set_offer_status
 from core.log_config import setup_logging
+from core.reporting import generate_daily_summary
 
 app = Flask(__name__)
 setup_logging()
@@ -123,83 +124,58 @@ def update_all_selections():
 
     return jsonify({"success": True, "message": "All selections updated successfully."})
 
-@app.route("/update_night_mode", methods=["POST"])
-def update_night_mode():
+@app.route("/update_setting", methods=["POST"])
+def update_setting():
+    """Updates a specific setting in the settings file."""
     data = request.json
-    is_enabled = data.get("night_mode_enabled")
-    if is_enabled is None:
-        return jsonify({"success": False, "error": "Missing parameter"}), 400
+    key = data.get("key")
+    is_enabled = data.get("enabled")
+    
+    if key is None or is_enabled is None:
+        return jsonify({"success": False, "error": "Missing key or enabled parameter"}), 400
+    
     settings = get_app_settings()
-    settings["night_mode_enabled"] = is_enabled
+    
+    if key not in settings:
+        return jsonify({"success": False, "error": f"Invalid setting key: {key}"}), 400
+        
+    settings[key] = is_enabled
     update_app_settings(settings)
+    
+    # If the setting is for verbose logging, re-setup the logger
+    if key == "verbose_logging_enabled":
+        setup_logging()
+        
     status_text = "enabled" if is_enabled else "disabled"
-    return jsonify({"success": True, "message": f"Nighttime trading {status_text}."})
+    return jsonify({"success": True, "message": f"Setting '{key}' has been {status_text}."})
 
-@app.route("/update_afk_mode", methods=["POST"])
-def update_afk_mode():
+@app.route("/offer/toggle", methods=["POST"])
+def toggle_offers():
+    """Toggles all offers on or off."""
     data = request.json
-    is_enabled = data.get("afk_mode_enabled")
+    is_enabled = data.get("enabled")
     if is_enabled is None:
-        return jsonify({"success": False, "error": "Missing parameter"}), 400
-    settings = get_app_settings()
-    settings["afk_mode_enabled"] = is_enabled
-    update_app_settings(settings)
-    status_text = "enabled" if is_enabled else "disabled"
-    return jsonify({"success": True, "message": f"AFK mode {status_text}."})
-
-@app.route("/update_verbose_logging", methods=["POST"])
-def update_verbose_logging():
-    data = request.json
-    is_enabled = data.get("verbose_logging_enabled")
-    if is_enabled is None:
-        return jsonify({"success": False, "error": "Missing parameter"}), 400
-    settings = get_app_settings()
-    settings["verbose_logging_enabled"] = is_enabled
-    update_app_settings(settings)
-    setup_logging()
-    status_text = "enabled" if is_enabled else "disabled"
-    return jsonify({"success": True, "message": f"Verbose logging {status_text}."})
-
-@app.route("/offer/turn-on", methods=["POST"])
-def turn_on_offers():
-    results = set_offer_status(turn_on=True)
+        return jsonify({"success": False, "error": "Missing 'enabled' parameter."}), 400
+    
+    results = set_offer_status(turn_on=is_enabled)
     successful_accounts = [r["account"] for r in results if r["success"]]
     failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r["success"]]
     
     message = ""
     if successful_accounts:
-        message += f"Offers turned on for: {', '.join(successful_accounts)}. "
+        status_text = "on" if is_enabled else "off"
+        message += f"Offers turned {status_text} for: {', '.join(successful_accounts)}. "
     if failed_accounts:
-        message += f"Failed to turn on offers for: {', '.join(failed_accounts)}."
+        message += f"Failed to toggle offers for: {', '.join(failed_accounts)}."
 
     success = len(successful_accounts) > 0
     if success:
         settings = get_app_settings()
-        settings["offers_enabled"] = True
+        settings["offers_enabled"] = is_enabled
         update_app_settings(settings)
 
     return jsonify({"success": success, "message": message})
 
-
-@app.route("/offer/turn-off", methods=["POST"])
-def turn_off_offers():
-    results = set_offer_status(turn_on=False)
-    successful_accounts = [r["account"] for r in results if r["success"]]
-    failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r['success']]
-
-    message = ""
-    if successful_accounts:
-        message += f"Offers turned off for: {', '.join(successful_accounts)}. "
-    if failed_accounts:
-        message += f"Failed to turn off offers for: {', '.join(failed_accounts)}."
-    
-    success = len(successful_accounts) > 0
-    if success:
-        settings = get_app_settings()
-        settings["offers_enabled"] = False
-        update_app_settings(settings)
-    
-    return jsonify({"success": success, "message": message})
 
 @app.route("/start_trading", methods=["POST"])
 def start_trading():
@@ -282,6 +258,15 @@ def send_manual_message():
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:
         return jsonify({"success": False, "error": "Failed to send message via the platform API."}), 500
+
+@app.route("/get_summary")
+def get_summary():
+    """Endpoint to get the daily trading summary."""
+    summary = generate_daily_summary()
+    if summary:
+        return jsonify(summary)
+    else:
+        return jsonify({"error": "Could not generate summary"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

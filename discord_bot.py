@@ -14,11 +14,18 @@ tree = app_commands.CommandTree(client)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- ADD YOUR SERVER ID HERE FOR INSTANT COMMAND UPDATES ---
+MY_GUILD = discord.Object(id=123456789012345678) # <-- PASTE YOUR SERVER ID HERE
+
+
 # --- Bot Events ---
 @client.event
 async def on_ready():
     """Event that runs when the bot is connected and ready."""
-    await tree.sync()
+    # This will sync commands instantly to your specific server
+    tree.copy_global_to(guild=MY_GUILD)
+    await tree.sync(guild=MY_GUILD)
+    
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
 
@@ -74,14 +81,15 @@ async def active_trades_command(interaction: discord.Interaction):
             return
 
         embed = discord.Embed(title=f"📊 Active Trades ({len(trades)})", color=0x0000ff)
-        for trade in trades[:10]:
+        for trade in trades[:10]: # Limit to 10 trades to avoid hitting Discord limits
             buyer = trade.get('responder_username', 'N/A')
             amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
             payment_method = trade.get('payment_method_name', 'N/A')
+            account_name = trade.get('account_name_source', 'N/A')
             
             embed.add_field(
                 name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                value=f"**Amount**: {amount}\n**Method**: {payment_method}",
+                value=f"**Amount**: {amount}\n**Method**: {payment_method}\n**Account**: {account_name}",
                 inline=False
             )
             
@@ -102,11 +110,12 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
     """Handles the /toggle_offers command by calling the specific turn-on/off routes."""
     await interaction.response.defer(ephemeral=True)
 
-    endpoint = "/offer/turn-on" if status.value == "on" else "/offer/turn-off"
+    endpoint = "/offer/toggle"
     url = f"http://127.0.0.1:5001{endpoint}"
+    is_enabled = True if status.value == "on" else False
     
     try:
-        response = requests.post(url, timeout=15)
+        response = requests.post(url, json={"enabled": is_enabled}, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
@@ -149,6 +158,129 @@ async def summary_command(interaction: discord.Interaction):
     except requests.exceptions.RequestException as e:
         await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
         logger.error(f"Could not connect to Flask app for /summary: {e}")
+
+
+# --- NEW COMMANDS START HERE ---
+
+@tree.command(name="bot", description="Start or stop the trading bot process.")
+@app_commands.describe(action="Choose whether to start or stop the bot")
+@app_commands.choices(action=[
+    app_commands.Choice(name="Start", value="start"),
+    app_commands.Choice(name="Stop", value="stop"),
+])
+async def bot_command(interaction: discord.Interaction, action: app_commands.Choice[str]):
+    """Handles starting and stopping the bot."""
+    await interaction.response.defer(ephemeral=True)
+    
+    endpoint = "/start_trading" if action.value == "start" else "/stop_trading"
+    url = f"http://127.0.0.1:5001{endpoint}"
+    
+    try:
+        response = requests.post(url, timeout=10)
+        data = response.json()
+        
+        if data.get("success"):
+            color = 0x00ff00 if action.value == "start" else 0xff0000
+            embed = discord.Embed(
+                title=f"Bot {action.name}ed Successfully",
+                description=data.get("message"),
+                color=color
+            )
+        else:
+            embed = discord.Embed(
+                title=f"Error {action.name}ing Bot",
+                description=data.get("message", "An unknown error occurred."),
+                color=0xffa500
+            )
+        await interaction.followup.send(embed=embed)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        logger.error(f"Could not connect to Flask app for /bot command: {e}")
+
+@tree.command(name="settings", description="Change a bot setting.")
+@app_commands.describe(
+    setting="The setting you want to change",
+    status="The new status for the setting"
+)
+@app_commands.choices(setting=[
+    app_commands.Choice(name="Night Mode", value="night_mode_enabled"),
+    app_commands.Choice(name="AFK Mode", value="afk_mode_enabled"),
+    app_commands.Choice(name="Verbose Logging", value="verbose_logging_enabled"),
+])
+@app_commands.choices(status=[
+    app_commands.Choice(name="On", value="true"),
+    app_commands.Choice(name="Off", value="false"),
+])
+async def settings_command(interaction: discord.Interaction, setting: app_commands.Choice[str], status: app_commands.Choice[str]):
+    """Handles changing application settings."""
+    await interaction.response.defer(ephemeral=True)
+    
+    url = "http://127.0.0.1:5001/update_setting"
+    is_enabled = True if status.value == "true" else False
+    payload = {"key": setting.value, "enabled": is_enabled}
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        data = response.json()
+        
+        if response.status_code == 200 and data.get("success"):
+            embed = discord.Embed(
+                title="⚙️ Setting Updated",
+                description=f"**{setting.name}** has been turned **{status.name}**.",
+                color=0x00ff00
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ Error Updating Setting",
+                description=data.get("error", "An unknown server error occurred."),
+                color=0xff0000
+            )
+        await interaction.followup.send(embed=embed)
+
+    except requests.exceptions.RequestException:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**")
+
+@tree.command(name="send_message", description="Send a manual message to a trade chat.")
+@app_commands.describe(
+    trade_hash="The hash of the trade",
+    account_name="The account name handling the trade (e.g., Davidvs_Paxful)",
+    message="The message you want to send"
+)
+async def send_message_command(interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
+    """Handles sending a manual message to a trade."""
+    await interaction.response.defer(ephemeral=True)
+    
+    url = "http://127.0.0.1:5001/send_manual_message"
+    payload = {
+        "trade_hash": trade_hash,
+        "account_name": account_name,
+        "message": message
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=15)
+        data = response.json()
+
+        if response.status_code == 200 and data.get("success"):
+            embed = discord.Embed(
+                title="✉️ Message Sent",
+                description=f"Successfully sent message to `{trade_hash}`.",
+                color=0x3498DB
+            )
+            embed.add_field(name="Message", value=message)
+        else:
+            embed = discord.Embed(
+                title="❌ Failed to Send Message",
+                description=data.get("error", "An unknown error occurred."),
+                color=0xff0000
+            )
+        await interaction.followup.send(embed=embed)
+
+    except requests.exceptions.RequestException:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**")
+
+# --- NEW COMMANDS END HERE ---
 
 
 # --- Starting the Bot ---
