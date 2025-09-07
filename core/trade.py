@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, EMAIL_CHECK_DURATION
-from .get_files import load_processed_trades, save_processed_trade
+from .state.get_files import load_processed_trades, save_processed_trade
 from .get_trade_chat import fetch_trade_chat_messages
 from .email_checker import check_for_payment_email
 from .ocr_processor import extract_text_from_image, find_amount_in_text
@@ -13,13 +13,13 @@ from .messaging.trade_lifecycle_messages import (
     send_payment_reminder_message
 )
 from .messaging.attachment_message import send_attachment_message
-from .messaging.telegram_alert import (
+from .messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
     send_amount_validation_alert,
     send_email_validation_alert
 )
-from .messaging.discord_alert import (
+from .messaging.alerts.discord_alert import (
     create_new_trade_embed,
     create_attachment_embed,
     create_amount_validation_embed,
@@ -41,7 +41,6 @@ class Trade:
             all_trades = load_processed_trades(self.owner_username, self.platform)
             existing_data = all_trades.get(self.trade_hash, {})
             self.trade_state = {**existing_data, **trade_data}
-            self.trade_state.setdefault('processed_attachments', []) # Add this line
             
     def save(self):
         """Saves the current, complete state of the trade."""
@@ -53,7 +52,6 @@ class Trade:
             logger.error(f"Missing trade_hash or owner_username for trade: {self.trade_state}")
             return
 
-        # Check if the trade has been seen before by looking for our timestamp.
         is_new = 'first_seen_utc' not in self.trade_state
         
         if is_new:
@@ -72,7 +70,6 @@ class Trade:
         send_telegram_alert(self.trade_state, self.platform)
         create_new_trade_embed(self.trade_state, self.platform)
         
-        # Add the crucial timestamp to the unified state.
         self.trade_state['first_seen_utc'] = datetime.now(timezone.utc).isoformat()
         
         send_welcome_message(self.trade_state, self.account, self.headers)
@@ -119,7 +116,7 @@ class Trade:
                         send_email_validation_alert(self.trade_hash, success=True)
                         create_email_validation_embed(self.trade_hash, success=True)
                         self.trade_state['email_validation_alert_sent'] = True
-                        self.save() # --- FIX: Save state immediately
+                        self.save()
                     self.trade_state['email_verified'] = True
             else:
                 logger.warning(f"Email check for trade {self.trade_hash} timed out.")
@@ -127,7 +124,7 @@ class Trade:
                     send_email_validation_alert(self.trade_hash, success=False)
                     create_email_validation_embed(self.trade_hash, success=False)
                     self.trade_state['email_validation_alert_sent'] = True
-                    self.save() # --- FIX: Save state immediately
+                    self.save()
                 self.trade_state['email_check_timed_out'] = True
             
     def check_chat_and_attachments(self):
@@ -148,7 +145,6 @@ class Trade:
                     send_attachment_message(self.trade_hash, self.account, self.headers)
                     self.trade_state['attachment_message_sent'] = True
                 
-                # --- FIX: Loop through the list of attachment dictionaries ---
                 for attachment in new_attachments:
                     path = attachment['path']
                     author = attachment['author']

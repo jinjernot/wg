@@ -9,9 +9,10 @@ from config import (
     CHAT_LOG_PATH, ATTACHMENT_PATH,
     IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES
 )
-from core.messaging.telegram_alert import send_chat_message_alert
-from core.messaging.discord_alert import create_chat_message_embed
-from core.persistent_state import load_last_message_ids, save_last_message_id
+from core.messaging.alerts.telegram_alert import send_chat_message_alert
+from core.messaging.alerts.discord_alert import create_chat_message_embed
+from core.state.persistent_state import load_last_message_ids, save_last_message_id
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,24 +89,17 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                     author = msg.get("author", "Unknown")
                     files = msg.get("text", {}).get("files", [])
                     for file_info in files:
-                        # --- FIX: Extract hash and use the correct API endpoint ---
                         image_url_path = file_info.get("url")
                         if not image_url_path:
                             continue
                         
-                        # Extract the hash from the path (e.g., /trade/attachment/HASH?s=2)
                         match = re.search(r'attachment/([^?]+)', image_url_path)
                         if not match:
                             continue
                         image_hash = match.group(1)
 
-                        # Prepare the POST request to the image API
-                        image_payload = {
-                            "image_hash": image_hash,
-                            "size": "2" 
-                        }
+                        image_payload = {"image_hash": image_hash, "size": "2"}
                         
-                        # Use a copy of headers and set the correct Content-Type
                         image_headers = headers.copy()
                         image_headers["Content-Type"] = "application/x-www-form-urlencoded"
 
