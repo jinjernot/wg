@@ -4,18 +4,9 @@ import logging
 import json
 import os
 from config import DISCORD_WEBHOOKS
-from config_messages.discord_messages import AMOUNT_VALIDATION_EMBEDS, EMAIL_VALIDATION_EMBEDS
+from config_messages.discord_messages import AMOUNT_VALIDATION_EMBEDS, EMAIL_VALIDATION_EMBEDS, COLORS
 
 logger = logging.getLogger(__name__)
-
-# --- Color Codes for Different Alert Types ---
-COLORS = {
-    "info": 3447003,    # Blue
-    "success": 3066993,  # Green
-    "warning": 15105570, # Orange
-    "error": 15158332,   # Red
-    "chat": 8359053,     # Greyple
-}
 
 def _send_discord_request(webhook_url, payload=None, files=None):
     """Helper function to send HTTP requests to Discord."""
@@ -64,27 +55,46 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default"):
         logger.error(f"Could not open image file for Discord alert: {e}")
 
 def create_new_trade_embed(trade_data, platform):
-    """Creates and sends a Discord embed for a new trade notification."""
+    """Creates and sends a Discord embed for a new trade notification, color-coded by platform."""
     platform_name = "Paxful" if platform == "Paxful" else "Noones"
+    
+    if platform == "Paxful":
+        embed_color = COLORS["PAXFUL_GREEN"]
+    elif platform == "Noones":
+        embed_color = COLORS["NOONES_GREEN"]
+    else:
+        embed_color = COLORS["info"]
+
     embed = {
         "title": f"🚀 New {platform_name} Trade",
-        "color": COLORS["info"],
+        "color": embed_color,
         "fields": [
             {"name": "Trade Hash", "value": f"`{trade_data.get('trade_hash')}`", "inline": True},
-            {"name": "Amount", "value": f"{trade_data.get('fiat_amount_requested')} {trade_data.get('fiat_currency_code')}", "inline": True},
+            {"name": "Account", "value": str(trade_data.get('owner_username')), "inline": True},
+            {"name": "Amount", "value": f"{trade_data.get('fiat_amount_requested')} {trade_data.get('fiat_currency_code')}", "inline": False},
             {"name": "Buyer", "value": str(trade_data.get('responder_username')), "inline": False},
             {"name": "Payment Method", "value": str(trade_data.get('payment_method_name')), "inline": False},
         ], "footer": {"text": "WillGang Bot"}
     }
     send_discord_embed(embed, alert_type="trades")
 
-def create_attachment_embed(trade_hash, author, image_path):
+def create_attachment_embed(trade_hash, owner_username, author, image_path, platform):
     """Creates and sends a Discord embed for a new attachment with the image."""
+    if platform == "Paxful":
+        embed_color = COLORS["PAXFUL_GREEN"]
+    elif platform == "Noones":
+        embed_color = COLORS["NOONES_GREEN"]
+    else:
+        embed_color = COLORS["info"]
+
     embed = {
         "title": "📄 New Attachment Uploaded",
-        "color": COLORS["info"],
+        "color": embed_color,
         "description": f"Review attachment for trade `{trade_hash}`.",
-        "fields": [ {"name": "Uploaded By", "value": str(author), "inline": True} ],
+        "fields": [ 
+            {"name": "Account", "value": str(owner_username), "inline": True},
+            {"name": "Uploaded By", "value": str(author), "inline": True} 
+        ],
         "footer": {"text": "WillGang Bot"}
     }
     send_discord_embed_with_image(embed, image_path, alert_type="attachments")
@@ -112,7 +122,6 @@ def create_email_validation_embed(trade_hash, success, account_name):
     """Builds and sends an email validation embed using templates."""
     template = EMAIL_VALIDATION_EMBEDS["success"] if success else EMAIL_VALIDATION_EMBEDS["failure"]
     
-    # Format the fields with the account_name
     formatted_fields = [
         {"name": field["name"], "value": field["value"].format(account_name=account_name)}
         for field in template["fields"]
@@ -126,15 +135,23 @@ def create_email_validation_embed(trade_hash, success, account_name):
     }
     send_discord_embed(embed, alert_type="validations")
 
-def create_chat_message_embed(trade_hash, author, message):
+def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a Discord embed for a new chat message."""
+    if platform == "Paxful":
+        embed_color = COLORS["PAXFUL_GREEN"]
+    elif platform == "Noones":
+        embed_color = COLORS["NOONES_GREEN"]
+    else:
+        embed_color = COLORS["chat"]
+
     embed = {
         "title": "💬 New Chat Message",
-        "color": COLORS["chat"],
+        "color": embed_color,
         "description": message,
         "fields": [
-            {"name": "Author", "value": str(author), "inline": True},
             {"name": "Trade Hash", "value": f"`{trade_hash}`", "inline": True},
+            {"name": "Account", "value": str(owner_username), "inline": True},
+            {"name": "Author", "value": str(author), "inline": False},
         ],
         "footer": {"text": "WillGang Bot"}
     }

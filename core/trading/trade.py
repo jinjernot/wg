@@ -173,7 +173,7 @@ class Trade:
     def check_chat_and_attachments(self):
         """Fetches chat history and processes any new attachments."""
         attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
-            self.trade_hash, self.account, self.headers)
+            self.trade_hash, self.owner_username, self.account, self.headers)
         if last_buyer_ts: self.trade_state['last_buyer_ts'] = last_buyer_ts
         if not new_attachments: return
         if not self.trade_state.get('attachment_message_sent'):
@@ -182,8 +182,8 @@ class Trade:
             self.trade_state['attachment_message_sent'] = True
         for attachment in new_attachments:
             path, author = attachment['path'], attachment['author']
-            send_attachment_alert(self.trade_hash, author, path)
-            create_attachment_embed(self.trade_hash, author, path)
+            send_attachment_alert(self.trade_hash, self.owner_username, author, path)
+            create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform)
             text = extract_text_from_image(path)
             found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
             if not self.trade_state.get('amount_validation_alert_sent'):

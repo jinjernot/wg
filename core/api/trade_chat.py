@@ -1,3 +1,4 @@
+# core/api/trade_chat.py
 import json
 import requests
 import logging
@@ -32,7 +33,7 @@ def save_chat_log(trade_hash, messages, account_name):
     except Exception as e:
         logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
 
-def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
+def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_retries=3):
     """
     Fetches chat messages, processes only new messages (including attachments)
     based on the last processed message ID.
@@ -127,8 +128,9 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                     if isinstance(message_text, dict): message_text = str(message_text)
                     if message_text:
                         msg_author = msg.get("author", "Unknown")
-                        send_chat_message_alert(message_text, trade_hash, account["name"], msg_author)
-                        create_chat_message_embed(trade_hash, msg_author, message_text)
+                        send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
+                        # --- THIS IS THE UPDATED LINE ---
+                        create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)
 
             latest_message_id = messages[-1].get("id")
             if latest_message_id:
