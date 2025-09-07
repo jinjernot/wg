@@ -3,6 +3,7 @@ import requests
 import logging
 import time
 import os
+import re
 from config import (
     GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL,
     CHAT_LOG_PATH, ATTACHMENT_PATH,
@@ -37,6 +38,7 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
     """
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
+    image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
     account_name = account.get("name")
     data = {"trade_hash": trade_hash}
 
@@ -86,28 +88,43 @@ def fetch_trade_chat_messages(trade_hash, account, headers, max_retries=3):
                     author = msg.get("author", "Unknown")
                     files = msg.get("text", {}).get("files", [])
                     for file_info in files:
-                        # --- FIX: Use the full_url provided in the chat data ---
-                        image_url = file_info.get("full_url")
-                        if not image_url:
+                        # --- FIX: Extract hash and use the correct API endpoint ---
+                        image_url_path = file_info.get("url")
+                        if not image_url_path:
                             continue
+                        
+                        # Extract the hash from the path (e.g., /trade/attachment/HASH?s=2)
+                        match = re.search(r'attachment/([^?]+)', image_url_path)
+                        if not match:
+                            continue
+                        image_hash = match.group(1)
+
+                        # Prepare the POST request to the image API
+                        image_payload = {
+                            "image_hash": image_hash,
+                            "size": "2" 
+                        }
+                        
+                        # Use a copy of headers and set the correct Content-Type
+                        image_headers = headers.copy()
+                        image_headers["Content-Type"] = "application/x-www-form-urlencoded"
 
                         try:
-                            s = requests.Session()
-                            image_response = s.get(image_url, headers=headers, stream=True, timeout=15)
+                            image_response = requests.post(image_api_url, data=image_payload, headers=image_headers, timeout=15)
+                            
                             if image_response.status_code == 200:
                                 os.makedirs(ATTACHMENT_PATH, exist_ok=True)
-                                file_extension = os.path.splitext(file_info.get("url", ""))[1] or '.jpg'
+                                file_extension = os.path.splitext(image_url_path)[1] or '.jpg'
                                 sanitized_hash = "".join(c for c in trade_hash if c.isalnum())
                                 timestamp = int(time.time())
                                 file_name = f"{sanitized_hash}_{timestamp}{file_extension}"
                                 file_path = os.path.join(ATTACHMENT_PATH, file_name)
                                 with open(file_path, 'wb') as f:
                                     f.write(image_response.content)
-                                # --- FIX: Return a dictionary with author and path for each attachment ---
                                 new_attachments.append({"path": file_path, "author": author})
                                 logger.info(f"New attachment for trade {trade_hash} downloaded to {file_path}")
                             else:
-                                logger.error(f"Failed to download attachment from {image_url}. Status: {image_response.status_code}")
+                                logger.error(f"Failed to download attachment with hash {image_hash}. Status: {image_response.status_code} - {image_response.text}")
                         except requests.exceptions.RequestException as e:
                             logger.error(f"Error downloading attachment for trade {trade_hash}: {e}")
 
