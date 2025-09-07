@@ -13,7 +13,7 @@ from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
 from core.api_client.offers import set_offer_status
 from core.utils.log_config import setup_logging
-from core.utils import generate_daily_summary
+from core.utils.reporting import generate_daily_summary
 
 app = Flask(__name__)
 setup_logging()
