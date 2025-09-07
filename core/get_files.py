@@ -3,7 +3,7 @@ import os
 from config import TRADE_STORAGE_DIR
 
 def load_processed_trades(owner_username, platform):
-    
+    """Loads all processed trades for a specific user and platform."""
     file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
     try:
         with open(file_path, "r") as file:
@@ -13,18 +13,22 @@ def load_processed_trades(owner_username, platform):
 
 def save_processed_trade(trade_data, platform):
     """
-    Saves the complete and final trade data to the JSON file.
+    Saves the complete and final state of a single trade to the JSON file.
     """
     owner_username = trade_data.get("owner_username", "unknown_user")
     trade_hash = trade_data.get("trade_hash")
     
     if not owner_username or not trade_hash:
-        return # Cannot save without these keys
+        return # Cannot save without these essential keys
 
     file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
     
+    # Load all trades to ensure we don't overwrite other trades in the file.
     all_trades = load_processed_trades(owner_username, platform)
+    
+    # Update the dictionary with the new, complete data for the specific trade.
     all_trades[trade_hash] = trade_data
 
+    # Write the entire updated dictionary back to the file.
     with open(file_path, "w") as file:
         json.dump(all_trades, file, indent=4)
