@@ -31,7 +31,6 @@ def generate_daily_summary():
                 trades = json.load(f)
 
             for trade_hash, trade in trades.items():
-                # Check if the trade is from today
                 if trade.get("start_date", "").startswith(today_str):
                     stats["total_trades"] += 1
                     status = trade.get("trade_status")

@@ -2,8 +2,8 @@ import discord
 from discord import app_commands
 import logging
 import requests
+import datetime
 from config import DISCORD_BOT_TOKEN
-import datetime # <-- Make sure datetime is imported
 
 # --- Basic Setup ---
 intents = discord.Intents.default()
@@ -11,7 +11,6 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
-# Configure logging for the bot
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,6 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
     """Handles the /toggle_offers command by calling the specific turn-on/off routes."""
     await interaction.response.defer(ephemeral=True)
 
-    # Determine which endpoint to call based on the user's choice
     endpoint = "/offer/turn-on" if status.value == "on" else "/offer/turn-off"
     url = f"http://127.0.0.1:5001{endpoint}"
     
@@ -123,6 +121,34 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
     except requests.exceptions.RequestException as e:
         await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
         logger.error(f"Could not connect to Flask app for /toggle_offers: {e}")
+
+
+@tree.command(name="summary", description="Get a summary of today's trading activity.")
+async def summary_command(interaction: discord.Interaction):
+    """Handles the /summary slash command."""
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        response = requests.get("http://127.0.0.1:5001/get_summary", timeout=10)
+        if response.status_code != 200:
+            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.")
+            return
+            
+        stats = response.json()
+        
+        embed = discord.Embed(title=f"📊 Daily Summary for {datetime.date.today().isoformat()}", color=0x3498DB)
+        embed.add_field(name="Total Trades Today", value=f"**{stats['total_trades']}**", inline=True)
+        embed.add_field(name="Total Volume", value=f"**${stats['total_volume']:.2f}**", inline=True)
+        embed.add_field(name="\u200b", value="\u200b", inline=False) # Divider
+        embed.add_field(name="✅ Successful", value=f"{stats['successful_trades']}", inline=True)
+        embed.add_field(name="💰 Paid (Pending BTC)", value=f"{stats['paid_trades']}", inline=True)
+        embed.add_field(name="🏃 Active", value=f"{stats['active_trades']}", inline=True)
+
+        await interaction.followup.send(embed=embed)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send("⚠️ **Web server is unreachable.**\nMake sure the Flask app (`app.py`) is running.")
+        logger.error(f"Could not connect to Flask app for /summary: {e}")
 
 
 # --- Starting the Bot ---
