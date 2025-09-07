@@ -17,7 +17,6 @@ tree = app_commands.CommandTree(client)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- CONFIGURATION (Now loaded from config.py) ---
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
@@ -70,7 +69,7 @@ async def post_live_trades():
             embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
             embed = discord.Embed.from_dict(embed_data)
 
-            for trade in trades[:20]: # Limit to 20 to avoid Discord limits
+            for trade in trades[:20]:
                 buyer = trade.get('responder_username', 'N/A')
                 amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
                 status = trade.get('trade_status', 'N/A')
