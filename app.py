@@ -11,6 +11,7 @@ from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
 from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
+from core.utils.profile import generate_user_profile
 
 app = Flask(__name__)
 setup_logging()
@@ -116,6 +117,15 @@ def get_active_trades():
             except Exception as e:
                 logger.error(f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)
+
+@app.route("/user_profile/<username>")
+def get_user_profile(username):
+    """New endpoint to get user profile data."""
+    profile_data = generate_user_profile(username)
+    if profile_data:
+        return jsonify(profile_data)
+    else:
+        return jsonify({"error": "User not found"}), 404
 
 # --- /get_summary route has been removed ---
 @app.route("/offer/toggle", methods=["POST"])

@@ -311,7 +311,80 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
 
     except requests.exceptions.RequestException:
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        
+@tree.command(name="user_profile", description="Get the trading history for a specific user.")
+@app_commands.describe(username="The username of the trader to look up.")
+async def user_profile_command(interaction: discord.Interaction, username: str):
+    """Handles the /user_profile slash command."""
+    await interaction.response.defer(ephemeral=True)
 
+    try:
+        url = f"http://127.0.0.1:5001/user_profile/{username}"
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            stats = response.json()
+            embed_data = USER_PROFILE_EMBED.copy()
+            embed_data["title"] = embed_data["title"].format(username=stats.get('username', 'N/A'))
+            
+            # --- THIS ENTIRE SECTION HAS BEEN UPDATED FOR THE NEW DATA ---
+            
+            # Calculate new stats
+            issues = stats.get('canceled_trades', 0) + stats.get('disputed_trades', 0)
+            successful_trades = stats.get('successful_trades', 0)
+            total_trades = stats.get('total_trades', 0)
+            total_volume = stats.get('total_volume', 0)
+
+            avg_trade_size = total_volume / successful_trades if successful_trades > 0 else 0
+            success_rate = (successful_trades / total_trades) * 100 if total_trades > 0 else 0
+
+            embed_data["description"] = embed_data["description"].format(
+                first_trade_date=stats.get('first_trade_date', 'N/A'),
+                last_trade_date=stats.get('last_trade_date', 'N/A')
+            )
+
+            for field in embed_data["fields"]:
+                field["value"] = field["value"].format(
+                    total_volume=total_volume,
+                    avg_trade_size=avg_trade_size,
+                    success_rate=f"{success_rate:.1f}",
+                    successful_trades=successful_trades,
+                    issues=issues
+                )
+            
+            embed = discord.Embed.from_dict(embed_data)
+
+            # Add a field for each platform the user has traded on
+            if stats.get("platforms"):
+                platform_stats = []
+                for platform, data in stats["platforms"].items():
+                    platform_stats.append(f"**{platform.capitalize()}**: {data['trades']} trades (${data['volume']:.2f})")
+                embed.add_field(name="Platform Activity", value="\n".join(platform_stats), inline=False)
+
+            # Add a field showing which of your accounts handled the trades
+            if stats.get("accounts"):
+                account_stats = []
+                for owner, count in stats["accounts"].items():
+                    account_stats.append(f"**{owner.capitalize()}**: {count} trades")
+                embed.add_field(name="Handled By", value="\n".join(account_stats), inline=False)
+            
+            # --- END OF UPDATED SECTION ---
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        elif response.status_code == 404:
+            embed_data = USER_NOT_FOUND_EMBED.copy()
+            embed_data["description"] = embed_data["description"].format(username=username)
+            embed = discord.Embed.from_dict(embed_data)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        else:
+            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.", ephemeral=True)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        logger.error(f"Could not connect to Flask app for /user_profile: {e}")
+        
+        
 # --- Starting the Bot ---
 if __name__ == "__main__":
     if not DISCORD_BOT_TOKEN or "YOUR_SECRET_BOT_TOKEN_HERE" in DISCORD_BOT_TOKEN:
