@@ -9,7 +9,7 @@ from dateutil import parser
 logger = logging.getLogger(__name__)
 
 def generate_user_profile(username):
-    """Scans all trade files to generate a trading profile for a specific user."""
+    """Scans all trade files to generate a trading profile for a specific user for the current month."""
     stats = {
         "total_trades": 0,
         "successful_trades": 0,
@@ -24,6 +24,11 @@ def generate_user_profile(username):
     }
     
     trade_dates = []
+    
+    # Get the current year and month
+    now = datetime.now(timezone.utc)
+    current_year = now.year
+    current_month = now.month
 
     try:
         if not os.path.exists(TRADE_STORAGE_DIR):
@@ -34,11 +39,10 @@ def generate_user_profile(username):
             if not filename.endswith(".json"):
                 continue
             
-            # Extract owner and platform from the filename (e.g., "davidvs_Paxful.json")
             try:
                 file_owner, file_platform = filename.replace(".json", "").split("_")
             except ValueError:
-                continue # Skip files that don't match the expected format
+                continue 
 
             filepath = os.path.join(TRADE_STORAGE_DIR, filename)
             with open(filepath, 'r') as f:
@@ -46,26 +50,31 @@ def generate_user_profile(username):
 
             for trade_hash, trade in trades.items():
                 if trade.get("responder_username", "").lower() == username.lower():
+                    trade_date_str = trade.get("first_seen_utc")
+                    if not trade_date_str:
+                        continue
+
+                    try:
+                        trade_date = parser.isoparse(trade_date_str)
+                    except (ValueError, TypeError):
+                        continue
+                        
+                    # Filter for trades in the current month and year
+                    if trade_date.year != current_year or trade_date.month != current_month:
+                        continue
+
                     stats["total_trades"] += 1
                     status = trade.get("trade_status")
 
-                    # Use the reliable 'first_seen_utc' for date tracking
-                    trade_date_str = trade.get("first_seen_utc")
-                    if trade_date_str:
-                        trade_dates.append(trade_date_str)
+                    trade_dates.append(trade_date_str)
 
-                    # Track which of your accounts handled the trade
                     stats["accounts"][file_owner] = stats["accounts"].get(file_owner, 0) + 1
                     
-                    # --- CHANGE IS HERE ---
-                    # Include "Paid" status in the calculation for successful trades and volume.
-                    if status in ["Successful", "Paid"]: # Changed this line
+                    if status in ["Successful", "Paid"]:
                         stats["successful_trades"] += 1
-                        # Use 'fiat_amount_requested' for volume calculation
                         try:
                             volume = float(trade.get("fiat_amount_requested", 0))
                             stats["total_volume"] += volume
-                            # Track volume and trades per platform
                             if file_platform not in stats["platforms"]:
                                 stats["platforms"][file_platform] = {"trades": 0, "volume": 0.0}
                             stats["platforms"][file_platform]["trades"] += 1
@@ -76,7 +85,7 @@ def generate_user_profile(username):
                         stats["disputed_trades"] += 1
                     elif status == "Cancelled":
                         stats["canceled_trades"] += 1
-                                
+        
         if stats["total_trades"] == 0:
             return None
 
