@@ -133,7 +133,7 @@ def create_email_validation_embed(trade_hash, success, account_name):
         "fields": formatted_fields,
         "footer": {"text": f"Trade: {trade_hash}"}
     }
-    send_discord_embed(embed, alert_type="validations")
+    send_discord_embed(embed, alert_type="attachments")
 
 def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a Discord embed for a new chat message."""
