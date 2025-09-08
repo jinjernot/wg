@@ -57,7 +57,9 @@ def generate_user_profile(username):
                     # Track which of your accounts handled the trade
                     stats["accounts"][file_owner] = stats["accounts"].get(file_owner, 0) + 1
                     
-                    if status == "Successful":
+                    # --- CHANGE IS HERE ---
+                    # Include "Paid" status in the calculation for successful trades and volume.
+                    if status in ["Successful", "Paid"]: # Changed this line
                         stats["successful_trades"] += 1
                         # Use 'fiat_amount_requested' for volume calculation
                         try:
@@ -74,7 +76,7 @@ def generate_user_profile(username):
                         stats["disputed_trades"] += 1
                     elif status == "Cancelled":
                         stats["canceled_trades"] += 1
-        
+                                
         if stats["total_trades"] == 0:
             return None
 
