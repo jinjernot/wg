@@ -1,5 +1,5 @@
 import pandas as pd
-import config
+import bitso_config
 
 def filter_sender_name(fundings, filename='bitso_sum_by_sender_name.csv'):
     data = []
@@ -18,7 +18,7 @@ def filter_sender_name(fundings, filename='bitso_sum_by_sender_name.csv'):
             print(f"Invalid amount: {amount_str}. Skipping.")
             continue
 
-        name = config.ACCOUNT.get(clabe, clabe)
+        name = bitso_config.ACCOUNT.get(clabe, clabe)
         data.append({
             'Sender Name': name,
             'Amount': amount

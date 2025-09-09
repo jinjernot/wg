@@ -4,8 +4,8 @@ from requests.exceptions import RequestException, ConnectionError
 from http.client import RemoteDisconnected
 from urllib3.exceptions import ProtocolError
 
-from auth import generate_auth_headers_for_user
-import config
+from core.bitso.auth import generate_auth_headers_for_user
+import bitso_config
 
 def save_raw_response(data, filename='bitso_raw_fundings.json'):
     # with open(filename, 'w') as f:
@@ -15,7 +15,7 @@ def save_raw_response(data, filename='bitso_raw_fundings.json'):
 
 def fetch_funding_transactions_for_user(user, api_key, api_secret, max_retries=5, backoff_factor=1.5):
     endpoint = '/v3/fundings'
-    url = config.BASE_URL + endpoint
+    url = bitso_config.BASE_URL + endpoint
 
     all_fundings = []
     marker = None
