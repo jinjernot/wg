@@ -190,7 +190,6 @@ def send_manual_message():
 @app.route("/bitso_summary")
 def get_bitso_summary():
     """New endpoint to get the sum of all bitso deposits for the current month."""
-    total_deposits = 0.0
     try:
         all_fundings = []
         for user, (api_key, api_secret) in bitso_config.API_KEYS.items():
@@ -202,14 +201,28 @@ def get_bitso_summary():
 
         filtered_fundings = filter_fundings_this_month(all_fundings)
         
+        deposits_by_sender = {}
         for funding in filtered_fundings:
             if funding.get('status') == 'complete':
+                details = funding.get('details', {}) or {}
+                clabe = details.get('sender_clabe')
+                
                 try:
-                    total_deposits += float(funding.get('amount', 0))
+                    amount = float(funding.get('amount', 0))
                 except (ValueError, TypeError):
                     continue
-        
-        return jsonify({"success": True, "total_deposits": f"{total_deposits:,.2f}"})
+                
+                name = bitso_config.ACCOUNT.get(clabe, clabe)
+                if name:
+                    deposits_by_sender[name] = deposits_by_sender.get(name, 0) + amount
+
+        sorted_deposits = sorted(deposits_by_sender.items())
+
+        return jsonify({
+            "success": True, 
+            "deposits_by_sender": sorted_deposits,
+            "total_deposits": sum(deposits_by_sender.values())
+        })
 
     except Exception as e:
         logger.error(f"Failed to get Bitso summary: {e}")

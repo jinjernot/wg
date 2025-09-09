@@ -121,9 +121,9 @@ async def status_command(interaction: discord.Interaction):
     await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
 
 
-@tree.command(name="active_trades", description="Get a list of currently active trades.")
+@tree.command(name="trades", description="Get a list of currently active trades.")
 async def active_trades_command(interaction: discord.Interaction):
-    """Handles the /active_trades slash command."""
+    """Handles the /trades slash command."""
     await interaction.response.defer(ephemeral=True)
 
     try:
@@ -169,14 +169,14 @@ async def active_trades_command(interaction: discord.Interaction):
         logger.error(f"Could not connect to Flask app for active trades: {e}")
 
 
-@tree.command(name="toggle_offers", description="Turn all trading offers on or off.")
+@tree.command(name="offers", description="Turn all trading offers on or off.")
 @app_commands.describe(status="The desired status for your offers")
 @app_commands.choices(status=[
     app_commands.Choice(name="On", value="on"),
     app_commands.Choice(name="Off", value="off"),
 ])
 async def toggle_offers_command(interaction: discord.Interaction, status: app_commands.Choice[str]):
-    """Handles the /toggle_offers command by calling the specific turn-on/off routes."""
+    """Handles the /offers command by calling the specific turn-on/off routes."""
     await interaction.response.defer(ephemeral=True)
 
     url = "http://127.0.0.1:5001/offer/toggle"
@@ -277,7 +277,7 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
     except requests.exceptions.RequestException:
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
-@tree.command(name="send_message", description="Send a manual message to a trade chat.")
+@tree.command(name="message", description="Send a manual message to a trade chat.")
 @app_commands.describe(
     trade_hash="The hash of the trade",
     account_name="The account name handling the trade (e.g., Davidvs_Paxful)",
@@ -313,10 +313,10 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
     except requests.exceptions.RequestException:
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         
-@tree.command(name="user_profile", description="Get the trading history for a specific user.")
+@tree.command(name="user", description="Get the trading history for a specific user.")
 @app_commands.describe(username="The username of the trader to look up.")
 async def user_profile_command(interaction: discord.Interaction, username: str):
-    """Handles the /user_profile slash command."""
+    """Handles the /user slash command."""
     await interaction.response.defer(ephemeral=True)
 
     try:
@@ -385,9 +385,9 @@ async def user_profile_command(interaction: discord.Interaction, username: str):
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         logger.error(f"Could not connect to Flask app for /user_profile: {e}")
         
-@tree.command(name="bitso_summary", description="Get the sum of all Bitso deposits for the current month.")
+@tree.command(name="bitso", description="Get a summary of Bitso deposits for the current month.")
 async def bitso_summary_command(interaction: discord.Interaction):
-    """Handles the /bitso_summary slash command."""
+    """Handles the /bitso slash command."""
     await interaction.response.defer(ephemeral=True)
 
     try:
@@ -397,12 +397,18 @@ async def bitso_summary_command(interaction: discord.Interaction):
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                total = data.get("total_deposits")
+                deposits_by_sender = data.get("deposits_by_sender", [])
+                total_deposits = data.get("total_deposits", 0.0)
+
+                description_lines = [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits_by_sender]
+                description = "\n".join(description_lines)
+                
                 embed = discord.Embed(
-                    title="💰 Bitso Deposits Summary (Current Month)",
-                    description=f"The total sum of all successful Bitso deposits for the current month is **${total}**.",
+                    title="💰 Bitso Deposits",
+                    description=description,
                     color=discord.Color.green()
                 )
+                embed.add_field(name="Total", value=f"**`${total_deposits:,.2f}`**")
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
                 await interaction.followup.send(f"Error: {data.get('error', 'An unknown error occurred.')}", ephemeral=True)
