@@ -1,4 +1,3 @@
-# core/messaging/alerts/telegram_alert.py
 import requests
 import json
 import re
@@ -14,7 +13,9 @@ from config_messages.telegram_messages import (
     AMOUNT_VALIDATION_MATCH_ALERT,
     AMOUNT_VALIDATION_MISMATCH_ALERT,
     EMAIL_VALIDATION_SUCCESS_ALERT,
-    EMAIL_VALIDATION_FAILURE_ALERT
+    EMAIL_VALIDATION_FAILURE_ALERT,
+    NAME_VALIDATION_SUCCESS_ALERT,
+    NAME_VALIDATION_FAILURE_ALERT
 )
 
 logger = logging.getLogger(__name__)
@@ -176,3 +177,28 @@ def send_email_validation_alert(trade_hash, success, account_name):
         logger.info("Email validation alert sent successfully.")
     else:
         logger.error(f"Failed to send email validation alert: {response.status_code} - {response.text}")
+
+def send_name_validation_alert(trade_hash, success, account_name):
+    """Sends a Telegram alert about the OCR name validation result."""
+    if success:
+        message = NAME_VALIDATION_SUCCESS_ALERT.format(
+            trade_hash=escape_markdown(trade_hash),
+            account_name=escape_markdown(account_name)
+        )
+    else:
+        message = NAME_VALIDATION_FAILURE_ALERT.format(
+            trade_hash=escape_markdown(trade_hash),
+            account_name=escape_markdown(account_name)
+        )
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "MarkdownV2"
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        logger.info("Name validation alert sent successfully.")
+    else:
+        logger.error(f"Failed to send name validation alert: {response.status_code} - {response.text}")

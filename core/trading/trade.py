@@ -10,7 +10,7 @@ from config import (
 from core.state.get_files import load_processed_trades, save_processed_trade
 from core.api.trade_chat import fetch_trade_chat_messages
 from core.validation.email import check_for_payment_email, get_gmail_service
-from core.validation.ocr import extract_text_from_image, find_amount_in_text
+from core.validation.ocr import extract_text_from_image, find_amount_in_text, find_name_in_text
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.messaging.trade_lifecycle_messages import (
@@ -23,14 +23,17 @@ from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
     send_amount_validation_alert,
-    send_email_validation_alert
+    send_email_validation_alert,
+    send_name_validation_alert
 )
 from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
     create_attachment_embed,
     create_amount_validation_embed,
-    create_email_validation_embed
+    create_email_validation_embed,
+    create_name_validation_embed
 )
+from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +156,7 @@ class Trade:
 
         elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
         if elapsed_time < EMAIL_CHECK_DURATION:
-            if check_for_payment_email(self.gmail_service, self.trade_state, self.platform):
+            if check_for_payment_email(self.gmail_service, self.trade_state, self.platform, credential_identifier):
                 logger.info(f"PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
                 if not self.trade_state.get('email_validation_alert_sent'):
                     send_email_validation_alert(self.trade_hash, success=True, account_name=credential_identifier)
@@ -180,19 +183,38 @@ class Trade:
             logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
             send_attachment_message(self.trade_hash, self.account, self.headers)
             self.trade_state['attachment_message_sent'] = True
+
+        credential_identifier = self.get_credential_identifier_for_trade()
+        account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)
+        expected_names = account_config.get("name_receipt", []) if account_config else []
+
         for attachment in new_attachments:
             path, author = attachment['path'], attachment['author']
-            send_attachment_alert(self.trade_hash, self.owner_username, author, path)
-            create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform)
-            text = extract_text_from_image(path)
-            found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
-            if not self.trade_state.get('amount_validation_alert_sent'):
-                expected = self.trade_state.get("fiat_amount_requested")
-                currency = self.trade_state.get("fiat_currency_code")
-                send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
-                create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
-                self.trade_state['amount_validation_alert_sent'] = True
+            if author not in ["davidvs", "JoeWillgang"]:
+                send_attachment_alert(self.trade_hash, self.owner_username, author, path)
+                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform)
+                
+                text = extract_text_from_image(path)
+                
+                # --- Perform and Alert on Amount Validation ---
+                found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
+                if not self.trade_state.get('amount_validation_alert_sent'):
+                    expected = self.trade_state.get("fiat_amount_requested")
+                    currency = self.trade_state.get("fiat_currency_code")
+                    send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    self.trade_state['amount_validation_alert_sent'] = True
+
+                # --- Perform and Alert on Name Validation ---
+                if expected_names:
+                    is_name_found = find_name_in_text(text, expected_names)
+                    if not self.trade_state.get('name_validation_alert_sent'):
+                        send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
+                        create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
+                        self.trade_state['name_validation_alert_sent'] = True
+                
                 self.save()
+
                                             
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""

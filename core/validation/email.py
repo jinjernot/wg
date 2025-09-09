@@ -10,6 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime
 from bs4 import BeautifulSoup
+from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
 
 logger = logging.getLogger(__name__)
 
@@ -80,63 +81,90 @@ def get_email_body(message_payload):
     return html_body or plain_text_body or ""
 
 def extract_oxxo_details(html_body):
-    """Parses the OXXO HTML email to extract the payment amount."""
+    """Parses the OXXO HTML email to extract payment amount and recipient name."""
     try:
         soup = BeautifulSoup(html_body, 'html.parser')
-        # Find the <strong> tag that contains the key phrase "depósito de efectivo"
-        strong_tag = soup.find('strong', string=re.compile(r'depósito de efectivo'))
-        if not strong_tag:
-            logger.warning("Could not find the specific OXXO amount tag in the email.")
-            return None
+        
+        # --- Extract Amount ---
+        amount_tag = soup.find('strong', string=re.compile(r'depósito de efectivo'))
+        found_amount = None
+        if amount_tag:
+            money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})'
+            match = re.search(money_pattern, amount_tag.get_text(strip=True))
+            if match:
+                amount_str = match.group(1).replace(',', '').strip()
+                found_amount = float(amount_str)
+                logger.info(f"Successfully parsed OXXO amount: {found_amount}")
 
-        # Use regex to find the monetary value within the found tag's text
-        money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})'
-        match = re.search(money_pattern, strong_tag.get_text(strip=True))
-        if match:
-            amount_str = match.group(1).replace(',', '').strip()
-            logger.info(f"Successfully parsed OXXO amount: {amount_str}")
-            return float(amount_str)
-            
-        logger.warning("OXXO amount tag was found, but no monetary value could be extracted.")
-        return None
+        # --- Extract Name ---
+        name_tag = soup.find('span', string=re.compile(r'Hola,'))
+        found_name = None
+        if name_tag:
+            # Extract text, remove "Hola,", trailing period, and trim whitespace
+            name_text = name_tag.get_text(strip=True)
+            found_name = name_text.replace("Hola,", "").replace(".", "").strip()
+            logger.info(f"Successfully parsed OXXO recipient name: {found_name}")
+
+        return found_amount, found_name
+        
     except Exception as e:
         logger.error(f"An error occurred while parsing the OXXO email: {e}")
-        return None
+        return None, None
+
 
 def extract_scotiabank_details(html_body):
-    """Parses the Scotiabank HTML email to extract amount and concept."""
+    """Parses the Scotiabank HTML email to extract amount and beneficiary name."""
     try:
         soup = BeautifulSoup(html_body, 'html.parser')
-        amount_span = soup.find('span', style=lambda v: v and 'font-weight:bold' in v and '18.0pt' in v)
-        if not amount_span:
-            return None, None
-        amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*\.\d{2})', amount_span.get_text(strip=True))
-        found_amount = float(amount_match.group(1).replace(',', '')) if amount_match else None
-        
-        concept_header_td = soup.find('td', string=lambda text: text and 'Concepto' in text.strip())
-        found_concept = None
-        if concept_header_td and concept_header_td.find_next_sibling('td'):
-            found_concept = concept_header_td.find_next_sibling('td').get_text(strip=True)
 
-        return found_amount, found_concept
+        # --- Extract Amount ---
+        amount_span = soup.find('span', style=lambda v: v and 'font-weight:bold' in v and '18.0pt' in v)
+        found_amount = None
+        if amount_span:
+            amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*\.\d{2})', amount_span.get_text(strip=True))
+            if amount_match:
+                found_amount = float(amount_match.group(1).replace(',', ''))
+
+        # --- Extract Beneficiary Name ---
+        beneficiary_header_td = soup.find('td', string=re.compile(r'Nombre o raz(ó|o)n social del beneficiario'))
+        found_name = None
+        if beneficiary_header_td and beneficiary_header_td.find_next_sibling('td'):
+            found_name = beneficiary_header_td.find_next_sibling('td').get_text(strip=True)
+
+        logger.info(f"Parsed Scotiabank details - Amount: {found_amount}, Name: {found_name}")
+        return found_amount, found_name
+
     except Exception as e:
         logger.error(f"Error parsing Scotiabank email: {e}")
         return None, None
 
-def check_for_payment_email(service, trade_details, platform):
+def check_for_payment_email(service, trade_details, platform, credential_identifier):
     """Searches for, saves, and validates a payment confirmation email."""
     if not service: return False
 
     payment_method_slug = trade_details.get("payment_method_slug", "").lower()
-    query, log_folder, validator = None, None, None
+    
+    # Get expected details from the config file
+    account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)
+    if not account_config:
+        logger.warning(f"No email validation config found for '{credential_identifier}'. Skipping.")
+        return False
+
+    query, log_folder, validator, expected_name = None, None, None, None
 
     if payment_method_slug == "oxxo":
         query = 'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo; (OXXO)")'
         log_folder, validator = "oxxo", "oxxo"
+        expected_name = account_config.get("name_oxxo")
     elif payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
         query = 'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI")'
         log_folder, validator = "bank-transfer", "scotiabank"
+        expected_name = account_config.get("name_scotiabank")
     else:
+        return False
+
+    if not expected_name:
+        logger.warning(f"Missing expected name in config for '{credential_identifier}' and method '{payment_method_slug}'.")
         return False
 
     try:
@@ -152,21 +180,20 @@ def check_for_payment_email(service, trade_details, platform):
             email_body = get_email_body(full_message['payload'])
             if not email_body: continue
 
-            found_amount = None
+            found_amount, found_name = None, None
             if validator == "scotiabank":
-                found_amount, _ = extract_scotiabank_details(email_body)
+                found_amount, found_name = extract_scotiabank_details(email_body)
             elif validator == "oxxo":
-                found_amount = extract_oxxo_details(email_body)
+                found_amount, found_name = extract_oxxo_details(email_body)
             
+            # --- Save Email Log ---
             account_folder_name = f"{owner_username}_{platform}"
             log_directory = os.path.join("data", "logs", log_folder, account_folder_name)
             os.makedirs(log_directory, exist_ok=True)
-            
             sanitized_hash = "".join(c for c in trade_details['trade_hash'] if c.isalnum())
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             amount_str = f"_{found_amount:.2f}_" if found_amount is not None else "_"
             filename = os.path.join(log_directory, f"{sanitized_hash}{amount_str}{timestamp}.html")
-
             try:
                 with open(filename, "w", encoding="utf-8") as f:
                     f.write(email_body)
@@ -174,11 +201,21 @@ def check_for_payment_email(service, trade_details, platform):
             except Exception as e:
                 logger.error(f"Could not save email body: {e}")
 
-            if found_amount and found_amount == expected_amount:
-                logger.info(f"✅ SUCCESS: Amount in email matches trade {trade_details['trade_hash']}.")
-                return True
+            # --- Validation Check ---
+            is_amount_match = found_amount is not None and found_amount == expected_amount
+            is_name_match = found_name is not None and found_name == expected_name
 
-        logger.info(f"Found emails for trade {trade_details['trade_hash']}, but none matched expected amount.")
+            if is_amount_match and is_name_match:
+                logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
+                return True
+            else:
+                logger.warning(
+                    f"Validation failed for trade {trade_details['trade_hash']}: "
+                    f"Amount Match: {is_amount_match} (Expected: {expected_amount}, Found: {found_amount}), "
+                    f"Name Match: {is_name_match} (Expected: '{expected_name}', Found: '{found_name}')"
+                )
+
+        logger.info(f"Found emails for trade {trade_details['trade_hash']}, but none passed validation.")
         return False
 
     except HttpError as error:

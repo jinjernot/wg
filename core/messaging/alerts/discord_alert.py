@@ -1,10 +1,14 @@
-# core/messaging/alerts/discord_alert.py
 import requests
 import logging
 import json
 import os
 from config import DISCORD_WEBHOOKS
-from config_messages.discord_messages import AMOUNT_VALIDATION_EMBEDS, EMAIL_VALIDATION_EMBEDS, COLORS
+from config_messages.discord_messages import (
+    AMOUNT_VALIDATION_EMBEDS, 
+    EMAIL_VALIDATION_EMBEDS, 
+    NAME_VALIDATION_EMBEDS,
+    COLORS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +160,20 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
         "footer": {"text": "WillGang Bot"}
     }
     send_discord_embed(embed, alert_type="chat_log")
+
+def create_name_validation_embed(trade_hash, success, account_name):
+    """Builds and sends a name validation embed using templates."""
+    template = NAME_VALIDATION_EMBEDS["success"] if success else NAME_VALIDATION_EMBEDS["failure"]
+
+    formatted_fields = [
+        {"name": field["name"], "value": field["value"].format(account_name=account_name)}
+        for field in template["fields"]
+    ]
+
+    embed = {
+        "title": template["title"],
+        "color": COLORS["success"] if success else COLORS["error"],
+        "fields": formatted_fields,
+        "footer": {"text": f"Trade: {trade_hash}"}
+    }
+    send_discord_embed(embed, alert_type="attachments")

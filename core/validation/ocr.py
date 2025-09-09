@@ -1,3 +1,4 @@
+# core/validation/ocr.py
 import pytesseract
 import re
 from PIL import Image
@@ -70,3 +71,20 @@ def find_amount_in_text(text, trade_amount):
     logger.warning(f"Amount mismatch. Expected: {expected_amount}, Found on receipt: {all_found_floats}")
     
     return max(all_found_floats) if all_found_floats else None
+
+def find_name_in_text(text, name_keywords):
+    """
+    Searches the extracted text for any of the provided name keywords.
+    Returns True if a match is found, False otherwise.
+    """
+    if not text or not name_keywords:
+        return False
+    
+    for keyword in name_keywords:
+        # Using word boundaries to avoid partial matches (e.g., 'Robert' in 'Roberta')
+        if re.search(r'\b' + re.escape(keyword) + r'\b', text, re.IGNORECASE):
+            logger.info(f"SUCCESS: Found name keyword '{keyword}' in receipt text.")
+            return True
+            
+    logger.warning(f"Could not find any of the expected name keywords: {name_keywords}")
+    return False
