@@ -1,3 +1,4 @@
+# jinjernot/wg/wg-58e87644bc389c5c3f8f57d6d639116b58c265f7/discord_bot.py
 import discord
 from discord import app_commands
 from discord.ext import tasks
@@ -384,6 +385,33 @@ async def user_profile_command(interaction: discord.Interaction, username: str):
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         logger.error(f"Could not connect to Flask app for /user_profile: {e}")
         
+@tree.command(name="bitso_summary", description="Get the sum of all Bitso deposits for the current month.")
+async def bitso_summary_command(interaction: discord.Interaction):
+    """Handles the /bitso_summary slash command."""
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        url = "http://127.0.0.1:5001/bitso_summary"
+        response = requests.get(url, timeout=30) 
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                total = data.get("total_deposits")
+                embed = discord.Embed(
+                    title="💰 Bitso Deposits Summary (Current Month)",
+                    description=f"The total sum of all successful Bitso deposits for the current month is **${total}**.",
+                    color=discord.Color.green()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                await interaction.followup.send(f"Error: {data.get('error', 'An unknown error occurred.')}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.", ephemeral=True)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        logger.error(f"Could not connect to Flask app for /bitso_summary: {e}")
         
 # --- Starting the Bot ---
 if __name__ == "__main__":

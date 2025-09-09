@@ -1,3 +1,4 @@
+# jinjernot/wg/wg-58e87644bc389c5c3f8f57d6d639116b58c265f7/app.py
 import json
 import os
 import logging
@@ -12,6 +13,9 @@ from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
 from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
 from core.utils.profile import generate_user_profile
+from core.bitso.fetch_funding import fetch_funding_transactions_for_user
+from core.bitso.filter_data import filter_fundings_this_month
+import bitso_config
 
 app = Flask(__name__)
 setup_logging()
@@ -182,6 +186,34 @@ def send_manual_message():
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:
         return jsonify({"success": False, "error": "Failed to send message via API."}), 500
+
+@app.route("/bitso_summary")
+def get_bitso_summary():
+    """New endpoint to get the sum of all bitso deposits for the current month."""
+    total_deposits = 0.0
+    try:
+        all_fundings = []
+        for user, (api_key, api_secret) in bitso_config.API_KEYS.items():
+            if not api_key or not api_secret:
+                print(f"Missing credentials for {user}. Skipping...")
+                continue
+            fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
+            all_fundings.extend(fundings)
+
+        filtered_fundings = filter_fundings_this_month(all_fundings)
+        
+        for funding in filtered_fundings:
+            if funding.get('status') == 'complete':
+                try:
+                    total_deposits += float(funding.get('amount', 0))
+                except (ValueError, TypeError):
+                    continue
+        
+        return jsonify({"success": True, "total_deposits": f"{total_deposits:,.2f}"})
+
+    except Exception as e:
+        logger.error(f"Failed to get Bitso summary: {e}")
+        return jsonify({"success": False, "error": "Failed to retrieve Bitso summary."}), 500
 
 # --- Bot Process Routes ---
 @app.route("/start_trading", methods=["POST"])
