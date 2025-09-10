@@ -17,6 +17,7 @@ tree = app_commands.CommandTree(client)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- THIS IS NO LONGER STRICTLY NEEDED FOR COMMAND SYNCING BUT CAN BE KEPT FOR OTHER USES ---
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
@@ -36,8 +37,8 @@ def format_status_for_discord(status):
 @client.event
 async def on_ready():
     """Event that runs when the bot is connected and ready."""
-    tree.copy_global_to(guild=MY_GUILD)
-    await tree.sync(guild=MY_GUILD)
+    # --- CHANGED: Sync commands globally instead of to a specific guild ---
+    await tree.sync()
 
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
@@ -157,10 +158,8 @@ async def active_trades_command(interaction: discord.Interaction):
                 inline=False
             )
         
-        # --- THIS SECTION IS CORRECTED ---
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         embed.set_footer(text="Live data")
-        # --- END OF CORRECTION ---
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -328,9 +327,6 @@ async def user_profile_command(interaction: discord.Interaction, username: str):
             embed_data = USER_PROFILE_EMBED.copy()
             embed_data["title"] = embed_data["title"].format(username=stats.get('username', 'N/A'))
             
-            # --- THIS ENTIRE SECTION HAS BEEN UPDATED FOR THE NEW DATA ---
-            
-            # Calculate new stats
             issues = stats.get('canceled_trades', 0) + stats.get('disputed_trades', 0)
             successful_trades = stats.get('successful_trades', 0)
             total_trades = stats.get('total_trades', 0)
@@ -355,22 +351,18 @@ async def user_profile_command(interaction: discord.Interaction, username: str):
             
             embed = discord.Embed.from_dict(embed_data)
 
-            # Add a field for each platform the user has traded on
             if stats.get("platforms"):
                 platform_stats = []
                 for platform, data in stats["platforms"].items():
                     platform_stats.append(f"**{platform.capitalize()}**: {data['trades']} trades (${data['volume']:.2f})")
                 embed.add_field(name="Platform Activity", value="\n".join(platform_stats), inline=False)
 
-            # Add a field showing which of your accounts handled the trades
             if stats.get("accounts"):
                 account_stats = []
                 for owner, count in stats["accounts"].items():
                     account_stats.append(f"**{owner.capitalize()}**: {count} trades")
                 embed.add_field(name="Handled By", value="\n".join(account_stats), inline=False)
             
-            # --- END OF UPDATED SECTION ---
-
             await interaction.followup.send(embed=embed, ephemeral=True)
 
         elif response.status_code == 404:

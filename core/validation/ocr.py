@@ -5,8 +5,27 @@ from PIL import Image
 import logging
 import cv2
 import numpy as np
+import json
+import os
 
 logger = logging.getLogger(__name__)
+
+# --- NEW: Load OCR Templates from JSON ---
+def load_ocr_templates():
+    """Loads OCR keyword templates from a JSON file."""
+    try:
+        # **PATH UPDATED TO LOOK INSIDE THE 'data' FOLDER**
+        templates_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'ocr_templates.json')
+        with open(templates_path, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.error(f"Could not load or parse ocr_templates.json from the data folder: {e}")
+        # Return a default structure to prevent crashes
+        return {"bank_keywords": {}, "amount_keywords": {"priority": []}}
+
+OCR_TEMPLATES = load_ocr_templates()
+# -----------------------------------------
+
 
 try:
     # NOTE: The path to tesseract may need to be adjusted depending on your system.
@@ -24,16 +43,9 @@ def preprocess_image_for_ocr(image_path):
             logger.error(f"Could not read image from path: {image_path}")
             return None
 
-        # 1. Binarization (convert to black and white)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Applying Otsu's thresholding automatically finds the optimal threshold value
         _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-
-        # 2. Noise Reduction
-        # A median blur is effective at removing salt-and-pepper noise from images
         denoised = cv2.medianBlur(binary, 3)
-
-        # Return the preprocessed image
         return denoised
     except Exception as e:
         logger.error(f"An error occurred during image pre-processing for {image_path}: {e}")
@@ -44,16 +56,13 @@ def extract_text_from_image(image_path):
     Opens an image file, pre-processes it, and uses Tesseract to extract the text.
     """
     try:
-        # Activate the pre-processing step
         preprocessed_image = preprocess_image_for_ocr(image_path)
         
         if preprocessed_image is None:
-             # Fallback to the original image if pre-processing fails
             logger.warning("Pre-processing failed. Falling back to original image.")
             with Image.open(image_path) as img:
                 text = pytesseract.image_to_string(img)
         else:
-            # Using Page Segmentation Mode (PSM) 6 assumes a single uniform block of text.
             custom_config = r'--oem 3 --psm 6'
             text = pytesseract.image_to_string(preprocessed_image, config=custom_config)
 
@@ -66,22 +75,13 @@ def extract_text_from_image(image_path):
 
 def identify_bank_from_text(text):
     """
-    Identifies the bank or payment provider based on keywords in the text.
+    Identifies the bank or payment provider based on keywords from the template file.
     """
     if not text:
         return None
 
     text_lower = text.lower()
-
-    # Define keywords for each bank/provider
-    bank_keywords = {
-        "OXXO": ["oxxo", "spin by oxxo"],
-        "Scotiabank": ["scotiabank", "scotia"],
-        "BBVA": ["bbva", "bancomer"],
-        "Citibanamex": ["citibanamex", "banamex"],
-        "Santander": ["santander"],
-        # Add more banks and their specific keywords here
-    }
+    bank_keywords = OCR_TEMPLATES.get("bank_keywords", {})
 
     for bank, keywords in bank_keywords.items():
         if any(keyword in text_lower for keyword in keywords):
@@ -94,13 +94,14 @@ def identify_bank_from_text(text):
 def find_amount_in_text(text, trade_amount):
     """
     Searches extracted text for a monetary value that matches the trade amount.
-    It prioritizes amounts found on lines with keywords like 'total' or 'monto'.
+    It uses priority keywords from the template file.
     """
     if not text:
         return None
 
     money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})\b'
-    priority_keywords = ['total', 'monto', 'pago total', 'total a pagar', 'importe']
+    # Use keywords from the loaded JSON template
+    priority_keywords = OCR_TEMPLATES.get("amount_keywords", {}).get("priority", [])
     priority_amounts = []
     all_amounts = []
 
@@ -136,7 +137,6 @@ def find_amount_in_text(text, trade_amount):
 def find_name_in_text(text, name_keywords):
     """
     Searches the extracted text for any of the provided name keywords.
-    Returns True if a match is found, False otherwise.
     """
     if not text or not name_keywords:
         return False
