@@ -10,6 +10,7 @@ from config_messages.discord_messages import (
     NAME_VALIDATION_EMBEDS,
     COLORS
 )
+from .discord_thread_manager import get_thread_id
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,15 @@ def _send_discord_request(webhook_url, payload=None, files=None):
     except Exception as e:
         return False, str(e)
 
-def send_discord_embed(embed_data, alert_type="default"):
+def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """Sends a formatted embed message to the appropriate Discord webhook."""
     webhook_url = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+
+    if trade_hash:
+        thread_id = get_thread_id(trade_hash)
+        if thread_id:
+            webhook_url += f"?thread_id={thread_id}"
+    
     payload = {"embeds": [embed_data]}
     
     success, message = _send_discord_request(webhook_url, payload)
@@ -59,7 +66,7 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default"):
     except IOError as e:
         logger.error(f"Could not open image file for Discord alert: {e}")
 
-def create_new_trade_embed(trade_data, platform):
+def create_new_trade_embed(trade_data, platform, send=True):
     """Creates and sends a Discord embed for a new trade notification, color-coded by platform."""
     platform_name = "Paxful" if platform == "Paxful" else "Noones"
     
@@ -81,7 +88,10 @@ def create_new_trade_embed(trade_data, platform):
             {"name": "Payment Method", "value": str(trade_data.get('payment_method_name')), "inline": False},
         ], "footer": {"text": "WillGang Bot"}
     }
-    send_discord_embed(embed, alert_type="trades")
+    if send:
+        send_discord_embed(embed, alert_type="trades")
+    else:
+        return embed
 
 def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
     """Creates and sends a Discord embed for a new attachment with the image."""
@@ -165,7 +175,7 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
         ],
         "footer": {"text": "WillGang Bot"}
     }
-    send_discord_embed(embed, alert_type="chat_log")
+    send_discord_embed(embed, alert_type="chat_log", trade_hash=trade_hash)
 
 def create_name_validation_embed(trade_hash, success, account_name):
     """Builds and sends a name validation embed using templates."""

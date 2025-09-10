@@ -14,7 +14,8 @@ from core.validation.ocr import (
     extract_text_from_image, 
     find_amount_in_text, 
     find_name_in_text,
-    identify_bank_from_text
+    identify_bank_from_text,
+    save_ocr_text
 )
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
@@ -36,8 +37,10 @@ from core.messaging.alerts.discord_alert import (
     create_attachment_embed,
     create_amount_validation_embed,
     create_email_validation_embed,
-    create_name_validation_embed
+    create_name_validation_embed,
+    create_chat_message_embed
 )
+from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
 
 logger = logging.getLogger(__name__)
@@ -76,7 +79,11 @@ class Trade:
         """Handles logic for a trade seen for the first time."""
         logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
-        create_new_trade_embed(self.trade_state, self.platform)
+        
+        new_trade_embed_data = create_new_trade_embed(self.trade_state, self.platform, send=False)
+        if new_trade_embed_data:
+            create_trade_thread(self.trade_hash, new_trade_embed_data)
+
         self.trade_state['first_seen_utc'] = datetime.now(timezone.utc).isoformat()
         send_welcome_message(self.trade_state, self.account, self.headers)
         payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
@@ -199,6 +206,8 @@ class Trade:
                 
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
+                
+                save_ocr_text(self.trade_hash, text, identified_bank)
 
                 send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
                 create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)

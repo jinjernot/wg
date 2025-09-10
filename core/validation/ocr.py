@@ -1,4 +1,3 @@
-# core/validation/ocr.py
 import pytesseract
 import re
 from PIL import Image
@@ -7,8 +6,13 @@ import cv2
 import numpy as np
 import json
 import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# --- NEW: Define the path for OCR logs ---
+OCR_LOG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'ocr_logs')
+os.makedirs(OCR_LOG_PATH, exist_ok=True) # Ensures the directory exists
 
 # --- NEW: Load OCR Templates from JSON ---
 def load_ocr_templates():
@@ -26,12 +30,25 @@ def load_ocr_templates():
 OCR_TEMPLATES = load_ocr_templates()
 # -----------------------------------------
 
-
 try:
     # NOTE: The path to tesseract may need to be adjusted depending on your system.
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 except FileNotFoundError:
     logger.warning("Tesseract executable not found at the specified path. Make sure it's in your system's PATH or update the path in ocr_processor.py.")
+
+def save_ocr_text(trade_hash, text, identified_bank=None):
+    """Saves the extracted OCR text to a file for analysis."""
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        bank_suffix = f"_{identified_bank}" if identified_bank else ""
+        filename = f"{trade_hash}{bank_suffix}_{timestamp}.txt"
+        filepath = os.path.join(OCR_LOG_PATH, filename)
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(text)
+        logger.info(f"Saved OCR text for trade {trade_hash} to {filename}")
+    except Exception as e:
+        logger.error(f"Failed to save OCR text for trade {trade_hash}: {e}")
 
 def preprocess_image_for_ocr(image_path):
     """
