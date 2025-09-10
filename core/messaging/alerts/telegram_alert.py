@@ -1,3 +1,4 @@
+# core/messaging/alerts/telegram_alert.py
 import requests
 import json
 import re
@@ -15,8 +16,14 @@ from config_messages.telegram_messages import (
     EMAIL_VALIDATION_SUCCESS_ALERT,
     EMAIL_VALIDATION_FAILURE_ALERT,
     NAME_VALIDATION_SUCCESS_ALERT,
-    NAME_VALIDATION_FAILURE_ALERT
+    NAME_VALIDATION_FAILURE_ALERT,
+    # Assuming you add this new template to your config file
+    # NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE 
 )
+
+# Define the new message template here for now
+NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE = "📄 *New Attachment Received* 📄\n\n*Bank Identified:* `{bank_name}`\n*Trade Hash:* `{trade_hash}`\n*Account:* `{owner_username}`\n*Uploaded By:* `{author}`"
+
 
 logger = logging.getLogger(__name__)
 
@@ -87,16 +94,24 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     else:
         logger.error(f"Failed to send chat alert: {response.status_code} - {response.text}")
 
-def send_attachment_alert(trade_hash, owner_username, author, image_path):
+def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_name=None):
     if not os.path.exists(image_path):
         logger.error(f"Error: Image path does not exist: {image_path}")
         return
 
-    caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(
-        trade_hash=escape_markdown(trade_hash), 
-        owner_username=escape_markdown(owner_username),
-        author=escape_markdown(author)
-    )
+    if bank_name:
+        caption = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE.format(
+            bank_name=escape_markdown(bank_name),
+            trade_hash=escape_markdown(trade_hash), 
+            owner_username=escape_markdown(owner_username),
+            author=escape_markdown(author)
+        )
+    else:
+        caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(
+            trade_hash=escape_markdown(trade_hash), 
+            owner_username=escape_markdown(owner_username),
+            author=escape_markdown(author)
+        )
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     data = {

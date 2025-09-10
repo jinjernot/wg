@@ -10,7 +10,12 @@ from config import (
 from core.state.get_files import load_processed_trades, save_processed_trade
 from core.api.trade_chat import fetch_trade_chat_messages
 from core.validation.email import check_for_payment_email, get_gmail_service
-from core.validation.ocr import extract_text_from_image, find_amount_in_text, find_name_in_text
+from core.validation.ocr import (
+    extract_text_from_image, 
+    find_amount_in_text, 
+    find_name_in_text,
+    identify_bank_from_text
+)
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
 from core.messaging.trade_lifecycle_messages import (
@@ -191,10 +196,16 @@ class Trade:
         for attachment in new_attachments:
             path, author = attachment['path'], attachment['author']
             if author not in ["davidvs", "JoeWillgang"]:
-                send_attachment_alert(self.trade_hash, self.owner_username, author, path)
-                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform)
                 
                 text = extract_text_from_image(path)
+                identified_bank = identify_bank_from_text(text)
+
+                send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
+                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
+                
+                if identified_bank:
+                    self.trade_state['ocr_identified_bank'] = identified_bank
+                    logger.info(f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
                 
                 # --- Perform and Alert on Amount Validation ---
                 found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))

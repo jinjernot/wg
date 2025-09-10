@@ -1,3 +1,4 @@
+# core/messaging/alerts/discord_alert.py
 import requests
 import logging
 import json
@@ -82,7 +83,7 @@ def create_new_trade_embed(trade_data, platform):
     }
     send_discord_embed(embed, alert_type="trades")
 
-def create_attachment_embed(trade_hash, owner_username, author, image_path, platform):
+def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
     """Creates and sends a Discord embed for a new attachment with the image."""
     if platform == "Paxful":
         embed_color = COLORS["PAXFUL_GREEN"]
@@ -91,14 +92,19 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
     else:
         embed_color = COLORS["info"]
 
+    fields = [ 
+        {"name": "Account", "value": str(owner_username), "inline": True},
+        {"name": "Uploaded By", "value": str(author), "inline": True} 
+    ]
+
+    if bank_name:
+        fields.append({"name": "Identified Bank", "value": str(bank_name), "inline": False})
+
     embed = {
         "title": "📄 New Attachment Uploaded",
         "color": embed_color,
         "description": f"Review attachment for trade `{trade_hash}`.",
-        "fields": [ 
-            {"name": "Account", "value": str(owner_username), "inline": True},
-            {"name": "Uploaded By", "value": str(author), "inline": True} 
-        ],
+        "fields": fields,
         "footer": {"text": "WillGang Bot"}
     }
     send_discord_embed_with_image(embed, image_path, alert_type="attachments")
