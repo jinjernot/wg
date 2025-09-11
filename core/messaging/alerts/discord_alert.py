@@ -10,7 +10,6 @@ from config_messages.discord_messages import (
     NAME_VALIDATION_EMBEDS,
     COLORS
 )
-from .discord_thread_manager import get_thread_id
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,8 @@ def _send_discord_request(webhook_url, payload=None, files=None):
 
 def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """Sends a formatted embed message to the appropriate Discord webhook."""
+    # MOVED IMPORT HERE
+    from .discord_thread_manager import get_thread_id 
     webhook_url = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
 
     if trade_hash:
@@ -49,9 +50,15 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     else:
         logger.error(f"Failed to send Discord alert ('{alert_type}'): {message}")
 
-def send_discord_embed_with_image(embed_data, image_path, alert_type="default"):
+def send_discord_embed_with_image(embed_data, image_path, alert_type="default", trade_hash=None):
     """Sends an embed message along with an image file."""
+    from .discord_thread_manager import get_thread_id
     webhook_url = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+    if trade_hash:
+        thread_id = get_thread_id(trade_hash)
+        if thread_id:
+            webhook_url += f"?thread_id={thread_id}"
+
     payload = {"embeds": [embed_data]}
 
     try:
@@ -117,7 +124,7 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
         "fields": fields,
         "footer": {"text": "WillGang Bot"}
     }
-    send_discord_embed_with_image(embed, image_path, alert_type="attachments")
+    send_discord_embed_with_image(embed, image_path, alert_type="attachments", trade_hash=trade_hash)
 
 def create_amount_validation_embed(trade_hash, owner_username, expected, found, currency):
     """Builds and sends an amount validation embed using templates."""
@@ -136,7 +143,7 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
         "color": COLORS["success"] if "✅" in template["title"] else (COLORS["warning"] if "⚠️" in template["title"] else COLORS["error"]),
         "fields": fields, "footer": {"text": f"Trade: {trade_hash}"}
     }
-    send_discord_embed(embed, alert_type="attachments")
+    send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
 
 def create_email_validation_embed(trade_hash, success, account_name):
     """Builds and sends an email validation embed using templates."""
@@ -153,7 +160,7 @@ def create_email_validation_embed(trade_hash, success, account_name):
         "fields": formatted_fields,
         "footer": {"text": f"Trade: {trade_hash}"}
     }
-    send_discord_embed(embed, alert_type="attachments")
+    send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
 
 def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a Discord embed for a new chat message."""
@@ -192,4 +199,4 @@ def create_name_validation_embed(trade_hash, success, account_name):
         "fields": formatted_fields,
         "footer": {"text": f"Trade: {trade_hash}"}
     }
-    send_discord_embed(embed, alert_type="attachments")
+    send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)

@@ -4,15 +4,15 @@ import json
 import os
 from datetime import datetime, timezone
 from config import (
-    CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, 
+    CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
     EMAIL_CHECK_DURATION, JSON_PATH
 )
 from core.state.get_files import load_processed_trades, save_processed_trade
 from core.api.trade_chat import fetch_trade_chat_messages
 from core.validation.email import check_for_payment_email, get_gmail_service
 from core.validation.ocr import (
-    extract_text_from_image, 
-    find_amount_in_text, 
+    extract_text_from_image,
+    find_amount_in_text,
     find_name_in_text,
     identify_bank_from_text,
     save_ocr_text
@@ -79,7 +79,7 @@ class Trade:
         """Handles logic for a trade seen for the first time."""
         logger.info(f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
-        
+
         new_trade_embed_data = create_new_trade_embed(self.trade_state, self.platform, send=False)
         if new_trade_embed_data:
             create_trade_thread(self.trade_hash, new_trade_embed_data)
@@ -108,7 +108,7 @@ class Trade:
     def get_credential_identifier_for_trade(self):
         """Finds the name identifier for credentials based on the selected payment account."""
         slug = self.trade_state.get("payment_method_slug", "").lower()
-        
+
         json_key_slug = ""
         if slug == "oxxo":
             json_key_slug = "oxxo"
@@ -119,7 +119,7 @@ class Trade:
 
         json_filename = f"{json_key_slug}.json"
         json_path = os.path.join(JSON_PATH, json_filename)
-        
+
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 payment_data = json.load(f)
@@ -127,13 +127,13 @@ class Trade:
             user_data = payment_data.get(self.owner_username, {})
             method_data = user_data.get(json_key_slug, {})
             selected_id = str(method_data.get("selected_id", ""))
-            
+
             if not selected_id:
                 logger.warning(f"No selected_id found for {self.owner_username} in {json_filename}")
                 return None
 
             account = next((acc for acc in method_data.get("accounts", []) if str(acc.get("id")) == selected_id), None)
-            
+
             if account and "name" in account:
                 return account["name"]
             else:
@@ -184,7 +184,7 @@ class Trade:
                 self.trade_state['email_validation_alert_sent'] = True
                 self.save()
             self.trade_state['email_check_timed_out'] = True
-    
+
     def check_chat_and_attachments(self):
         """Fetches chat history and processes any new attachments."""
         attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
@@ -203,19 +203,19 @@ class Trade:
         for attachment in new_attachments:
             path, author = attachment['path'], attachment['author']
             if author not in ["davidvs", "JoeWillgang"]:
-                
+
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
-                
+
                 save_ocr_text(self.trade_hash, text, identified_bank)
 
                 send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
                 create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
-                
+
                 if identified_bank:
                     self.trade_state['ocr_identified_bank'] = identified_bank
                     logger.info(f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
-                
+
                 # --- Perform and Alert on Amount Validation ---
                 found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
                 if not self.trade_state.get('amount_validation_alert_sent'):
@@ -232,10 +232,10 @@ class Trade:
                         send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
                         create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
                         self.trade_state['name_validation_alert_sent'] = True
-                
+
                 self.save()
 
-                                            
+
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')
