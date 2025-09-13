@@ -129,7 +129,11 @@ def find_amount_in_text(text, trade_amount):
             amount = float(amount_str.replace(',', ''))
             all_amounts.append(amount)
             if is_priority_line:
-                priority_amounts.append(amount)
+                # For OXXO, prioritize the amount on the "monto" line
+                if identified_bank == "OXXO" and "monto" in line:
+                    priority_amounts.insert(0, amount) # Insert at the beginning for highest priority
+                else:
+                    priority_amounts.append(amount)
 
     expected_amount = float(trade_amount)
 
