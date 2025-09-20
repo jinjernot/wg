@@ -19,12 +19,8 @@ def get_all_offers():
             "Content-Type": "application/x-www-form-urlencoded"
         }
 
-        # --- CORRECTED ENDPOINT ---
         platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
-        url = f"{platform_url}/offer/list" # Use the correct endpoint for listing YOUR offers
-        
-        # This endpoint might not use pagination, but we can keep the loop structure just in case.
-        # It also likely doesn't need parameters, as it's just listing your own offers.
+        url = f"{platform_url}/offer/list"
         
         try:
             response = requests.post(url, headers=headers, timeout=15)
@@ -32,7 +28,6 @@ def get_all_offers():
             if response.status_code == 200:
                 try:
                     response_data = response.json()
-                    # The structure might be simpler, e.g., directly in 'data'
                     offers = response_data.get("data", {}).get("offers", [])
                     
                     if not offers and "data" in response_data and isinstance(response_data["data"], list):
@@ -79,12 +74,15 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
     }
     
     platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in target_account["name"] else "https://api.noones.com/noones/v1"
+    
+    # --- CORRECTED ENDPOINT AND DATA ---
     endpoint = "/offer/activate" if turn_on else "/offer/deactivate"
     url = f"{platform_url}{endpoint}"
-    data = {"offer_hash": offer_hash}
-
+    data = {"offer_hash": offer_hash} # Pass hash in the body
+    
     try:
         response = requests.post(url, headers=headers, data=data, timeout=15)
+        
         if response.status_code == 200 and response.json().get("status") == "success":
             return {"success": True}
         else:
@@ -95,7 +93,7 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
 
 def set_offer_status(turn_on):
     """
-    Turns all offers on or off for all configured accounts.
+    Turns all offers on or off for all configured accounts using the correct endpoints.
     """
     results = []
     for account in ACCOUNTS:
@@ -110,11 +108,15 @@ def set_offer_status(turn_on):
         }
         
         platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
+        
+        # --- CORRECTED ENDPOINTS ---
         endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
         url = f"{platform_url}{endpoint}"
 
         try:
+            # This endpoint does not require a body/data
             response = requests.post(url, headers=headers)
+            
             if response.status_code == 200 and response.json().get("status") == "success":
                 results.append({"account": account["name"], "success": True})
             else:

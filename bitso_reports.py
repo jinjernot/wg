@@ -19,6 +19,10 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
         return [], []
 
     fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
+    # Add the user/account name to each funding record for later grouping
+    for f in fundings:
+        f['account_user'] = user
+
     filtered = filter_fundings_by_month(fundings, year, month)
 
     export_to_csv(filtered, filename=f'bitso_deposits_{user}.csv')
@@ -30,12 +34,6 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
 def generate_growth_chart(all_fundings: list, year: int, month: int, filename: str = 'bitso_this_month_income.png'):
     """
     Generates and saves a bar chart of daily income for a specific month.
-
-    Args:
-        all_fundings (list): A list of all funding transaction dictionaries.
-        year (int): The year to filter by.
-        month (int): The month to filter by.
-        filename (str): The name of the file to save the chart to.
     """
     print(f"\nGenerating daily income bar chart for {year}-{month}...")
 
@@ -43,7 +41,6 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
         print("No funding data available to generate a bar chart.")
         return
 
-    # Filter for successful/completed transactions only
     successful_fundings = [f for f in all_fundings if f.get('status') == 'complete']
 
     if not successful_fundings:
@@ -51,16 +48,12 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
         return
 
     df = pd.DataFrame(successful_fundings)
-
-    # Convert data types for processing
     df['created_at'] = pd.to_datetime(df['created_at'])
     df['amount'] = pd.to_numeric(df['amount'])
 
-    # Define and convert to Mexico City timezone
     mexico_tz = pytz.timezone('America/Mexico_City')
     df['created_at'] = df['created_at'].dt.tz_convert(mexico_tz)
 
-    # Filter for transactions in the specified month and year using Mexico City time
     month_df = df[(df['created_at'].dt.year == year) &
                     (df['created_at'].dt.month == month)]
 
@@ -68,28 +61,66 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
         print(f"No income data found for {year}-{month}. Bar chart not generated.")
         return
 
-    # Group by day and sum the amounts.
     month_df.set_index('created_at', inplace=True)
     daily_income = month_df['amount'].resample('D').sum()
 
-    # Create and style the bar chart
     plt.figure(figsize=(12, 7))
     daily_income.plot(kind='bar', color='skyblue', edgecolor='black')
 
-    # Improve formatting
     chart_date = datetime(year, month, 1)
     plt.title(f'Feria lavada: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
     plt.xlabel('Dia del mes', fontsize=12)
     plt.ylabel('Dinero para la pension', fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    # Format x-axis to show only the day number
     plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d'))
     plt.xticks(rotation=0)
     plt.tight_layout()
 
-    # Save the chart to a file
     plt.savefig(filename)
     print(f"Success! Daily income bar chart saved to {filename}")
+    plt.close()
+
+def generate_pie_chart_by_account(all_fundings: list, year: int, month: int, filename: str = 'bitso_pie_chart.png'):
+    """
+    Generates and saves a pie chart of income broken down by account.
+    """
+    print(f"\nGenerating pie chart by account for {year}-{month}...")
+
+    if not all_fundings:
+        print("No funding data available to generate a pie chart.")
+        return
+
+    successful_fundings = [f for f in all_fundings if f.get('status') == 'complete']
+    if not successful_fundings:
+        print("No successful funding data found for a pie chart.")
+        return
+
+    df = pd.DataFrame(successful_fundings)
+    df['created_at'] = pd.to_datetime(df['created_at'])
+    df['amount'] = pd.to_numeric(df['amount'])
+
+    mexico_tz = pytz.timezone('America/Mexico_City')
+    df['created_at'] = df['created_at'].dt.tz_convert(mexico_tz)
+
+    month_df = df[(df['created_at'].dt.year == year) & (df['created_at'].dt.month == month)]
+
+    if month_df.empty:
+        print(f"No income data for {year}-{month} to generate a pie chart.")
+        return
+
+    account_summary = month_df.groupby('account_user')['amount'].sum()
+
+    plt.figure(figsize=(10, 8))
+    account_summary.plot(kind='pie', autopct='%1.1f%%', startangle=140,
+                         colors=plt.cm.Paired.colors)
+
+    chart_date = datetime(year, month, 1)
+    plt.title(f'Ingresos por cuenta: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
+    plt.ylabel('') # Hides the 'amount' label on the y-axis
+    plt.tight_layout()
+
+    plt.savefig(filename)
+    print(f"Success! Pie chart by account saved to {filename}")
     plt.close()
 
 
@@ -114,9 +145,9 @@ def main():
     if all_fundings_data:
         print("\nGenerating combined summary of failed deposits for all accounts...")
         export_failed_to_csv(all_fundings_data, filename='bitso_failed_deposits_all.csv')
-
-        # Generate the growth chart from all funding data
+        
         generate_growth_chart(all_fundings_data, year, month)
+        generate_pie_chart_by_account(all_fundings_data, year, month)
 
 if __name__ == '__main__':
     main()

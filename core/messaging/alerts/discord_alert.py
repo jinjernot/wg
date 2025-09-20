@@ -10,13 +10,14 @@ from config_messages.discord_messages import (
     NAME_VALIDATION_EMBEDS,
     COLORS
 )
+from .discord_thread_manager import get_thread_id
 
 logger = logging.getLogger(__name__)
 
 def _send_discord_request(webhook_url, payload=None, files=None):
     """Helper function to send HTTP requests to Discord."""
     if not webhook_url or "YOUR_WEBHOOK_URL_HERE" in webhook_url:
-        return False, "Webhook URL is not configured."
+        return False, "Webhook URL is not configured.", None
 
     try:
         if files:
@@ -25,18 +26,33 @@ def _send_discord_request(webhook_url, payload=None, files=None):
             response = requests.post(webhook_url, json=payload)
         
         if response.status_code in [200, 204]:
-            return True, "Success"
+            return True, "Success", None
         else:
-            return False, f"{response.status_code} - {response.text}"
+            error_code = None
+            try:
+                error_code = response.json().get("code")
+            except json.JSONDecodeError:
+                pass # No JSON body
+            return False, f"{response.status_code} - {response.text}", error_code
     except Exception as e:
-        return False, str(e)
+        return False, str(e), None
 
 def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
-    """Sends a formatted embed message to the appropriate Discord webhook."""
-    # MOVED IMPORT HERE
-    from .discord_thread_manager import get_thread_id 
-    webhook_url = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+    """
+    Sends a formatted embed message to the appropriate Discord webhook.
+    Routes to the chat_log webhook if a trade_hash is provided.
+    Retries in the main channel if the thread is archived.
+    """
+    # If a trade_hash is present, the message is for a thread in the chat_log channel.
+    # We must use the webhook associated with that channel.
+    if trade_hash:
+        webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
+    else:
+        webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
 
+    webhook_url = webhook_url_base
+    thread_id = None
+    
     if trade_hash:
         thread_id = get_thread_id(trade_hash)
         if thread_id:
@@ -44,16 +60,33 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     
     payload = {"embeds": [embed_data]}
     
-    success, message = _send_discord_request(webhook_url, payload)
+    success, message, error_code = _send_discord_request(webhook_url, payload)
+    
+    # If it failed because the thread is archived (error 10003), try sending to the main channel.
+    if not success and error_code == 10003 and thread_id:
+        logger.warning(f"Failed to send to thread {thread_id} (likely archived). Retrying in main channel.")
+        success, message, _ = _send_discord_request(webhook_url_base, payload)
+
     if success:
-        logger.info(f"Discord alert ('{alert_type}') sent successfully.")
+        logger.info(f"Discord alert ('{alert_type}') sent successfully to {'thread '+thread_id if thread_id else 'main channel'}.")
     else:
         logger.error(f"Failed to send Discord alert ('{alert_type}'): {message}")
 
+
 def send_discord_embed_with_image(embed_data, image_path, alert_type="default", trade_hash=None):
-    """Sends an embed message along with an image file."""
-    from .discord_thread_manager import get_thread_id
-    webhook_url = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+    """
+    Sends an embed message along with an image file.
+    Routes to the chat_log webhook if a trade_hash is provided.
+    Retries in the main channel if the thread is archived.
+    """
+    if trade_hash:
+        webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
+    else:
+        webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+
+    webhook_url = webhook_url_base
+    thread_id = None
+    
     if trade_hash:
         thread_id = get_thread_id(trade_hash)
         if thread_id:
@@ -64,8 +97,14 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default", 
     try:
         with open(image_path, 'rb') as f:
             files = {'file1': (os.path.basename(image_path), f, 'image/png')}
-            success, message = _send_discord_request(webhook_url, payload, files)
+            success, message, error_code = _send_discord_request(webhook_url, payload, files=files)
         
+        if not success and error_code == 10003 and thread_id:
+            logger.warning(f"Failed to send image to thread {thread_id} (likely archived). Retrying in main channel.")
+            with open(image_path, 'rb') as f:
+                files = {'file1': (os.path.basename(image_path), f, 'image/png')}
+                success, message, _ = _send_discord_request(webhook_url_base, payload, files=files)
+
         if success:
             logger.info(f"Discord attachment alert ('{alert_type}') sent successfully.")
         else:
