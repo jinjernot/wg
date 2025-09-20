@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveAllBtn = document.getElementById('save-all-btn');
     const offersCheckbox = document.getElementById('offers-checkbox');
     const settingToggles = document.querySelectorAll('.setting-toggle');
+    const offersContainer = document.getElementById('offers-container');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -55,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Specific handler for the offers toggle
+    // Specific handler for the main offers toggle
     if (offersCheckbox) {
         offersCheckbox.addEventListener('change', async () => {
             const isEnabled = offersCheckbox.checked;
@@ -71,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     offersCheckbox.checked = !isEnabled;
                 } else {
                     alert(result.message);
+                    fetchOffers(); // Refresh the individual offers list
                 }
             } catch (error) {
                 console.error('Failed to update offers status:', error);
@@ -161,6 +163,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (offersContainer) {
+        offersContainer.addEventListener('change', async (event) => {
+            if (event.target.classList.contains('offer-toggle-checkbox')) {
+                const checkbox = event.target;
+                const offerHash = checkbox.dataset.offerHash;
+                const accountName = checkbox.dataset.accountName;
+                const isEnabled = checkbox.checked;
+
+                const statusCell = checkbox.closest('tr').querySelector('.status-indicator');
+
+                checkbox.disabled = true;
+
+                try {
+                    const response = await fetch('/offer/toggle_single', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            offer_hash: offerHash,
+                            account_name: accountName,
+                            enabled: isEnabled
+                        })
+                    });
+                    const result = await response.json();
+                    if (!result.success) {
+                        alert(`Error updating offer: ${result.error}`);
+                        checkbox.checked = !isEnabled; // Revert on error
+                    } else {
+                        // Update status text and color on success
+                        statusCell.textContent = isEnabled ? 'Enabled' : 'Disabled';
+                        statusCell.className = `status-indicator ${isEnabled ? 'running' : 'stopped'}`;
+                    }
+                } catch (error) {
+                    console.error('Failed to toggle offer:', error);
+                    alert('An unexpected error occurred.');
+                    checkbox.checked = !isEnabled; // Revert on error
+                } finally {
+                    checkbox.disabled = false;
+                }
+            }
+        });
+    }
 
     // --- Data Fetching and UI Update Functions ---
     async function updateStatus() {
@@ -239,9 +282,71 @@ document.addEventListener('DOMContentLoaded', () => {
         tradesContainer.appendChild(table);
     }
 
+    async function fetchOffers() {
+        if (!offersContainer) return;
+        try {
+            const response = await fetch('/get_offers');
+            const offers = await response.json();
+            updateOffersTable(offers);
+        } catch (error) {
+            offersContainer.innerHTML = '<p>Error fetching offers.</p>';
+            console.error(error);
+        }
+    }
+
+    function updateOffersTable(offers) {
+        if (!offersContainer) return;
+        offersContainer.innerHTML = '';
+        if (!offers || offers.length === 0) {
+            offersContainer.innerHTML = '<p>No offers found.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th>Payment Method</th>
+                    <th>Margin</th>
+                    <th>Range</th>
+                    <th>Status</th>
+                    <th>Enable/Disable</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+        offers.forEach(offer => {
+            const row = document.createElement('tr');
+            const isEnabled = offer.enabled;
+            row.innerHTML = `
+                <td>${offer.account_name || 'N/A'}</td>
+                <td>${offer.payment_method_name || 'N/A'}</td>
+                <td>${offer.margin || 'N/A'}%</td>
+                <td>${offer.fiat_amount_range_min || 'N/A'} - ${offer.fiat_amount_range_max || 'N/A'} ${offer.fiat_currency_code || ''}</td>
+                <td><span class="status-indicator ${isEnabled ? 'running' : 'stopped'}">${isEnabled ? 'Enabled' : 'Disabled'}</span></td>
+                <td>
+                    <label class="switch">
+                        <input type="checkbox" 
+                               class="offer-toggle-checkbox" 
+                               data-offer-hash="${offer.offer_hash}"
+                               data-account-name="${offer.account_name}"
+                               ${isEnabled ? 'checked' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        offersContainer.appendChild(table);
+    }
+
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
+    fetchOffers();
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
+    setInterval(fetchOffers, 120000); 
 });

@@ -3,6 +3,7 @@ import json
 import os
 import logging
 from flask import Flask, render_template, request, jsonify
+from datetime import datetime
 
 import bot_process_manager
 import web_utils
@@ -10,11 +11,11 @@ import web_utils
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
-from core.api.offers import set_offer_status
+from core.api.offers import set_offer_status, get_all_offers, toggle_single_offer
 from core.utils.log_config import setup_logging
 from core.utils.profile import generate_user_profile
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
-from core.bitso.filter_data import filter_fundings_this_month
+from core.bitso.filter_data import filter_fundings_by_month
 import bitso_config
 
 app = Flask(__name__)
@@ -158,6 +159,24 @@ def toggle_offers():
 
     return jsonify({"success": success, "message": message})
 
+@app.route("/get_offers")
+def get_offers_route():
+    offers = get_all_offers()
+    return jsonify(offers)
+
+@app.route("/offer/toggle_single", methods=["POST"])
+def toggle_single_offer_route():
+    data = request.json
+    account_name = data.get("account_name")
+    offer_hash = data.get("offer_hash")
+    is_enabled = data.get("enabled")
+
+    if not all([account_name, offer_hash, is_enabled is not None]):
+        return jsonify({"success": False, "error": "Missing required parameters."}), 400
+
+    result = toggle_single_offer(account_name, offer_hash, is_enabled)
+    return jsonify(result)
+
 @app.route("/send_manual_message", methods=["POST"])
 def send_manual_message():
     data = request.json
@@ -199,7 +218,8 @@ def get_bitso_summary():
             fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
             all_fundings.extend(fundings)
 
-        filtered_fundings = filter_fundings_this_month(all_fundings)
+        now = datetime.now()
+        filtered_fundings = filter_fundings_by_month(all_fundings, now.year, now.month)
         
         deposits_by_sender = {}
         for funding in filtered_fundings:

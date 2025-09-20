@@ -14,3 +14,4 @@ attachments
 credentials.json
 logs
 bitso_config.py
+ocr_logs
