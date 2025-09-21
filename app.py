@@ -5,8 +5,8 @@ import logging
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from datetime import datetime
 
-import bot_process_manager
-import web_utils
+import core.utils.bot_process_manager as bot_process_manager
+import core.utils.web_utils as web_utils
 
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
