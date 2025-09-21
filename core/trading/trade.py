@@ -207,7 +207,8 @@ class Trade:
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
 
-                save_ocr_text(self.trade_hash, text, identified_bank)
+                # --- UPDATED LINE ---
+                save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)
 
                 send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
                 create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
