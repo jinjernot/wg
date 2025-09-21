@@ -1,8 +1,8 @@
-# jinjernot/wg/wg-58e87644bc389c5c3f8f57d6d639116b58c265f7/app.py
+# app.py
 import json
 import os
 import logging
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from datetime import datetime
 
 import bot_process_manager
@@ -10,13 +10,15 @@ import web_utils
 
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
-from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH
+from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, TRADE_HISTORY
 from core.api.offers import set_offer_status, get_all_offers, toggle_single_offer
 from core.utils.log_config import setup_logging
 from core.utils.profile import generate_user_profile
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month
 import bitso_config
+from core.utils import trade_history
+
 
 app = Flask(__name__)
 setup_logging()
@@ -186,7 +188,7 @@ def send_manual_message():
 
     if not all([trade_hash, account_name, message]):
         return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
-    
+
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
 
@@ -220,18 +222,18 @@ def get_bitso_summary():
 
         now = datetime.now()
         filtered_fundings = filter_fundings_by_month(all_fundings, now.year, now.month)
-        
+
         deposits_by_sender = {}
         for funding in filtered_fundings:
             if funding.get('status') == 'complete':
                 details = funding.get('details', {}) or {}
                 clabe = details.get('sender_clabe')
-                
+
                 try:
                     amount = float(funding.get('amount', 0))
                 except (ValueError, TypeError):
                     continue
-                
+
                 name = bitso_config.ACCOUNT.get(clabe, clabe)
                 if name:
                     deposits_by_sender[name] = deposits_by_sender.get(name, 0) + amount
@@ -239,7 +241,7 @@ def get_bitso_summary():
         sorted_deposits = sorted(deposits_by_sender.items())
 
         return jsonify({
-            "success": True, 
+            "success": True,
             "deposits_by_sender": sorted_deposits,
             "total_deposits": sum(deposits_by_sender.values())
         })
@@ -247,6 +249,23 @@ def get_bitso_summary():
     except Exception as e:
         logger.error(f"Failed to get Bitso summary: {e}")
         return jsonify({"success": False, "error": "Failed to retrieve Bitso summary."}), 500
+
+
+@app.route("/generate_charts", methods=["POST"])
+def generate_charts():
+    """New endpoint to generate and retrieve trade charts."""
+    try:
+        plot_paths = trade_history.main()
+        return jsonify({"success": True, "charts": plot_paths})
+    except Exception as e:
+        logger.error(f"Failed to generate charts: {e}")
+        return jsonify({"success": False, "error": "Failed to generate charts."}), 500
+
+@app.route('/charts/<filename>')
+def get_chart(filename):
+    """Serves the generated chart images."""
+    return send_from_directory(TRADE_HISTORY, filename)
+
 
 # --- Bot Process Routes ---
 @app.route("/start_trading", methods=["POST"])

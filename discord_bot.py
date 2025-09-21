@@ -1,4 +1,4 @@
-
+# discord_bot.py
 import discord
 from discord import app_commands
 from discord.ext import tasks
@@ -22,7 +22,7 @@ tree = app_commands.CommandTree(client)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- THIS IS NO LONGER STRICTLY NEEDED FOR COMMAND SYNCING BUT CAN BE KEPT FOR OTHER USES ---
+# --- GUILD OBJECT FOR COMMAND SYNCING ---
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 ACTIVE_TRADES_CHANNEL_ID = DISCORD_ACTIVE_TRADES_CHANNEL_ID
 
@@ -42,8 +42,8 @@ def format_status_for_discord(status):
 @client.event
 async def on_ready():
     """Event that runs when the bot is connected and ready."""
-    # --- CHANGED: Sync commands globally instead of to a specific guild ---
-    await tree.sync()
+    # --- FIXED: Sync commands to the specific guild for faster updates ---
+    await tree.sync(guild=MY_GUILD)
 
     logger.info(f'Logged in as {client.user}. Bot is ready!')
     await client.change_presence(activity=discord.Game(name="/status for info"))
@@ -544,7 +544,36 @@ async def bitso_chart_command(interaction: discord.Interaction, month: str = Non
     except Exception as e:
         logger.error(f"Error in /bitso_chart command: {e}")
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-        
+
+@tree.command(name="charts", description="Generate and display charts for your trading activity.")
+async def charts_command(interaction: discord.Interaction):
+    """Handles the /charts slash command."""
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        response = requests.post("http://127.0.0.1:5001/generate_charts", timeout=60)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success"):
+                chart_paths = data.get("charts", {})
+                files_to_send = []
+                for chart_name, chart_path in chart_paths.items():
+                    if os.path.exists(chart_path):
+                        files_to_send.append(discord.File(chart_path))
+                
+                if files_to_send:
+                    await interaction.followup.send(files=files_to_send, ephemeral=True)
+                else:
+                    await interaction.followup.send("Charts were generated, but no files were found to send.", ephemeral=True)
+            else:
+                await interaction.followup.send(f"Error: {data.get('error', 'An unknown error occurred.')}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"Error: The web server responded with status code {response.status_code}.", ephemeral=True)
+
+    except requests.exceptions.RequestException as e:
+        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        logger.error(f"Could not connect to Flask app for /charts: {e}")
+
 # --- Starting the Bot ---
 if __name__ == "__main__":
     if not DISCORD_BOT_TOKEN or "YOUR_SECRET_BOT_TOKEN_HERE" in DISCORD_BOT_TOKEN:
