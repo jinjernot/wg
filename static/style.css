@@ -76,12 +76,21 @@ h4 {
 #stop-btn { background-color: #e53e3e; }
 #stop-btn:hover { background-color: #c53030; }
 
-#save-all-btn, #generate-charts-btn {
+#save-all-btn {
     background-color: #3b82f6;
 }
-#save-all-btn:hover, #generate-charts-btn:hover {
+#save-all-btn:hover {
     background-color: #2563eb;
 }
+
+/* --- New Style for Generate Reports Button --- */
+#generate-charts-btn {
+    background-color: #dd6b20; /* Orange color */
+}
+#generate-charts-btn:hover {
+    background-color: #c05621;
+}
+
 
 .status-text {
     font-size: 0.9rem; /* Slightly smaller font */

@@ -2,6 +2,7 @@ from datetime import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import pytz
+import os # Import the os module
 
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month
@@ -9,9 +10,12 @@ from core.bitso.filter_sender import filter_sender_name
 from core.bitso.export import export_to_csv, export_failed_to_csv
 import bitso_config
 
+# --- Define the output directory ---
+REPORTS_DIR = "bitso_reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
 
 def process_user_funding(user: str, api_key: str, api_secret: str, year: int, month: int) -> tuple[list, list]:
-
     print(f"\nProcessing user: {user}")
 
     if not api_key or not api_secret:
@@ -19,14 +23,17 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
         return [], []
 
     fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
-    # Add the user/account name to each funding record for later grouping
     for f in fundings:
         f['account_user'] = user
 
     filtered = filter_fundings_by_month(fundings, year, month)
 
-    export_to_csv(filtered, filename=f'bitso_deposits_{user}.csv')
-    export_failed_to_csv(fundings, filename=f'bitso_failed_deposits_{user}.csv')
+    # --- Use os.path.join to create the full file path ---
+    deposits_filename = os.path.join(REPORTS_DIR, f'bitso_deposits_{user}.csv')
+    failed_filename = os.path.join(REPORTS_DIR, f'bitso_failed_deposits_{user}.csv')
+
+    export_to_csv(filtered, filename=deposits_filename)
+    export_failed_to_csv(fundings, filename=failed_filename)
 
     return filtered, fundings
 
@@ -76,8 +83,10 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     plt.xticks(rotation=0)
     plt.tight_layout()
 
-    plt.savefig(filename)
-    print(f"Success! Daily income bar chart saved to {filename}")
+    # --- Save chart to the reports directory ---
+    chart_filepath = os.path.join(REPORTS_DIR, filename)
+    plt.savefig(chart_filepath)
+    print(f"Success! Daily income bar chart saved to {chart_filepath}")
     plt.close()
 
 def generate_pie_chart_by_account(all_fundings: list, year: int, month: int, filename: str = 'bitso_pie_chart.png'):
@@ -116,11 +125,13 @@ def generate_pie_chart_by_account(all_fundings: list, year: int, month: int, fil
 
     chart_date = datetime(year, month, 1)
     plt.title(f'Ingresos por cuenta: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
-    plt.ylabel('') # Hides the 'amount' label on the y-axis
+    plt.ylabel('')
     plt.tight_layout()
 
-    plt.savefig(filename)
-    print(f"Success! Pie chart by account saved to {filename}")
+    # --- Save chart to the reports directory ---
+    chart_filepath = os.path.join(REPORTS_DIR, filename)
+    plt.savefig(chart_filepath)
+    print(f"Success! Pie chart by account saved to {chart_filepath}")
     plt.close()
 
 
@@ -138,13 +149,15 @@ def main():
 
     if combined_data:
         print("\nGenerating combined summary for all accounts...")
-        filter_sender_name(combined_data, filename='bitso_sum_by_sender_name_all.csv')
+        summary_filename = os.path.join(REPORTS_DIR, 'bitso_sum_by_sender_name_all.csv')
+        filter_sender_name(combined_data, filename=summary_filename)
     else:
         print("\nNo data found for any user.")
 
     if all_fundings_data:
         print("\nGenerating combined summary of failed deposits for all accounts...")
-        export_failed_to_csv(all_fundings_data, filename='bitso_failed_deposits_all.csv')
+        failed_summary_filename = os.path.join(REPORTS_DIR, 'bitso_failed_deposits_all.csv')
+        export_failed_to_csv(all_fundings_data, filename=failed_summary_filename)
         
         generate_growth_chart(all_fundings_data, year, month)
         generate_pie_chart_by_account(all_fundings_data, year, month)
