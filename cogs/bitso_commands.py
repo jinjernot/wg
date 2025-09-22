@@ -11,6 +11,7 @@ from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import SERVER_UNREACHABLE
 
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+REPORTS_DIR = "bitso_reports" # Define the reports directory
 
 class BitsoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -55,11 +56,14 @@ class BitsoCommands(commands.Cog):
                 return
 
             chart_filename = f"bitso_income_{year}_{month_num}.png"
+            # --- Corrected file path ---
+            chart_filepath = os.path.join(REPORTS_DIR, chart_filename)
+            
             generate_growth_chart(all_fundings, year, month_num, filename=chart_filename)
 
-            if os.path.exists(chart_filename):
-                await interaction.followup.send(file=discord.File(chart_filename), ephemeral=True)
-                os.remove(chart_filename)
+            if os.path.exists(chart_filepath):
+                await interaction.followup.send(file=discord.File(chart_filepath), ephemeral=True)
+                os.remove(chart_filepath)
             else:
                 await interaction.followup.send("Could not generate the chart.", ephemeral=True)
         except Exception as e:
