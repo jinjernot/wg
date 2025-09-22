@@ -1,4 +1,6 @@
 # core/utils/trade_history.py
+import matplotlib
+matplotlib.use('Agg')
 import requests
 import logging
 import threading
@@ -11,7 +13,8 @@ from dateutil.parser import isoparse
 from threading import Lock
 
 import matplotlib.pyplot as plt
-from collections import Counter
+from collections import Counter, defaultdict
+import pandas as pd
 
 from core.api.auth import fetch_token_with_retry
 from config import ACCOUNTS, TRADE_COMPLETED_URL_NOONES, TRADE_COMPLETED_URL_PAXFUL, TRADE_HISTORY
@@ -68,7 +71,6 @@ def fetch_completed_trades(account, limit=1000):
             break
 
         for t in trades:
-            # Filter or process each trade based on the required logic
             if t.get("completed_at") is not None:
                 normalized = normalize_trade(t, account["name"])
                 collected.append(normalized)
@@ -242,16 +244,48 @@ def plot_crypto_currency_distribution(all_trades, output_path):
     plt.savefig(output_path)
     plt.close()
 
+def plot_trades_by_payment_method(all_trades, output_path):
+    """Generates a stacked bar chart of trades by payment method and account."""
+    if not all_trades:
+        logging.info("No trade data for payment method chart.")
+        return
 
-def save_all_trades_csv(trades):
+    # Use a DataFrame for easier manipulation
+    df = pd.DataFrame(all_trades)
+    successful_trades = df[df['status'] == 'successful']
+
+    if successful_trades.empty:
+        logging.info("No successful trades for payment method chart.")
+        return
+
+    # Group by payment method and account, then count the trades
+    trade_counts = successful_trades.groupby(['payment_method_name', 'account_name']).size().unstack(fill_value=0)
+
+    if trade_counts.empty:
+        logging.info("No data to plot for payment methods.")
+        return
+
+    # Create the stacked bar chart
+    ax = trade_counts.plot(kind='bar', stacked=True, figsize=(14, 8), colormap='viridis')
+
+    plt.title("Trades por Método de Pago y Cuenta")
+    plt.xlabel("Método de Pago")
+    plt.ylabel("Número de Trades")
+    plt.xticks(rotation=45, ha="right")
+    plt.legend(title="Cuenta")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def save_all_trades_csv(trades, output_dir):
     if not trades:
         logging.info("No combined trades to save.")
         return
 
-    os.makedirs(TRADE_HISTORY, exist_ok=True)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     fname = f"all_accounts_trades_{date_str}.csv"
-    path = os.path.join(TRADE_HISTORY, fname)
+    path = os.path.join(output_dir, fname)
 
     fieldnames = trades[0].keys()
     try:
@@ -266,7 +300,7 @@ def save_all_trades_csv(trades):
 
 def plot_trades_per_time_of_day(all_trades, output_path):
     from collections import Counter
-
+    
     time_of_day_counts = Counter()
     mexico_tz = pytz.timezone('America/Mexico_City')
 
@@ -276,7 +310,7 @@ def plot_trades_per_time_of_day(all_trades, output_path):
             if completed_at:
                 try:
                     dt = isoparse(completed_at)
-                    dt_utc = pytz.utc.localize(dt)
+                    dt_utc = dt.replace(tzinfo=timezone.utc)
                     dt_mexico = dt_utc.astimezone(mexico_tz)
                     hour = dt_mexico.hour
                     time_of_day_counts[hour] += 1
@@ -318,27 +352,31 @@ def main():
     filtered_trades = [
         trade for trade in ALL_TRADES
         if trade['completed_at'] and
-        isoparse(trade['completed_at']).replace(tzinfo=pytz.utc) > cutoff_date and
+        isoparse(trade['completed_at']).replace(tzinfo=timezone.utc) > cutoff_date and
         trade['status'] == 'successful'
     ]
 
     logging.info(f"Filtered to {len(filtered_trades)} successful trades from the last 30 days.")
 
-    os.makedirs(TRADE_HISTORY, exist_ok=True)
-
+    date_folder = datetime.now().strftime('%Y-%m-%d')
+    output_dir = os.path.join(TRADE_HISTORY, date_folder)
+    os.makedirs(output_dir, exist_ok=True)
+    
     plot_paths = {
-        "trades_per_account": os.path.join(TRADE_HISTORY, "trades_per_account.png"),
-        "top_10_buyers": os.path.join(TRADE_HISTORY, "top_10_buyers.png"),
-        "crypto_distribution": os.path.join(TRADE_HISTORY, "crypto_distribution.png"),
-        "trades_per_time": os.path.join(TRADE_HISTORY, "trades_per_time.png")
+        "trades_per_account": os.path.join(output_dir, "trades_per_account.png"),
+        "top_10_buyers": os.path.join(output_dir, "top_10_buyers.png"),
+        "crypto_distribution": os.path.join(output_dir, "crypto_distribution.png"),
+        "trades_per_time": os.path.join(output_dir, "trades_per_time.png"),
+        "trades_by_payment_method": os.path.join(output_dir, "trades_by_payment_method.png")
     }
 
     plot_trades_per_time_of_day(filtered_trades, plot_paths["trades_per_time"])
     plot_successful_trades_per_account(filtered_trades, plot_paths["trades_per_account"])
     plot_top_10_buyers(filtered_trades, plot_paths["top_10_buyers"])
     plot_crypto_currency_distribution(filtered_trades, plot_paths["crypto_distribution"])
+    plot_trades_by_payment_method(filtered_trades, plot_paths["trades_by_payment_method"])
 
-    save_all_trades_csv(filtered_trades)
+    save_all_trades_csv(filtered_trades, output_dir)
 
     return plot_paths
 

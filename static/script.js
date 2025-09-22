@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const offersCheckbox = document.getElementById('offers-checkbox');
     const settingToggles = document.querySelectorAll('.setting-toggle');
     const offersContainer = document.getElementById('offers-container');
-    const generateChartsBtn = document.getElementById('generate-charts-btn'); // Get the new button
+    const generateChartsBtn = document.getElementById('generate-charts-btn'); 
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -38,19 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/generate_charts', { method: 'POST' });
                 const result = await response.json();
 
-                if (result.success && result.charts) {
-                    alert('Charts generated successfully! Opening in new tabs.');
-                    for (const key in result.charts) {
-                        const chartPath = result.charts[key];
-                        const filename = chartPath.split(/\/|\\/).pop();
-                        window.open(`/charts/${filename}`, '_blank');
-                    }
+                if (result.success) {
+                    alert('Reports generated and saved successfully on the server!');
                 } else {
-                    alert(`Error generating charts: ${result.error || 'Unknown error'}`);
+                    alert(`Error generating reports: ${result.error || 'Unknown error'}`);
                 }
             } catch (error) {
-                console.error('Failed to generate charts:', error);
-                alert('An unexpected error occurred while generating charts.');
+                console.error('Failed to generate reports:', error);
+                alert('An unexpected error occurred while generating reports.');
             } finally {
                 generateChartsBtn.disabled = false;
                 generateChartsBtn.textContent = 'Generate Reports';
