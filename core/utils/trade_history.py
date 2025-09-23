@@ -37,7 +37,7 @@ def fetch_completed_trades(account, limit=1000):
         return
 
     headers = {"Authorization": f"Bearer {token}"}
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=150)
 
     logging.debug(f"Cutoff date: {cutoff_date}")
 
@@ -80,7 +80,7 @@ def fetch_completed_trades(account, limit=1000):
             logging.debug(f"Finished fetching all trades, reached total count: {total}")
             break
 
-    logging.info(f"{account['name']}: collected {len(collected)} trades in last 30 days.")
+    logging.info(f"{account['name']}: collected {len(collected)} trades in last 150 days.")
 
     save_normalized_trades(account, collected)
     save_trades_csv(account, collected)
@@ -306,19 +306,21 @@ def plot_trades_per_time_of_day(all_trades, output_path):
 
     for trade in all_trades:
         if trade['status'] == 'successful':
-            completed_at = trade.get("completed_at")
-            if completed_at:
+            started_at = trade.get("started_at")
+            if started_at:
                 try:
-                    dt = isoparse(completed_at)
+                    # The timestamps from the API are not in ISO 8601 format
+                    # so we need to parse them differently.
+                    dt = datetime.strptime(started_at, "%Y-%m-%d %H:%M:%S")
                     dt_utc = dt.replace(tzinfo=timezone.utc)
                     dt_mexico = dt_utc.astimezone(mexico_tz)
                     hour = dt_mexico.hour
                     time_of_day_counts[hour] += 1
                 except Exception as e:
-                    logging.warning(f"Invalid completed_at date: {completed_at} -> {e}")
+                    logging.warning(f"Invalid started_at date: {started_at} -> {e}")
 
     if not time_of_day_counts:
-        logging.info("No valid completed_at dates for plotting trades per time of day.")
+        logging.info("No valid started_at dates for plotting trades per time of day.")
         return
 
     hours = list(range(24))
@@ -347,7 +349,7 @@ def main():
 
     logging.info(f"Fetched {len(ALL_TRADES)} total trades.")
 
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=150)
 
     filtered_trades = [
         trade for trade in ALL_TRADES
@@ -356,7 +358,7 @@ def main():
         trade['status'] == 'successful'
     ]
 
-    logging.info(f"Filtered to {len(filtered_trades)} successful trades from the last 30 days.")
+    logging.info(f"Filtered to {len(filtered_trades)} successful trades from the last 150 days.")
 
     date_folder = datetime.now().strftime('%Y-%m-%d')
     output_dir = os.path.join(TRADE_HISTORY, date_folder)
