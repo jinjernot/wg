@@ -9,6 +9,8 @@ import core.utils.web_utils as web_utils
 
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
+# --- IMPORT THE NEW WALLET FUNCTION ---
+from core.api.wallet import get_wallet_balances
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, JSON_PATH, TRADE_HISTORY
 from core.api.offers import set_offer_status, get_all_offers, toggle_single_offer
 from core.utils.log_config import setup_logging
@@ -45,6 +47,13 @@ def index():
     )
 
 # --- API Routes for Frontend ---
+
+# --- NEW ENDPOINT FOR WALLET BALANCES ---
+@app.route("/get_wallet_balances")
+def get_wallet_balances_route():
+    balances = get_wallet_balances()
+    return jsonify(balances)
+
 @app.route("/update_setting", methods=["POST"])
 def update_setting():
     data = request.json

@@ -308,3 +308,33 @@ tr.status-disputed {
 tr.status-disputed:hover {
     background-color: #d69e2e;
 }
+
+.balance-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* --- Styles for Wallet Balances Card --- */
+.balance-account-container {
+    margin-bottom: 1rem; /* Adds space between each account block (e.g., David Noones, David Paxful) */
+}
+
+.balance-account-name {
+    color: #a0aec0; /* Matches the sub-header color in other cards */
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #4a5568; /* Adds a separator line */
+    font-size: 1rem;
+}
+
+.balance-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.balance-list li {
+    padding: 4px 0; /* Adds a bit of vertical space for each currency */
+}

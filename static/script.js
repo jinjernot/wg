@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingToggles = document.querySelectorAll('.setting-toggle');
     const offersContainer = document.getElementById('offers-container');
     const generateChartsBtn = document.getElementById('generate-charts-btn'); 
+    // --- NEW ELEMENT SELECTOR ---
+    const balancesContainer = document.getElementById('wallet-balances-container');
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -366,11 +368,80 @@ document.addEventListener('DOMContentLoaded', () => {
         offersContainer.appendChild(table);
     }
 
+    // --- NEW FUNCTIONS FOR WALLET BALANCES ---
+    async function fetchWalletBalances() {
+        if (!balancesContainer) return;
+        try {
+            const response = await fetch('/get_wallet_balances');
+            const balances = await response.json();
+            updateBalancesDashboard(balances);
+        } catch (error) {
+            balancesContainer.innerHTML = '<p style="color: #e53e3e;">Error fetching wallet balances.</p>';
+            console.error('Failed to fetch wallet balances:', error);
+        }
+    }
+
+function updateBalancesDashboard(balances) {
+        const davidContainer = document.getElementById('david-balances-col');
+        const joeContainer = document.getElementById('joe-balances-col');
+
+        if (!davidContainer || !joeContainer) return;
+
+        // --- UPDATED: Clear previous content without adding titles ---
+        davidContainer.innerHTML = ''; 
+        joeContainer.innerHTML = '';
+
+        if (Object.keys(balances).length === 0) {
+            davidContainer.innerHTML += '<p>No balance data found.</p>';
+            joeContainer.innerHTML += '<p>No balance data found.</p>';
+            return;
+        }
+        
+        for (const accountName in balances) {
+            const accountData = balances[accountName];
+            
+            let content = `<div class="balance-account-container">`;
+            content += `<h4 class="balance-account-name">${accountName.replace(/_/g, ' ')}</h4>`;
+
+            if (accountData.error) {
+                content += `<p style="color: #e53e3e;">Error: ${accountData.error}</p>`;
+            } else {
+                let hasPositiveBalance = false;
+                let balanceContent = '<ul class="balance-list">';
+                
+                if (Object.keys(accountData).length > 0) {
+                    for (const currency in accountData) {
+                        const balanceValue = parseFloat(accountData[currency]);
+                        if (balanceValue !== 0) {
+                            balanceContent += `<li><strong>${currency.toUpperCase()}:</strong> ${accountData[currency]}</li>`;
+                            hasPositiveBalance = true;
+                        }
+                    }
+                }
+
+                if (!hasPositiveBalance) {
+                    balanceContent += '<li>No active balances.</li>';
+                }
+                
+                balanceContent += '</ul>';
+                content += balanceContent;
+            }
+            content += `</div>`;
+
+            if (accountName.toLowerCase().startsWith('david')) {
+                davidContainer.innerHTML += content;
+            } else if (accountName.toLowerCase().startsWith('joe')) {
+                joeContainer.innerHTML += content;
+            }
+        }
+    }
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
     fetchOffers();
+    fetchWalletBalances(); // Initial fetch
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
     setInterval(fetchOffers, 120000); 
+    setInterval(fetchWalletBalances, 300000); // Refresh balances every 5 minutes
 });

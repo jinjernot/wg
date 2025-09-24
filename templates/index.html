@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WillGang Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
     <div class="header">
         <h1>WillGang Dashboard</h1>
@@ -19,29 +21,33 @@
                 <button id="stop-btn">Stop Bot</button>
             </div>
             <button id="save-all-btn">Save All Selections</button>
-            <button id="generate-charts-btn">Generate Reports</button> <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
+            <button id="generate-charts-btn">Generate Reports</button>
+            <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
 
             <div class="toggles-container">
                 <div class="offers-toggle">
                     <span>Enable Nighttime Messages</span>
                     <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if app_settings.night_mode_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if
+                            app_settings.night_mode_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
-                
+
                 <div class="offers-toggle">
                     <span>Enable AFK Messages</span>
                     <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if app_settings.afk_mode_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if
+                            app_settings.afk_mode_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
-    
+
                 <div class="offers-toggle">
                     <span>Enable All Offers</span>
                     <label class="switch">
-                        <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif %}>
+                        <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif
+                            %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
@@ -49,44 +55,54 @@
                 <div class="offers-toggle">
                     <span>Enable Verbose Logging</span>
                     <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if app_settings.verbose_logging_enabled %}checked{% endif %}>
+                        <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if
+                            app_settings.verbose_logging_enabled %}checked{% endif %}>
                         <span class="slider round"></span>
                     </label>
                 </div>
             </div>
         </div>
-        
+
         {% if user_grouped_data %}
-            {% for owner_name, methods in user_grouped_data.items() %}
-            <div class="card card-selector">
-                <h2>{{ owner_name }}'s Accounts</h2>
-                {% for method_name, data in methods.items() %}
-                    <div class="method-section">
-                        <h4>{{ method_name | replace('-', ' ') | title }}</h4>
-                        <form class="account-form">
-                            <input type="hidden" name="filename" value="{{ data.filename }}">
-                            <input type="hidden" name="owner_username" value="{{ owner_name }}">
-                            <input type="hidden" name="payment_method" value="{{ method_name }}">
-                            
-                            <select name="selected_id" class="account-select">
-                                {% for account in data.details.accounts %}
-                                    <option value="{{ account.id }}" {% if account.id|string == data.details.selected_id|string %}selected{% endif %}>
-                                        {{ account.name }} ({{ account.get('bank', 'N/A') }})
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </form>
-                    </div>
-                {% endfor %}
+        {% for owner_name, methods in user_grouped_data.items() %}
+        <div class="card card-selector">
+            <h2>{{ owner_name }}'s Accounts</h2>
+            {% for method_name, data in methods.items() %}
+            <div class="method-section">
+                <h4>{{ method_name | replace('-', ' ') | title }}</h4>
+                <form class="account-form">
+                    <input type="hidden" name="filename" value="{{ data.filename }}">
+                    <input type="hidden" name="owner_username" value="{{ owner_name }}">
+                    <input type="hidden" name="payment_method" value="{{ method_name }}">
+
+                    <select name="selected_id" class="account-select">
+                        {% for account in data.details.accounts %}
+                        <option value="{{ account.id }}" {% if account.id|string==data.details.selected_id|string
+                            %}selected{% endif %}>
+                            {{ account.name }} ({{ account.get('bank', 'N/A') }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
             {% endfor %}
+        </div>
+        {% endfor %}
         {% else %}
-            <div class="card">
-                <h2>Account Selector</h2>
-                <p>No payment JSON files found in /data/json directory.</p>
-                <p>Please ensure your JSON files (e.g., oxxo.json) exist and are not empty.</p>
-            </div>
+        <div class="card">
+            <h2>Account Selector</h2>
+            <p>No payment JSON files found in /data/json directory.</p>
+            <p>Please ensure your JSON files (e.g., oxxo.json) exist and are not empty.</p>
+        </div>
         {% endif %}
+        
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>Wallet Balances</h2>
+            <div id="wallet-balances-container" class="balance-columns">
+                <div id="david-balances-col"><p>Fetching...</p></div>
+                <div id="joe-balances-col"><p>Fetching...</p></div>
+            </div>
+        </div>
 
         <div class="card card-trades-table">
             <h2>Active Trades</h2>
@@ -94,7 +110,7 @@
                 <p>Fetching trades...</p>
             </div>
         </div>
-
+        
         <div class="card" style="grid-column: 1 / -1;">
             <h2>Offer Management</h2>
             <div id="offers-container">
@@ -106,4 +122,5 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>

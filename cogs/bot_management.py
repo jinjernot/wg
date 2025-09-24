@@ -4,7 +4,8 @@ from discord.ext import commands
 import requests
 import logging
 from config import DISCORD_GUILD_ID
-from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, SETTINGS_EMBEDS, SERVER_UNREACHABLE
+from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, SETTINGS_EMBEDS, SERVER_UNREACHABLE, COLORS
+from core.api.wallet import get_wallet_balances
 
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
@@ -81,6 +82,40 @@ class BotManagement(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
-# This function must NOT be indented
+    # --- THIS FUNCTION MUST BE INDENTED TO BE PART OF THE CLASS ---
+    @app_commands.command(name="balance", description="Check the wallet balances of all accounts.")
+    async def balance_command(self, interaction: discord.Interaction):
+        """Fetches and displays wallet balances."""
+        await interaction.response.defer(ephemeral=True)
+        try:
+            balances = get_wallet_balances() 
+            
+            embed = discord.Embed(title="💰 Wallet Balances", color=COLORS.get("info", 0x5865F2))
+
+            if not balances:
+                embed.description = "Could not fetch any wallet balances."
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+
+            for account_name, balance_data in balances.items():
+                if "error" in balance_data:
+                    value = f"❌ Error: {balance_data['error']}"
+                else:
+                    filtered_balances = {code: amount for code, amount in balance_data.items() if float(amount) != 0}
+                    
+                    if filtered_balances:
+                        value = "\n".join([f"**{code.upper()}:** `{amount}`" for code, amount in filtered_balances.items()])
+                    else:
+                        value = "No active balances."
+                
+                embed.add_field(name=f"--- {account_name} ---", value=value, inline=False)
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"An error occurred in the balance command: {e}")
+            await interaction.followup.send("An unexpected error occurred while fetching balances.", ephemeral=True)
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(BotManagement(bot))
