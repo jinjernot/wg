@@ -17,6 +17,7 @@ from config_messages.telegram_messages import (
     EMAIL_VALIDATION_FAILURE_ALERT,
     NAME_VALIDATION_SUCCESS_ALERT,
     NAME_VALIDATION_FAILURE_ALERT,
+    LOW_BALANCE_ALERT_MESSAGE,
     # Assuming you add this new template to your config file
     # NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE 
 )
@@ -217,3 +218,25 @@ def send_name_validation_alert(trade_hash, success, account_name):
         logger.info("Name validation alert sent successfully.")
     else:
         logger.error(f"Failed to send name validation alert: {response.status_code} - {response.text}")
+
+def send_low_balance_alert(account_name, amount, currency, amount_usd, threshold):
+    """Sends a Telegram alert for low wallet balance."""
+    message = LOW_BALANCE_ALERT_MESSAGE.format(
+        account_name=escape_markdown(account_name),
+        amount=escape_markdown(f"{amount:,.2f}"),
+        currency=escape_markdown(currency),
+        amount_usd=escape_markdown(f"{amount_usd:,.2f}"),
+        threshold=escape_markdown(f"{threshold:,.2f}")
+    )
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "MarkdownV2"
+    }
+    response = requests.post(url, json=payload)
+    if response.status_code == 200:
+        logger.info(f"Low balance alert for {account_name} sent successfully.")
+    else:
+        logger.error(f"Failed to send low balance alert for {account_name}: {response.status_code} - {response.text}")

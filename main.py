@@ -1,3 +1,4 @@
+# main.py
 import threading
 import logging
 import os
@@ -6,6 +7,7 @@ from core.trading.processor import process_trades
 from config import ACCOUNTS, TRADE_STORAGE_DIR
 from core.api.offers import set_offer_status, send_scheduled_task_alert
 from core.utils.log_config import setup_logging
+from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -39,6 +41,7 @@ def main():
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
     # Schedule the job to run every day at 7:00 AM
     scheduler.add_job(turn_on_offers_job, 'cron', hour=7, minute=0)
+    scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
     scheduler.start()
     logger.info("Scheduler started. Offers will be turned on daily at 7:00 AM Central Time.")
 

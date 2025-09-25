@@ -82,7 +82,6 @@ class BotManagement(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
-    # --- THIS FUNCTION MUST BE INDENTED TO BE PART OF THE CLASS ---
     @app_commands.command(name="balance", description="Check the wallet balances of all accounts.")
     async def balance_command(self, interaction: discord.Interaction):
         """Fetches and displays wallet balances."""
