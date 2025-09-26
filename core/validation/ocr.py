@@ -10,7 +10,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-OCR_LOG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'ocr_logs')
+OCR_LOG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'logs', 'ocr_logs')
 os.makedirs(OCR_LOG_PATH, exist_ok=True)
 
 def load_ocr_templates():

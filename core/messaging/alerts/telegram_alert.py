@@ -219,14 +219,16 @@ def send_name_validation_alert(trade_hash, success, account_name):
     else:
         logger.error(f"Failed to send name validation alert: {response.status_code} - {response.text}")
 
-def send_low_balance_alert(account_name, amount, currency, amount_usd, threshold):
+def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details):
     """Sends a Telegram alert for low wallet balance."""
+    
+    balance_details_str = "\n".join(balance_details).replace("`", "")
+
     message = LOW_BALANCE_ALERT_MESSAGE.format(
         account_name=escape_markdown(account_name),
-        amount=escape_markdown(f"{amount:,.2f}"),
-        currency=escape_markdown(currency),
-        amount_usd=escape_markdown(f"{amount_usd:,.2f}"),
-        threshold=escape_markdown(f"{threshold:,.2f}")
+        total_balance_usd=escape_markdown(f"{total_balance_usd:,.2f}"),
+        threshold=escape_markdown(f"{threshold:,.2f}"),
+        balance_details=escape_markdown(balance_details_str)
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"

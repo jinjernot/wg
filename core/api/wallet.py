@@ -9,7 +9,7 @@ from config import ACCOUNTS
 
 logger = logging.getLogger(__name__)
 
-API_LOG_PATH = os.path.join('data', 'api_logs')
+API_LOG_PATH = os.path.join('data', 'logs', 'api_logs')
 os.makedirs(API_LOG_PATH, exist_ok=True)
 
 def _save_api_response(account_name, response):
@@ -71,6 +71,9 @@ def get_wallet_balances():
                         currency['code']: currency['balance']
                         for currency in data.get('cryptoCurrencies', [])
                     }
+                    if 'preferredFiatCurrency' in data and data['preferredFiatCurrency'].get('code'):
+                        balances[data['preferredFiatCurrency']['code']] = data['preferredFiatCurrency']['balance']
+
                     all_balances[account['name']] = balances
             else:
                 error_message = f"API error (Status: {response.status_code}): {response.text}"
