@@ -18,8 +18,6 @@ from config_messages.telegram_messages import (
     NAME_VALIDATION_SUCCESS_ALERT,
     NAME_VALIDATION_FAILURE_ALERT,
     LOW_BALANCE_ALERT_MESSAGE,
-    # Assuming you add this new template to your config file
-    # NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE 
 )
 
 # Define the new message template here for now
@@ -32,7 +30,8 @@ def escape_markdown(text):
     """Escapes special characters for Telegram's MarkdownV2 parse mode."""
     if not isinstance(text, str):
         text = str(text)
-    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    # Correctly escape all special characters for Telegram MarkdownV2
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
     return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 def extract_placeholders(message_template):
@@ -69,6 +68,7 @@ def send_telegram_alert(trade, platform):
         logger.error(f"Failed to send Telegram alert: {response.status_code} - {response.text}")
 
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
+    """Sends a Telegram alert for a new chat message."""
     if not isinstance(chat_message, str) or not isinstance(author, str):
         logger.error("Error: Invalid chat message or author data.")
         return
@@ -219,22 +219,35 @@ def send_name_validation_alert(trade_hash, success, account_name):
     else:
         logger.error(f"Failed to send name validation alert: {response.status_code} - {response.text}")
 
-def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details):
-    """Sends a Telegram alert for low wallet balance."""
+def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
+    """
+    Builds and sends a Telegram alert for low wallet balance, ensuring all parts are escaped.
+    balance_details_raw is a list of tuples: [(amount_str, currency, balance_usd), ...]
+    """
     
-    balance_details_str = "\n".join(balance_details).replace("`", "")
-
-    message = LOW_BALANCE_ALERT_MESSAGE.format(
-        account_name=escape_markdown(account_name),
-        total_balance_usd=escape_markdown(f"{total_balance_usd:,.2f}"),
-        threshold=escape_markdown(f"{threshold:,.2f}"),
-        balance_details=escape_markdown(balance_details_str)
-    )
-
+    header = "⚠️ *Low Balance Alert* ⚠️\n\n"
+    line1 = f"The total balance for `{escape_markdown(account_name)}` is below the threshold\.\n\n"
+    
+    total_balance_str = f"{total_balance_usd:,.2f}"
+    threshold_str = f"{threshold:,.2f}"
+    
+    line2 = f"*Total Balance:* `${escape_markdown(total_balance_str)}`\n"
+    line3 = f"*Threshold:* `${escape_markdown(threshold_str)}`\n\n"
+    
+    details_header = "*Balance Details:*\n"
+    
+    details_lines = []
+    for amount, currency, usd_value in balance_details_raw:
+        usd_str = f"{usd_value:,.2f}"
+        line = f"\\- `{escape_markdown(amount)} {escape_markdown(currency)}` \\(approx\\, `${escape_markdown(usd_str)}`\\)"
+        details_lines.append(line)
+        
+    full_message = header + line1 + line2 + line3 + details_header + "\n".join(details_lines)
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
+        "text": full_message,
         "parse_mode": "MarkdownV2"
     }
     response = requests.post(url, json=payload)

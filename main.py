@@ -38,6 +38,11 @@ def main():
         os.makedirs(TRADE_STORAGE_DIR)
     # -----------------------------
 
+    # --- IMMEDIATE BALANCE CHECK ON STARTUP ---
+    logger.info("Performing initial wallet balance check on startup...")
+    check_wallet_balances_and_alert()
+    # ----------------------------------------
+
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
     # Schedule the job to run every day at 7:00 AM
     scheduler.add_job(turn_on_offers_job, 'cron', hour=7, minute=0)
