@@ -7,8 +7,8 @@ from config_messages.discord_messages import LOW_BALANCE_ALERT_EMBED
 logger = logging.getLogger(__name__)
 
 EXCHANGE_RATES = {
-    "USD_TO_MXN": 17.0,
-    "BTC_TO_USD": 65000.0,
+    "USD_TO_MXN": 20.0,
+    "BTC_TO_USD": 100000.0,
     "USDT_TO_USD": 1.00,
     "SOL_TO_USD": 150.0,
 }
