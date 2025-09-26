@@ -13,7 +13,6 @@ EXCHANGE_RATES = {
     "SOL_TO_USD": 150.0,
 }
 LOW_BALANCE_THRESHOLD_USD = 1000
-
 def check_wallet_balances_and_alert():
     """
     Checks wallet balances, converts them to USD, and sends alerts if any balance is below the threshold.
@@ -85,7 +84,7 @@ def check_wallet_balances_and_alert():
                 threshold=f"{LOW_BALANCE_THRESHOLD_USD:,.2f}",
                 balance_details="\n".join(discord_balance_details)
             )
-            send_discord_embed(embed_data, alert_type="trades")
+            send_discord_embed(embed_data, alert_type="wallet")
 
             # --- Telegram Alert (passes raw data) ---
             send_low_balance_alert(
