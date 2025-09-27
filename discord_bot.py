@@ -3,7 +3,7 @@ from discord.ext import commands
 import logging
 import os
 import asyncio
-from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID # IMPORT THE GUILD ID
+from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, COGS_DIR
 
 # --- Basic Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -29,7 +29,7 @@ async def on_ready():
 
 async def load_cogs():
     """Loads all cogs from the 'cogs' directory."""
-    for filename in os.listdir('./cogs'):
+    for filename in os.listdir(COGS_DIR):
         if filename.endswith('.py'):
             try:
                 await bot.load_extension(f'cogs.{filename[:-3]}')
