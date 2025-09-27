@@ -8,37 +8,25 @@ from config_messages.chat_messages import *
 
 logger = logging.getLogger(__name__)
 
-def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
-    """Sends a thank you and feedback request message when a trade is completed."""
+def _send_lifecycle_message(trade_hash, account, headers, message, message_type, max_retries=3):
+    """Generic function to send a trade lifecycle message."""
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
-    body = {"trade_hash": trade_hash, "message": TRADE_COMPLETION_MESSAGE}
+    body = {"trade_hash": trade_hash, "message": message}
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
     if send_message_with_retry(chat_url, body, headers, max_retries):
-        logger.info(f"Completion message sent for trade {trade_hash}.")
+        logger.info(f"{message_type} message sent for trade {trade_hash}.")
     else:
-        logger.error(f"Failed to send completion message for trade {trade_hash}.")
+        logger.error(f"Failed to send {message_type} message for trade {trade_hash}.")
 
+def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
+    """Sends a thank you and feedback request message when a trade is completed."""
+    _send_lifecycle_message(trade_hash, account, headers, TRADE_COMPLETION_MESSAGE, "Completion", max_retries)
 
 def send_payment_received_message(trade_hash, account, headers, max_retries=3):
     """Sends a confirmation that payment has been received."""
-    chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
-    body = {"trade_hash": trade_hash, "message": PAYMENT_RECEIVED_MESSAGE}
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-
-    if send_message_with_retry(chat_url, body, headers, max_retries):
-        logger.info(f"Payment received message sent for trade {trade_hash}.")
-    else:
-        logger.error(f"Failed to send payment received message for trade {trade_hash}.")
-
+    _send_lifecycle_message(trade_hash, account, headers, PAYMENT_RECEIVED_MESSAGE, "Payment received", max_retries)
 
 def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
     """Sends a reminder to the user to complete their payment."""
-    chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
-    body = {"trade_hash": trade_hash, "message": PAYMENT_REMINDER_MESSAGE}
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-
-    if send_message_with_retry(chat_url, body, headers, max_retries):
-        logger.info(f"Payment reminder sent for trade {trade_hash}.")
-    else:
-        logger.error(f"Failed to send payment reminder for trade {trade_hash}.")
+    _send_lifecycle_message(trade_hash, account, headers, PAYMENT_REMINDER_MESSAGE, "Payment reminder", max_retries)
