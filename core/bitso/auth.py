@@ -5,7 +5,6 @@ import time
 def generate_auth_headers_for_user(endpoint, method='GET', query_params=None, api_key=None, api_secret=None):
     nonce = str(int(time.time() * 1000))
 
-    # Sort and build query string
     query_string = ''
     if query_params:
         sorted_params = sorted(query_params.items())

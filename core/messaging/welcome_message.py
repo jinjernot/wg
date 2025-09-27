@@ -1,4 +1,3 @@
-# core/messaging/welcome_message.py
 import logging
 import json
 import os

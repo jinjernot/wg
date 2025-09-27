@@ -1,4 +1,3 @@
-# core/messaging/alerts/discord_thread_manager.py
 import requests
 import json
 import os

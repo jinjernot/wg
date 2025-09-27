@@ -1,4 +1,3 @@
-# core/messaging/alerts/telegram_alert.py
 import requests
 import json
 import re

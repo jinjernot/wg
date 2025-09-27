@@ -1,4 +1,3 @@
-# core/validation/email.py
 import os.path
 import logging
 import base64

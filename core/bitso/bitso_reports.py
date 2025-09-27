@@ -2,7 +2,7 @@ from datetime import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import pytz
-import os # Import the os module
+import os
 
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month

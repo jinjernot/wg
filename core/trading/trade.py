@@ -1,4 +1,3 @@
-# core/trading/trade.py
 import logging
 import json
 import os
@@ -63,6 +62,10 @@ class Trade:
 
     def process(self):
         """Main entry point to process a trade's lifecycle."""
+        if self.trade_state.get("trade_status") == "Dispute open":
+            logger.info(f"Trade {self.trade_hash} is in dispute. Halting all automated messages.")
+            return
+
         if not self.trade_hash or not self.owner_username:
             logger.error(f"Missing trade_hash or owner_username for trade: {self.trade_state}")
             return

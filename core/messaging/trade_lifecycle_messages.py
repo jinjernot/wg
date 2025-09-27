@@ -1,4 +1,3 @@
-# core/messaging/trade_lifecycle_messages.py
 import logging
 from core.messaging.message_sender import send_message_with_retry
 from config import (

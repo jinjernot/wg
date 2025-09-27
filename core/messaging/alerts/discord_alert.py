@@ -1,4 +1,3 @@
-# core/messaging/alerts/discord_alert.py
 import requests
 import logging
 import json

@@ -1,4 +1,3 @@
-# core/api/trade_chat.py
 import json
 import requests
 import logging

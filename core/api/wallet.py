@@ -1,4 +1,3 @@
-# core/api/wallet.py
 import requests
 import logging
 import json

@@ -1,4 +1,3 @@
-# core/utils/trade_history.py
 import matplotlib
 matplotlib.use('Agg')
 import requests

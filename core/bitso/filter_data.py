@@ -1,6 +1,5 @@
 import pytz
-from datetime import datetime, date
-import pandas as pd
+from datetime import date
 from dateutil import parser
 
 def filter_fundings_by_month(fundings, year, month):

@@ -45,6 +45,7 @@ def check_wallet_balances_and_alert():
                     if "Paxful" in account_name:
                         btc_amount = amount / 100_000_000
                         balance_usd = btc_amount * EXCHANGE_RATES["BTC_TO_USD"]
+                        amount_str = f"{btc_amount:.8f}" # Convert satoshis to BTC string with 8 decimal places
                     else:
                         balance_usd = amount * EXCHANGE_RATES["BTC_TO_USD"]
                 elif currency.upper() == "USDT":
