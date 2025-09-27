@@ -13,7 +13,6 @@ from core.messaging.alerts.telegram_alert import send_chat_message_alert
 from core.messaging.alerts.discord_alert import create_chat_message_embed
 from core.state.persistent_state import load_last_message_ids, save_last_message_id
 
-
 logger = logging.getLogger(__name__)
 
 LAST_MESSAGE_IDS = load_last_message_ids()
@@ -22,7 +21,6 @@ def save_chat_log(trade_hash, messages, account_name):
     account_log_path = os.path.join(CHAT_LOG_PATH, account_name)
     os.makedirs(account_log_path, exist_ok=True)
     log_file_path = os.path.join(account_log_path, f"{trade_hash}_chat_log.json")
-
     chat_log_data = { "trade_hash": trade_hash, "messages": messages, "timestamp": time.time() }
 
     try:
@@ -97,9 +95,7 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
                         if not match:
                             continue
                         image_hash = match.group(1)
-
                         image_payload = {"image_hash": image_hash, "size": "2"}
-                        
                         image_headers = headers.copy()
                         image_headers["Content-Type"] = "application/x-www-form-urlencoded"
 
@@ -128,7 +124,6 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
                     if message_text:
                         msg_author = msg.get("author", "Unknown")
                         send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
-                        # --- THIS IS THE UPDATED LINE ---
                         create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)
 
             latest_message_id = messages[-1].get("id")

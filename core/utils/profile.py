@@ -18,8 +18,8 @@ def generate_user_profile(username):
         "username": username,
         "first_trade_date": None,
         "last_trade_date": None,
-        "platforms": {},  # To track trades per platform (e.g., Paxful, Noones)
-        "accounts": {}    # To track trades per owner (e.g, davidvs, JoeWillgang)
+        "platforms": {},
+        "accounts": {}
     }
     
     trade_dates = []

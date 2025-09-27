@@ -1,17 +1,17 @@
-from datetime import datetime
-import pandas as pd
 import matplotlib.pyplot as plt
+import bitso_config
+import pandas as pd
 import pytz
 import os
 
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
+from core.bitso.export import export_to_csv, export_failed_to_csv
 from core.bitso.filter_data import filter_fundings_by_month
 from core.bitso.filter_sender import filter_sender_name
-from core.bitso.export import export_to_csv, export_failed_to_csv
-import bitso_config
 
-# --- Define the output directory ---
-REPORTS_DIR = "bitso_reports"
+from datetime import datetime
+from config import REPORTS_DIR
+
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
@@ -28,7 +28,6 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
 
     filtered = filter_fundings_by_month(fundings, year, month)
 
-    # --- Use os.path.join to create the full file path ---
     deposits_filename = os.path.join(REPORTS_DIR, f'bitso_deposits_{user}.csv')
     failed_filename = os.path.join(REPORTS_DIR, f'bitso_failed_deposits_{user}.csv')
 
@@ -36,7 +35,6 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
     export_failed_to_csv(fundings, filename=failed_filename)
 
     return filtered, fundings
-
 
 def generate_growth_chart(all_fundings: list, year: int, month: int, filename: str = 'bitso_this_month_income.png'):
     """

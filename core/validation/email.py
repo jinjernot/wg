@@ -1,14 +1,18 @@
+
 import os.path
 import logging
 import base64
 import re
+
+from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from googleapiclient.discovery import build
+
 from datetime import datetime
 from bs4 import BeautifulSoup
+
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
 
 logger = logging.getLogger(__name__)
@@ -21,7 +25,6 @@ def get_gmail_service(name_identifier):
         logger.error("No name identifier provided for Gmail service.")
         return None
 
-    # Sanitize the name to create a valid filename (e.g., "Roberto Quintero" -> "Roberto_Quintero")
     sanitized_name = name_identifier.replace(" ", "_")
 
     creds = None

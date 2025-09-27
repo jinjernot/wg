@@ -1,4 +1,3 @@
-# api/auth.py
 import requests
 import time
 import logging

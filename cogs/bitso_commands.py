@@ -9,9 +9,10 @@ import bitso_config
 from core.bitso.bitso_reports import generate_growth_chart, process_user_funding
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import SERVER_UNREACHABLE
+from config import REPORTS_DIR
 
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
-REPORTS_DIR = "bitso_reports" # Define the reports directory
+
 
 class BitsoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -21,14 +22,17 @@ class BitsoCommands(commands.Cog):
     async def bitso_summary_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get("http://127.0.0.1:5001/bitso_summary", timeout=30)
+            response = requests.get(
+                "http://127.0.0.1:5001/bitso_summary", timeout=30)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
                     deposits = data.get("deposits_by_sender", [])
                     total = data.get("total_deposits", 0.0)
-                    description = "\n".join([f"**{name}:** `${amount:,.2f}`" for name, amount in deposits])
-                    embed = discord.Embed(title="💰 Bitso Deposits", description=description, color=discord.Color.green())
+                    description = "\n".join(
+                        [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits])
+                    embed = discord.Embed(
+                        title="💰 Bitso Deposits", description=description, color=discord.Color.green())
                     embed.add_field(name="Total", value=f"**`${total:,.2f}`**")
                     await interaction.followup.send(embed=embed, ephemeral=True)
                 else:
@@ -43,12 +47,14 @@ class BitsoCommands(commands.Cog):
     async def bitso_chart_command(self, interaction: discord.Interaction, month: str = None):
         await interaction.response.defer(ephemeral=True)
         try:
-            target_date = date_parse(month) if month else datetime.datetime.now()
+            target_date = date_parse(
+                month) if month else datetime.datetime.now()
             year, month_num = target_date.year, target_date.month
 
             all_fundings = []
             for user, (key, secret) in bitso_config.API_KEYS.items():
-                _, fundings = process_user_funding(user, key, secret, year, month_num)
+                _, fundings = process_user_funding(
+                    user, key, secret, year, month_num)
                 all_fundings.extend(fundings)
 
             if not all_fundings:
@@ -56,10 +62,10 @@ class BitsoCommands(commands.Cog):
                 return
 
             chart_filename = f"bitso_income_{year}_{month_num}.png"
-            # --- Corrected file path ---
             chart_filepath = os.path.join(REPORTS_DIR, chart_filename)
-            
-            generate_growth_chart(all_fundings, year, month_num, filename=chart_filename)
+
+            generate_growth_chart(all_fundings, year,
+                                  month_num, filename=chart_filename)
 
             if os.path.exists(chart_filepath):
                 await interaction.followup.send(file=discord.File(chart_filepath), ephemeral=True)
@@ -68,6 +74,7 @@ class BitsoCommands(commands.Cog):
                 await interaction.followup.send("Could not generate the chart.", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(f"An error occurred: {e}", ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(BitsoCommands(bot))

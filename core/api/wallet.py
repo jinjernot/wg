@@ -27,7 +27,6 @@ def _save_api_response(account_name, response):
     except Exception as e:
         logger.error(f"Failed to save API response for {account_name}: {e}")
 
-
 def get_wallet_balances():
     """Fetches wallet balances for all configured accounts."""
     all_balances = {}
@@ -49,7 +48,6 @@ def get_wallet_balances():
                 response = requests.post(url, headers=headers, timeout=15)
             else: # Noones
                 url = "https://api.noones.com/noones/v1/user/wallet-balances"
-                # --- CORRECTED CONTENT-TYPE AS PER THE ERROR MESSAGE ---
                 headers["Content-Type"] = "application/x-www-form-urlencoded"
                 response = requests.post(url, headers=headers, timeout=15)
 

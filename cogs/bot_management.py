@@ -10,6 +10,7 @@ from core.api.wallet import get_wallet_balances
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
+
 class BotManagement(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -20,13 +21,15 @@ class BotManagement(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         embed_data = {}
         try:
-            response = requests.get("http://127.0.0.1:5001/trading_status", timeout=5)
+            response = requests.get(
+                "http://127.0.0.1:5001/trading_status", timeout=5)
             if response.status_code == 200:
                 status = response.json().get("status")
                 embed_data = STATUS_EMBED["running"] if status == "Running" else STATUS_EMBED["stopped"]
             else:
                 embed_data = STATUS_EMBED["error"].copy()
-                embed_data["description"] = embed_data["description"].format(status_code=response.status_code)
+                embed_data["description"] = embed_data["description"].format(
+                    status_code=response.status_code)
         except requests.exceptions.RequestException:
             embed_data = STATUS_EMBED["unreachable"]
         await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
@@ -42,15 +45,20 @@ class BotManagement(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         endpoint = "/start_trading" if action.value == "start" else "/stop_trading"
         try:
-            response = requests.post(f"http://127.0.0.1:5001{endpoint}", timeout=10)
+            response = requests.post(
+                f"http://127.0.0.1:5001{endpoint}", timeout=10)
             data = response.json()
             if data.get("success"):
-                embed_data = BOT_CONTROL_EMBEDS[f"{action.value}_success"].copy()
-                embed_data["description"] = embed_data["description"].format(message=data.get("message"))
+                embed_data = BOT_CONTROL_EMBEDS[f"{action.value}_success"].copy(
+                )
+                embed_data["description"] = embed_data["description"].format(
+                    message=data.get("message"))
             else:
                 embed_data = BOT_CONTROL_EMBEDS["error"].copy()
-                embed_data["title"] = embed_data["title"].format(action=action.name)
-                embed_data["description"] = embed_data["description"].format(message=data.get("message", "An unknown error occurred."))
+                embed_data["title"] = embed_data["title"].format(
+                    action=action.name)
+                embed_data["description"] = embed_data["description"].format(
+                    message=data.get("message", "An unknown error occurred."))
             await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
@@ -60,7 +68,8 @@ class BotManagement(commands.Cog):
     @app_commands.choices(setting=[
         app_commands.Choice(name="Night Mode", value="night_mode_enabled"),
         app_commands.Choice(name="AFK Mode", value="afk_mode_enabled"),
-        app_commands.Choice(name="Verbose Logging", value="verbose_logging_enabled"),
+        app_commands.Choice(name="Verbose Logging",
+                            value="verbose_logging_enabled"),
     ], status=[
         app_commands.Choice(name="On", value="true"),
         app_commands.Choice(name="Off", value="false"),
@@ -70,14 +79,17 @@ class BotManagement(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         payload = {"key": setting.value, "enabled": status.value == "true"}
         try:
-            response = requests.post("http://127.0.0.1:5001/update_setting", json=payload, timeout=10)
+            response = requests.post(
+                "http://127.0.0.1:5001/update_setting", json=payload, timeout=10)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = SETTINGS_EMBEDS["success"].copy()
-                embed_data["description"] = embed_data["description"].format(setting_name=setting.name, status_name=status.name)
+                embed_data["description"] = embed_data["description"].format(
+                    setting_name=setting.name, status_name=status.name)
             else:
                 embed_data = SETTINGS_EMBEDS["error"].copy()
-                embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown server error occurred."))
+                embed_data["description"] = embed_data["description"].format(
+                    error=data.get("error", "An unknown server error occurred."))
             await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
@@ -87,9 +99,10 @@ class BotManagement(commands.Cog):
         """Fetches and displays wallet balances."""
         await interaction.response.defer(ephemeral=True)
         try:
-            balances = get_wallet_balances() 
-            
-            embed = discord.Embed(title="💰 Wallet Balances", color=COLORS.get("info", 0x5865F2))
+            balances = get_wallet_balances()
+
+            embed = discord.Embed(title="💰 Wallet Balances",
+                                  color=COLORS.get("info", 0x5865F2))
 
             if not balances:
                 embed.description = "Could not fetch any wallet balances."
@@ -100,14 +113,17 @@ class BotManagement(commands.Cog):
                 if "error" in balance_data:
                     value = f"❌ Error: {balance_data['error']}"
                 else:
-                    filtered_balances = {code: amount for code, amount in balance_data.items() if float(amount) != 0}
-                    
+                    filtered_balances = {
+                        code: amount for code, amount in balance_data.items() if float(amount) != 0}
+
                     if filtered_balances:
-                        value = "\n".join([f"**{code.upper()}:** `{amount}`" for code, amount in filtered_balances.items()])
+                        value = "\n".join(
+                            [f"**{code.upper()}:** `{amount}`" for code, amount in filtered_balances.items()])
                     else:
                         value = "No active balances."
-                
-                embed.add_field(name=f"--- {account_name} ---", value=value, inline=False)
+
+                embed.add_field(
+                    name=f"--- {account_name} ---", value=value, inline=False)
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 

@@ -1,16 +1,17 @@
 import pytesseract
-import re
-from PIL import Image
 import logging
-import cv2
-import numpy as np
 import json
+import cv2
+import re
 import os
+
 from datetime import datetime
+from PIL import Image
+
+from config import OCR_LOG_PATH
 
 logger = logging.getLogger(__name__)
 
-OCR_LOG_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'logs', 'ocr_logs')
 os.makedirs(OCR_LOG_PATH, exist_ok=True)
 
 def load_ocr_templates():

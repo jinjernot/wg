@@ -7,6 +7,7 @@ from config_messages.discord_messages import TOGGLE_OFFERS_EMBED, COLORS, SERVER
 
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
+
 class OfferCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -21,16 +22,21 @@ class OfferCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         is_enabled = status.value == "on"
         try:
-            response = requests.post("http://127.0.0.1:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
+            response = requests.post(
+                "http://127.0.0.1:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = TOGGLE_OFFERS_EMBED["success"].copy()
-                embed_data["title"] = embed_data["title"].format(status=status.name)
-                embed_data["description"] = data.get("message", f"Offers are now {status.name}.")
-                if not is_enabled: embed_data['color'] = COLORS['error']
+                embed_data["title"] = embed_data["title"].format(
+                    status=status.name)
+                embed_data["description"] = data.get(
+                    "message", f"Offers are now {status.name}.")
+                if not is_enabled:
+                    embed_data['color'] = COLORS['error']
             else:
                 embed_data = TOGGLE_OFFERS_EMBED["error"].copy()
-                embed_data["description"] = data.get("error", "Unknown server error.")
+                embed_data["description"] = data.get(
+                    "error", "Unknown server error.")
             await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
@@ -39,13 +45,15 @@ class OfferCommands(commands.Cog):
     async def list_offers_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get("http://127.0.0.1:5001/get_offers", timeout=15)
+            response = requests.get(
+                "http://127.0.0.1:5001/get_offers", timeout=15)
             offers = response.json() if response.status_code == 200 else []
             if not offers:
                 await interaction.followup.send("You have no active offers.", ephemeral=True)
                 return
-            
-            embed = discord.Embed(title=f"Your Active Offers ({len(offers)})", color=COLORS["info"])
+
+            embed = discord.Embed(
+                title=f"Your Active Offers ({len(offers)})", color=COLORS["info"])
             for offer in offers[:20]:
                 status = "✅ On" if offer.get('enabled') else "❌ Off"
                 embed.add_field(
@@ -66,17 +74,22 @@ class OfferCommands(commands.Cog):
     async def toggle_offer_command(self, interaction: discord.Interaction, offer_hash: str, account_name: str, status: app_commands.Choice[str]):
         await interaction.response.defer(ephemeral=True)
         is_enabled = status.value == "on"
-        payload = {"offer_hash": offer_hash, "account_name": account_name, "enabled": is_enabled}
+        payload = {"offer_hash": offer_hash,
+                   "account_name": account_name, "enabled": is_enabled}
         try:
-            response = requests.post("http://127.0.0.1:5001/offer/toggle_single", json=payload, timeout=15)
+            response = requests.post(
+                "http://127.0.0.1:5001/offer/toggle_single", json=payload, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
-                embed = discord.Embed(title=f"✅ Offer Status Updated", description=f"Successfully turned **{status.name}** the offer `{offer_hash}`.", color=COLORS["success"] if is_enabled else COLORS["error"])
+                embed = discord.Embed(title=f"✅ Offer Status Updated",
+                                      description=f"Successfully turned **{status.name}** the offer `{offer_hash}`.", color=COLORS["success"] if is_enabled else COLORS["error"])
             else:
-                embed = discord.Embed(title=f"❌ Error Updating Offer", description=f"Failed to update offer `{offer_hash}`.\n**Reason**: {data.get('error', 'Unknown error.')}", color=COLORS["error"])
+                embed = discord.Embed(title=f"❌ Error Updating Offer",
+                                      description=f"Failed to update offer `{offer_hash}`.\n**Reason**: {data.get('error', 'Unknown error.')}", color=COLORS["error"])
             await interaction.followup.send(embed=embed, ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(OfferCommands(bot))

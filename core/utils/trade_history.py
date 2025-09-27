@@ -1,30 +1,30 @@
 import matplotlib
-matplotlib.use('Agg')
+import threading
 import requests
 import logging
-import threading
 import pytz
-import os
-import csv
 import json
+import csv
+import os
+
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from threading import Lock
 
 import matplotlib.pyplot as plt
-from collections import Counter, defaultdict
+from collections import Counter
 import pandas as pd
 
 from core.api.auth import fetch_token_with_retry
 from config import ACCOUNTS, TRADE_COMPLETED_URL_NOONES, TRADE_COMPLETED_URL_PAXFUL, TRADE_HISTORY
 
-# Silence urllib3 connection logs
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG)
 
+matplotlib.use('Agg')
+
 ALL_TRADES = []
 LOCK = Lock()
-
 
 def fetch_completed_trades(account, limit=1000):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
@@ -51,13 +51,15 @@ def fetch_completed_trades(account, limit=1000):
         }
 
         try:
-            resp = requests.post(base_url, headers=headers, data=payload, timeout=30)
+            resp = requests.post(base_url, headers=headers,
+                                 data=payload, timeout=30)
             resp.raise_for_status()
             json_data = resp.json()
             logging.debug(f"{account['name']} - page {page}: {json_data}")
             save_raw_json_response(account, json_data)
         except Exception as e:
-            logging.error(f"{account['name']}: error fetching page {page}: {e}")
+            logging.error(
+                f"{account['name']}: error fetching page {page}: {e}")
             break
 
         data = json_data.get("data", {})
@@ -66,7 +68,8 @@ def fetch_completed_trades(account, limit=1000):
             total = data.get("count", 0)
 
         if not trades:
-            logging.debug(f"{account['name']}: no trades found on page {page}.")
+            logging.debug(
+                f"{account['name']}: no trades found on page {page}.")
             break
 
         for t in trades:
@@ -76,16 +79,19 @@ def fetch_completed_trades(account, limit=1000):
 
         page += 1
         if page * limit >= total:
-            logging.debug(f"Finished fetching all trades, reached total count: {total}")
+            logging.debug(
+                f"Finished fetching all trades, reached total count: {total}")
             break
 
-    logging.info(f"{account['name']}: collected {len(collected)} trades in last 150 days.")
+    logging.info(
+        f"{account['name']}: collected {len(collected)} trades in last 150 days.")
 
     save_normalized_trades(account, collected)
     save_trades_csv(account, collected)
 
     with LOCK:
         ALL_TRADES.extend(collected)
+
 
 def normalize_trade(trade, account_name):
     def safe_float(value):
@@ -148,17 +154,21 @@ def save_trades_csv(account, trades):
         logging.info(f"No trades to save to CSV for {account['name']}")
         return
 
-    excluded_fields = {"trade_status", "location_iso", "seller_avatar_url", "buyer_avatar_url"}
-    fieldnames = [key for key in trades[0].keys() if key not in excluded_fields]
+    excluded_fields = {"trade_status", "location_iso",
+                       "seller_avatar_url", "buyer_avatar_url"}
+    fieldnames = [key for key in trades[0].keys()
+                  if key not in excluded_fields]
 
     try:
         with open(path, mode="w", encoding="utf-8", newline="") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for row in trades:
-                filtered_row = {k: v for k, v in row.items() if k in fieldnames}
+                filtered_row = {k: v for k,
+                                v in row.items() if k in fieldnames}
                 writer.writerow(filtered_row)
-        logging.info(f"Saved filtered CSV trades for {account['name']} to {path}")
+        logging.info(
+            f"Saved filtered CSV trades for {account['name']} to {path}")
     except Exception as e:
         logging.error(f"Error saving CSV for {account['name']}: {e}")
 
@@ -168,7 +178,8 @@ def plot_successful_trades_per_account(all_trades, output_path):
     for trade in all_trades:
         if trade['status'] == 'successful':
             account_name = trade['account_name']
-            account_success_counts[account_name] = account_success_counts.get(account_name, 0) + 1
+            account_success_counts[account_name] = account_success_counts.get(
+                account_name, 0) + 1
 
     accounts = list(account_success_counts.keys())
     success_counts = list(account_success_counts.values())
@@ -224,8 +235,10 @@ def plot_crypto_currency_distribution(all_trades, output_path):
                 account_crypto_counts[account][crypto] += 1
 
     accounts = list(account_crypto_counts.keys())
-    cryptos = list({crypto for sub in account_crypto_counts.values() for crypto in sub})
-    data = [[account_crypto_counts[acc].get(crypto, 0) for acc in accounts] for crypto in cryptos]
+    cryptos = list({crypto for sub in account_crypto_counts.values()
+                   for crypto in sub})
+    data = [[account_crypto_counts[acc].get(
+        crypto, 0) for acc in accounts] for crypto in cryptos]
 
     plt.figure(figsize=(12, 7))
     bottom = [0] * len(accounts)
@@ -243,6 +256,7 @@ def plot_crypto_currency_distribution(all_trades, output_path):
     plt.savefig(output_path)
     plt.close()
 
+
 def plot_trades_by_payment_method(all_trades, output_path):
     """Generates a stacked bar chart of trades by payment method and account."""
     if not all_trades:
@@ -258,14 +272,16 @@ def plot_trades_by_payment_method(all_trades, output_path):
         return
 
     # Group by payment method and account, then count the trades
-    trade_counts = successful_trades.groupby(['payment_method_name', 'account_name']).size().unstack(fill_value=0)
+    trade_counts = successful_trades.groupby(
+        ['payment_method_name', 'account_name']).size().unstack(fill_value=0)
 
     if trade_counts.empty:
         logging.info("No data to plot for payment methods.")
         return
 
     # Create the stacked bar chart
-    ax = trade_counts.plot(kind='bar', stacked=True, figsize=(14, 8), colormap='viridis')
+    ax = trade_counts.plot(kind='bar', stacked=True,
+                           figsize=(14, 8), colormap='viridis')
 
     plt.title("Trades por Método de Pago y Cuenta")
     plt.xlabel("Método de Pago")
@@ -299,7 +315,7 @@ def save_all_trades_csv(trades, output_dir):
 
 def plot_trades_per_time_of_day(all_trades, output_path):
     from collections import Counter
-    
+
     time_of_day_counts = Counter()
     mexico_tz = pytz.timezone('America/Mexico_City')
 
@@ -316,10 +332,12 @@ def plot_trades_per_time_of_day(all_trades, output_path):
                     hour = dt_mexico.hour
                     time_of_day_counts[hour] += 1
                 except Exception as e:
-                    logging.warning(f"Invalid started_at date: {started_at} -> {e}")
+                    logging.warning(
+                        f"Invalid started_at date: {started_at} -> {e}")
 
     if not time_of_day_counts:
-        logging.info("No valid started_at dates for plotting trades per time of day.")
+        logging.info(
+            "No valid started_at dates for plotting trades per time of day.")
         return
 
     hours = list(range(24))
@@ -336,10 +354,12 @@ def plot_trades_per_time_of_day(all_trades, output_path):
     plt.savefig(output_path)
     plt.close()
 
+
 def main():
     threads = []
     for account in ACCOUNTS:
-        thread = threading.Thread(target=fetch_completed_trades, args=(account,))
+        thread = threading.Thread(
+            target=fetch_completed_trades, args=(account,))
         thread.start()
         threads.append(thread)
 
@@ -357,12 +377,13 @@ def main():
         trade['status'] == 'successful'
     ]
 
-    logging.info(f"Filtered to {len(filtered_trades)} successful trades from the last 150 days.")
+    logging.info(
+        f"Filtered to {len(filtered_trades)} successful trades from the last 150 days.")
 
     date_folder = datetime.now().strftime('%Y-%m-%d')
     output_dir = os.path.join(TRADE_HISTORY, date_folder)
     os.makedirs(output_dir, exist_ok=True)
-    
+
     plot_paths = {
         "trades_per_account": os.path.join(output_dir, "trades_per_account.png"),
         "top_10_buyers": os.path.join(output_dir, "top_10_buyers.png"),
@@ -372,14 +393,18 @@ def main():
     }
 
     plot_trades_per_time_of_day(filtered_trades, plot_paths["trades_per_time"])
-    plot_successful_trades_per_account(filtered_trades, plot_paths["trades_per_account"])
+    plot_successful_trades_per_account(
+        filtered_trades, plot_paths["trades_per_account"])
     plot_top_10_buyers(filtered_trades, plot_paths["top_10_buyers"])
-    plot_crypto_currency_distribution(filtered_trades, plot_paths["crypto_distribution"])
-    plot_trades_by_payment_method(filtered_trades, plot_paths["trades_by_payment_method"])
+    plot_crypto_currency_distribution(
+        filtered_trades, plot_paths["crypto_distribution"])
+    plot_trades_by_payment_method(
+        filtered_trades, plot_paths["trades_by_payment_method"])
 
     save_all_trades_csv(filtered_trades, output_dir)
 
     return plot_paths
+
 
 if __name__ == "__main__":
     main()
