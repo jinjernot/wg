@@ -30,14 +30,9 @@ def save_chat_log(trade_hash, messages, account_name):
     except Exception as e:
         logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
 
-def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_retries=3):
-    """
-    Fetches chat messages, processes only new messages (including attachments)
-    based on the last processed message ID.
-    """
+def _get_new_messages(trade_hash, account, headers, max_retries=3):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
-    image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
     account_name = account.get("name")
     data = {"trade_hash": trade_hash}
 
@@ -51,98 +46,121 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
             chat_data = response.json()
             if chat_data.get("status") != "success":
                 logger.error(f"API returned error fetching chat: {chat_data}")
-                return False, None, []
+                return None, None
 
             messages = chat_data.get("data", {}).get("messages", [])
             if not messages:
-                return False, None, []
+                return [], None
 
             save_chat_log(trade_hash, messages, account_name)
 
             last_processed_id = LAST_MESSAGE_IDS.get(trade_hash)
-            new_messages = []
             if last_processed_id is None:
-                new_messages = messages
-            else:
-                last_index = -1
-                for i, msg in enumerate(messages):
-                    if str(msg.get("id")) == str(last_processed_id):
-                        last_index = i
-                        break
-                if last_index != -1:
-                    new_messages = messages[last_index + 1:]
-                else:
-                    logger.warning(f"Last processed message ID {last_processed_id} not found for trade {trade_hash}. Not processing chat.")
-                    new_messages = []
+                return messages, messages[-1].get("id")
 
-            if not new_messages:
-                return False, None, []
-
-            attachment_found = False
-            new_attachments = []
-            
-            for msg in new_messages:
-                if msg.get("type") == "trade_attach_uploaded":
-                    attachment_found = True
-                    author = msg.get("author", "Unknown")
-                    files = msg.get("text", {}).get("files", [])
-                    for file_info in files:
-                        image_url_path = file_info.get("url")
-                        if not image_url_path:
-                            continue
-                        
-                        match = re.search(r'attachment/([^?]+)', image_url_path)
-                        if not match:
-                            continue
-                        image_hash = match.group(1)
-                        image_payload = {"image_hash": image_hash, "size": "2"}
-                        image_headers = headers.copy()
-                        image_headers["Content-Type"] = "application/x-www-form-urlencoded"
-
-                        try:
-                            image_response = requests.post(image_api_url, data=image_payload, headers=image_headers, timeout=15)
-                            
-                            if image_response.status_code == 200:
-                                os.makedirs(ATTACHMENT_PATH, exist_ok=True)
-                                file_extension = os.path.splitext(image_url_path)[1] or '.jpg'
-                                sanitized_hash = "".join(c for c in trade_hash if c.isalnum())
-                                timestamp = int(time.time())
-                                file_name = f"{sanitized_hash}_{timestamp}{file_extension}"
-                                file_path = os.path.join(ATTACHMENT_PATH, file_name)
-                                with open(file_path, 'wb') as f:
-                                    f.write(image_response.content)
-                                new_attachments.append({"path": file_path, "author": author})
-                                logger.info(f"New attachment for trade {trade_hash} downloaded to {file_path}")
-                            else:
-                                logger.error(f"Failed to download attachment with hash {image_hash}. Status: {image_response.status_code} - {image_response.text}")
-                        except requests.exceptions.RequestException as e:
-                            logger.error(f"Error downloading attachment for trade {trade_hash}: {e}")
-
-                elif msg.get("author") not in ["davidvs", "JoeWillgang", None]:
-                    message_text = msg.get("text")
-                    if isinstance(message_text, dict): message_text = str(message_text)
-                    if message_text:
-                        msg_author = msg.get("author", "Unknown")
-                        send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
-                        create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)
-
-            latest_message_id = messages[-1].get("id")
-            if latest_message_id:
-                save_last_message_id(trade_hash, latest_message_id)
-                LAST_MESSAGE_IDS[trade_hash] = latest_message_id
-
-            last_buyer_ts = None
-            for msg in reversed(messages):
-                if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
-                    last_buyer_ts = msg.get("timestamp")
+            last_index = -1
+            for i, msg in enumerate(messages):
+                if str(msg.get("id")) == str(last_processed_id):
+                    last_index = i
                     break
             
-            return attachment_found, last_buyer_ts, new_attachments
-
+            if last_index != -1:
+                return messages[last_index + 1:], messages[-1].get("id")
+            else:
+                logger.warning(f"Last processed message ID {last_processed_id} not found for trade {trade_hash}. Not processing chat.")
+                return [], None
+        
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed for {trade_hash}: {e}")
         
         if attempt < max_retries - 1:
             time.sleep(2 ** attempt)
 
-    return False, None, []
+    return None, None
+
+
+def _download_attachment(image_url_path, image_api_url, trade_hash, headers):
+    match = re.search(r'attachment/([^?]+)', image_url_path)
+    if not match:
+        return None
+    image_hash = match.group(1)
+    image_payload = {"image_hash": image_hash, "size": "2"}
+    image_headers = headers.copy()
+    image_headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    try:
+        image_response = requests.post(image_api_url, data=image_payload, headers=image_headers, timeout=15)
+        
+        if image_response.status_code == 200:
+            os.makedirs(ATTACHMENT_PATH, exist_ok=True)
+            file_extension = os.path.splitext(image_url_path)[1] or '.jpg'
+            sanitized_hash = "".join(c for c in trade_hash if c.isalnum())
+            timestamp = int(time.time())
+            file_name = f"{sanitized_hash}_{timestamp}{file_extension}"
+            file_path = os.path.join(ATTACHMENT_PATH, file_name)
+            with open(file_path, 'wb') as f:
+                f.write(image_response.content)
+            logger.info(f"New attachment for trade {trade_hash} downloaded to {file_path}")
+            return file_path
+        else:
+            logger.error(f"Failed to download attachment with hash {image_hash}. Status: {image_response.status_code} - {image_response.text}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading attachment for trade {trade_hash}: {e}")
+    return None
+
+def _process_new_messages(new_messages, trade_hash, owner_username, account, headers):
+    attachment_found = False
+    new_attachments = []
+    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+    image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
+
+    for msg in new_messages:
+        if msg.get("type") == "trade_attach_uploaded":
+            attachment_found = True
+            author = msg.get("author", "Unknown")
+            files = msg.get("text", {}).get("files", [])
+            for file_info in files:
+                image_url_path = file_info.get("url")
+                if image_url_path:
+                    file_path = _download_attachment(image_url_path, image_api_url, trade_hash, headers)
+                    if file_path:
+                        new_attachments.append({"path": file_path, "author": author})
+
+        elif msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            message_text = msg.get("text")
+            if isinstance(message_text, dict): message_text = str(message_text)
+            if message_text:
+                msg_author = msg.get("author", "Unknown")
+                send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
+                create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)
+    
+    return attachment_found, new_attachments
+
+def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_retries=3):
+    """
+    Fetches chat messages, processes only new messages (including attachments)
+    based on the last processed message ID.
+    """
+    new_messages, latest_message_id = _get_new_messages(trade_hash, account, headers, max_retries)
+
+    if new_messages is None:
+        return False, None, []
+    
+    if not new_messages:
+        return False, None, []
+
+    attachment_found, new_attachments = _process_new_messages(new_messages, trade_hash, owner_username, account, headers)
+
+    if latest_message_id:
+        save_last_message_id(trade_hash, latest_message_id)
+        LAST_MESSAGE_IDS[trade_hash] = latest_message_id
+
+    last_buyer_ts = None
+    all_messages, _ = _get_new_messages(trade_hash, account, headers, max_retries) # Fetch all messages again to get the last buyer timestamp
+    if all_messages:
+        for msg in reversed(all_messages):
+            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                last_buyer_ts = msg.get("timestamp")
+                break
+    
+    return attachment_found, last_buyer_ts, new_attachments
