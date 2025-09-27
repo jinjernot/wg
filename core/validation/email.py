@@ -1,4 +1,3 @@
-
 import os.path
 import logging
 import base64
@@ -14,10 +13,14 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
+from config import CREDENTIALS_DIR
 
 logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+
+
 
 def get_gmail_service(name_identifier):
     """Authenticates with the Gmail API using a specific name identifier."""
@@ -28,8 +31,9 @@ def get_gmail_service(name_identifier):
     sanitized_name = name_identifier.replace(" ", "_")
 
     creds = None
-    token_file = f"token_{sanitized_name}.json"
-    creds_file = f"credentials_{sanitized_name}.json"
+    token_file = os.path.join(CREDENTIALS_DIR, f"token_{sanitized_name}.json")
+    creds_file = os.path.join(CREDENTIALS_DIR, f"credentials_{sanitized_name}.json")
+
 
     if os.path.exists(token_file):
         creds = Credentials.from_authorized_user_file(token_file, SCOPES)
@@ -123,6 +127,7 @@ def extract_scotiabank_details(html_body):
         amount_span = soup.find('span', style=lambda v: v and 'font-weight:bold' in v and '18.0pt' in v)
         found_amount = None
         if amount_span:
+            # --- FIX: Changed Justifying to True ---
             amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*\.\d{2})', amount_span.get_text(strip=True))
             if amount_match:
                 found_amount = float(amount_match.group(1).replace(',', ''))

@@ -5,12 +5,12 @@ import os
 import asyncio
 from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, COGS_DIR
 
-# --- Basic Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Bot Initialization ---
+
 intents = discord.Intents.default()
+intents.message_content = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- Bot Events ---
@@ -18,8 +18,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     logger.info(f'Logged in as {bot.user}. Bot is ready!')
     await bot.change_presence(activity=discord.Game(name="/status for info"))
-
-    # ADD THIS BLOCK TO SYNC COMMANDS
     try:
         synced = await bot.tree.sync(guild=discord.Object(id=DISCORD_GUILD_ID))
         logger.info(f"Synced {len(synced)} command(s) to the server.")
@@ -29,10 +27,12 @@ async def on_ready():
 
 async def load_cogs():
     """Loads all cogs from the 'cogs' directory."""
+
     for filename in os.listdir(COGS_DIR):
         if filename.endswith('.py'):
             try:
-                await bot.load_extension(f'cogs.{filename[:-3]}')
+                # The path should be bot.cogs.filename
+                await bot.load_extension(f'bot.cogs.{filename[:-3]}')
                 logger.info(f"Loaded cog: {filename}")
             except Exception as e:
                 logger.error(f"Failed to load cog {filename}: {e}")

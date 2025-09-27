@@ -25,6 +25,9 @@ app = Flask(__name__)
 setup_logging()
 logger = logging.getLogger(__name__)
 
+# --- Define the directory for active trade logs ---
+ACTIVE_TRADES_DIR = os.path.join('data', 'logs', 'active_trades')
+
 if not os.path.exists(JSON_PATH):
     os.makedirs(JSON_PATH)
 
@@ -117,10 +120,15 @@ def update_all_selections():
 @app.route("/get_active_trades")
 def get_active_trades():
     active_trades_data = []
-    for filename in os.listdir("."):
+    # --- MODIFICATION: Read files from the new directory ---
+    if not os.path.exists(ACTIVE_TRADES_DIR):
+        return jsonify([]) # Return empty if the directory doesn't exist yet
+
+    for filename in os.listdir(ACTIVE_TRADES_DIR):
         if filename.endswith("_trades.json"):
             try:
-                with open(filename, "r", encoding="utf-8") as f:
+                filepath = os.path.join(ACTIVE_TRADES_DIR, filename)
+                with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     trades_list = data.get("data", {}).get("trades", [])
                     if trades_list:

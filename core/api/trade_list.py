@@ -3,9 +3,11 @@ import certifi
 import logging
 import json
 import time
-from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL
+import os 
+from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL, ACTIVE_TRADES_DIR
 
 logger = logging.getLogger(__name__)
+
 
 def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
     if "_Paxful" in account["name"]:
@@ -36,11 +38,11 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3):
             
             if response.status_code == 200:
                 trades_data = response.json()
-
                 filename = f"{account['name'].replace(' ', '_')}_trades.json"
-                with open(filename, "w", encoding="utf-8") as json_file:
+                filepath = os.path.join(ACTIVE_TRADES_DIR, filename)
+                with open(filepath, "w", encoding="utf-8") as json_file:
                     json.dump(trades_data, json_file, indent=4)
-                logger.info(f"Saved raw trade data to {filename}")
+                logger.info(f"Saved raw trade data to {filepath}")
 
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     return trades_data["data"]["trades"]
