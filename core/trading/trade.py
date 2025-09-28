@@ -34,6 +34,7 @@ from core.messaging.alerts.telegram_alert import (
 )
 from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
+    create_trade_status_update_embed, # Import the new function
     create_attachment_embed,
     create_amount_validation_embed,
     create_email_validation_embed,
@@ -90,8 +91,7 @@ class Trade:
             f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
 
-        # --- THIS IS THE NEW LINE ---
-        # It sends a Discord alert as soon as a new trade is detected.
+        # Send the main Discord alert for a new trade
         create_new_trade_embed(self.trade_state, self.platform)
 
         new_trade_embed_data = create_new_trade_embed(
@@ -117,6 +117,13 @@ class Trade:
         if current_status not in self.trade_state.get('status_history', []):
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
+
+            # --- TRIGGER DISCORD ALERT FOR STATUS CHANGE ---
+            if current_status in ['Successful', 'Paid']:
+                create_trade_status_update_embed(
+                    self.trade_hash, self.owner_username, current_status, self.platform
+                )
+
             if current_status == 'Successful':
                 send_trade_completion_message(
                     self.trade_hash, self.account, self.headers)
@@ -366,4 +373,3 @@ class Trade:
                 f"Sending payment reminder for trade {self.trade_hash} due to inactivity.")
             send_payment_reminder_message(
                 self.trade_hash, self.account, self.headers)
-            self.trade_state['reminder_sent'] = True
