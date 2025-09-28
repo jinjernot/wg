@@ -58,8 +58,20 @@ def get_wallet_balances():
                 data = response.json().get("data", {})
                 if platform == "Paxful":
                     if data and 'crypto_currency_code' in data and 'balance' in data:
+                        currency_code = data['crypto_currency_code']
+                        balance_value = data['balance']
+                        
+                        # Convert from satoshis to BTC if the currency is BTC
+                        if currency_code == 'BTC':
+                            try:
+                                satoshi_balance = int(balance_value)
+                                btc_balance = satoshi_balance / 100_000_000
+                                balance_value = f"{btc_balance:.8f}"
+                            except (ValueError, TypeError):
+                                logger.error(f"Could not convert Paxful BTC balance '{balance_value}' to a number.")
+
                         all_balances[account['name']] = {
-                            data['crypto_currency_code']: data['balance']
+                            currency_code: balance_value
                         }
                     else:
                          all_balances[account['name']] = {"error": "Unexpected Paxful data structure"}
