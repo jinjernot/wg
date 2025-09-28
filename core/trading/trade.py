@@ -90,6 +90,10 @@ class Trade:
             f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
 
+        # --- THIS IS THE NEW LINE ---
+        # It sends a Discord alert as soon as a new trade is detected.
+        create_new_trade_embed(self.trade_state, self.platform)
+
         new_trade_embed_data = create_new_trade_embed(
             self.trade_state, self.platform, send=False)
         if new_trade_embed_data:

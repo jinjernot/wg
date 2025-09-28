@@ -29,53 +29,8 @@ def format_status_for_discord(status):
 class TradeCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.post_live_trades.start()  
-
-    def cog_unload(self):
-        self.post_live_trades.cancel()
-
-    @tasks.loop(minutes=2)
-    async def post_live_trades(self):
-        """A background task that posts a summary of live trades."""
-        channel = self.bot.get_channel(DISCORD_ACTIVE_TRADES_CHANNEL_ID)
-        if not channel:
-            logger.error(
-                f"Could not find channel {DISCORD_ACTIVE_TRADES_CHANNEL_ID}. Live feed disabled.")
-            return
-        try:
-            response = requests.get(
-                "http://127.0.0.1:5001/get_active_trades", timeout=10)
-            trades = response.json() if response.status_code == 200 else []
-
-            if not trades:
-                embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
-            else:
-                embed_data = ACTIVE_TRADES_EMBED.copy()
-                embed_data["title"] = embed_data["title"].format(
-                    trade_count=len(trades))
-                embed = discord.Embed.from_dict(embed_data)
-                for trade in trades[:20]:
-                    buyer = trade.get('responder_username', 'N/A')
-                    amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
-                    status = trade.get('trade_status', 'N/A')
-                    embed.add_field(
-                        name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                        value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status)}",
-                        inline=False
-                    )
-            embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-            embed.set_footer(text="Last updated")
-
-            await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
-            await channel.send(embed=embed)
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Could not connect to Flask app for live trades task: {e}")
-
-    @post_live_trades.before_loop
-    async def before_post_live_trades(self):
-        # Wait for the bot to be ready before starting the task
-        await self.bot.wait_until_ready()
+        # The 'post_live_trades' task has been removed, so this cog no longer
+        # sends a summary every 2 minutes.
 
     @app_commands.command(name="trades", description="Get a list of currently active trades.")
     async def active_trades_command(self, interaction: discord.Interaction):
@@ -138,7 +93,7 @@ class TradeCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             response = requests.get(
-                f"http://127.0.0.1:5001/user_profile/{username}", timeout=10)
+                f"http://1.2.3.4:5001/user_profile/{username}", timeout=10)
             if response.status_code == 200:
                 stats = response.json()
                 embed_data = USER_PROFILE_EMBED.copy()
