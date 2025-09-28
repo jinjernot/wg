@@ -42,8 +42,6 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     Routes to the chat_log webhook if a trade_hash is provided.
     Retries in the main channel if the thread is archived.
     """
-    # If a trade_hash is present, the message is for a thread in the chat_log channel.
-    # We must use the webhook associated with that channel.
     if trade_hash:
         webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
     else:
@@ -61,7 +59,6 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
 
     success, message, error_code = _send_discord_request(webhook_url, payload)
 
-    # If it failed because the thread is archived (error 10003), try sending to the main channel.
     if not success and error_code == 10003 and thread_id:
         logger.warning(f"Failed to send to thread {thread_id} (likely archived). Retrying in main channel.")
         success, message, _ = _send_discord_request(webhook_url_base, payload)
@@ -144,13 +141,16 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
     # Determine the title and color based on the new status
     if new_status == 'Paid':
         title = "💰 Trade Paid"
-        color = COLORS.get("warning", 0xFFA500) # Orange for paid
+        color = COLORS.get("warning", 0xFFA500)
     elif new_status == 'Successful':
         title = "✅ Trade Completed"
-        color = COLORS.get("success", 0x00FF00) # Green for success
+        color = COLORS.get("success", 0x00FF00)
+    elif 'Dispute' in new_status:
+        title = "⚠️ Trade Disputed"
+        color = COLORS.get("error", 0xFF0000)
     else:
         title = "🔄 Trade Status Updated"
-        color = COLORS.get("info", 0x5865F2) # Default blue
+        color = COLORS.get("info", 0x5865F2)
 
     embed = {
         "title": title,
