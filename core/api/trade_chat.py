@@ -164,3 +164,35 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
                 break
     
     return attachment_found, last_buyer_ts, new_attachments
+
+
+def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):
+    """
+    Fetches all messages from a trade chat without considering the last processed message ID.
+    This is a read-only operation and does not update the state.
+    """
+    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+    chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
+    data = {"trade_hash": trade_hash}
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(chat_url, data=data, headers=headers, timeout=10)
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
+                continue
+
+            chat_data = response.json()
+            if chat_data.get("status") != "success":
+                logger.error(f"API returned error fetching chat: {chat_data}")
+                return []
+
+            return chat_data.get("data", {}).get("messages", [])
+        
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {trade_hash}: {e}")
+        
+        if attempt < max_retries - 1:
+            time.sleep(2 ** attempt)
+
+    return []
