@@ -21,7 +21,8 @@ from core.messaging.payment_details import send_payment_details_message
 from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
-    send_payment_reminder_message
+    send_payment_reminder_message,
+    send_afk_message
 )
 from core.messaging.attachment_message import send_attachment_message
 from core.messaging.alerts.telegram_alert import (
@@ -41,6 +42,7 @@ from core.messaging.alerts.discord_alert import (
 )
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
+from core.api.trade_chat import get_new_messages
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,7 @@ class Trade:
         self.check_status_change()
         self.check_for_email_confirmation()
         self.check_chat_and_attachments()
+        self.check_for_afk()
         self.check_for_inactivity()
         self.save()
 
@@ -240,6 +243,62 @@ class Trade:
                 self.save()
 
 
+    def check_for_afk(self):
+            """Checks if the buyer has sent multiple messages without a response."""
+            if self.trade_state.get('afk_message_sent'):
+                return
+
+            # Fetch all messages
+            all_messages, _ = get_new_messages(self.trade_hash, self.account, self.headers)
+
+            if not all_messages:
+                return
+
+            # Define your usernames to filter out your own messages
+            owner_usernames = ["davidvs", "JoeWillgang"]
+            buyer_messages = [msg for msg in all_messages if msg.get("author") not in owner_usernames]
+
+            if not buyer_messages:
+                return
+
+            # Check if the last message is from the buyer
+            if all_messages[-1].get("author") not in owner_usernames:
+                # Check how many messages the buyer has sent in a row
+                consecutive_buyer_messages = 0
+                for msg in reversed(all_messages):
+                    if msg.get("author") not in owner_usernames:
+                        consecutive_buyer_messages += 1
+                    else:
+                        break # Stop counting when we hit one of our own messages
+                
+                logger.debug(f"AFK Check for trade {self.trade_hash}: Found {consecutive_buyer_messages} consecutive buyer messages.")
+
+                # Get the timestamp of the first of these consecutive messages
+                first_consecutive_message_ts = all_messages[-consecutive_buyer_messages].get("timestamp")
+                if not first_consecutive_message_ts:
+                    return
+
+                time_since_first_message = (datetime.now(timezone.utc).timestamp() - first_consecutive_message_ts) / 60
+                logger.debug(f"AFK Check for trade {self.trade_hash}: Time since first message is {time_since_first_message:.2f} minutes.")
+
+
+                # Define your thresholds
+                message_threshold = 3 # Number of messages from the buyer
+                time_threshold_minutes = 5 # Time in minutes since the first unanswered message
+
+                if consecutive_buyer_messages >= message_threshold and time_since_first_message > time_threshold_minutes:
+                    logger.info(f"✅ AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes. Sending AFK message.")
+                    send_afk_message(self.trade_hash, self.account, self.headers)
+                    self.trade_state['afk_message_sent'] = True
+                    self.save()
+                else:
+                    # Log why the AFK message was NOT sent, which is useful for debugging
+                    if consecutive_buyer_messages < message_threshold:
+                        logger.info(f"AFK not triggered for {self.trade_hash}: Not enough messages ({consecutive_buyer_messages}/{message_threshold}).")
+                    if time_since_first_message <= time_threshold_minutes:
+                        logger.info(f"AFK not triggered for {self.trade_hash}: Not enough time has passed ({time_since_first_message:.2f}/{time_threshold_minutes} minutes).")
+                        
+                                        
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
         is_active = self.trade_state.get("trade_status", "").startswith('Active')

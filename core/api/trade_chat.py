@@ -30,7 +30,7 @@ def save_chat_log(trade_hash, messages, account_name):
     except Exception as e:
         logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
 
-def _get_new_messages(trade_hash, account, headers, max_retries=3):
+def get_new_messages(trade_hash, account, headers, max_retries=3):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     chat_url = GET_CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
     account_name = account.get("name")
@@ -141,7 +141,7 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
     Fetches chat messages, processes only new messages (including attachments)
     based on the last processed message ID.
     """
-    new_messages, latest_message_id = _get_new_messages(trade_hash, account, headers, max_retries)
+    new_messages, latest_message_id = get_new_messages(trade_hash, account, headers, max_retries)
 
     if new_messages is None:
         return False, None, []
@@ -156,7 +156,7 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
         LAST_MESSAGE_IDS[trade_hash] = latest_message_id
 
     last_buyer_ts = None
-    all_messages, _ = _get_new_messages(trade_hash, account, headers, max_retries) # Fetch all messages again to get the last buyer timestamp
+    all_messages, _ = get_new_messages(trade_hash, account, headers, max_retries) # Fetch all messages again to get the last buyer timestamp
     if all_messages:
         for msg in reversed(all_messages):
             if msg.get("author") not in ["davidvs", "JoeWillgang", None]:

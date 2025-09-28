@@ -30,3 +30,7 @@ def send_payment_received_message(trade_hash, account, headers, max_retries=3):
 def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
     """Sends a reminder to the user to complete their payment."""
     _send_lifecycle_message(trade_hash, account, headers, PAYMENT_REMINDER_MESSAGE, "Payment reminder", max_retries)
+    
+def send_afk_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message to the user to ask them to be patient."""
+    _send_lifecycle_message(trade_hash, account, headers, "Thank you for your patience, I will be with you shortly.", "AFK", max_retries)

@@ -45,7 +45,4 @@ async def main():
 
 # --- Starting the Bot ---
 if __name__ == "__main__":
-    if not DISCORD_BOT_TOKEN or "YOUR_SECRET_BOT_TOKEN_HERE" in DISCORD_BOT_TOKEN:
-        logger.error("Discord Bot Token is not configured. Please set DISCORD_BOT_TOKEN in your config file.")
-    else:
-        asyncio.run(main())
+    asyncio.run(main())
