@@ -20,7 +20,6 @@ def get_app_settings():
     try:
         with open(SETTINGS_FILE, "r") as f:
             settings = json.load(f)
-            # Ensure all keys exist, adding them if they don't
             settings.setdefault("afk_mode_enabled", False)
             settings.setdefault("night_mode_enabled", False)
             settings.setdefault("verbose_logging_enabled", True)

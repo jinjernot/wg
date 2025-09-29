@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingToggles = document.querySelectorAll('.setting-toggle');
     const offersContainer = document.getElementById('offers-container');
     const generateChartsBtn = document.getElementById('generate-charts-btn'); 
-    // --- NEW ELEMENT SELECTOR ---
     const balancesContainer = document.getElementById('wallet-balances-container');
 
     // --- Event Listeners ---

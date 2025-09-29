@@ -24,7 +24,6 @@ def generate_user_profile(username):
     
     trade_dates = []
     
-    # Get the current year and month
     now = datetime.now(timezone.utc)
     current_year = now.year
     current_month = now.month
@@ -58,7 +57,6 @@ def generate_user_profile(username):
                     except (ValueError, TypeError):
                         continue
                         
-                    # Filter for trades in the current month and year
                     if trade_date.year != current_year or trade_date.month != current_month:
                         continue
 

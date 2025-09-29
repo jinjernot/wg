@@ -263,7 +263,6 @@ def plot_trades_by_payment_method(all_trades, output_path):
         logging.info("No trade data for payment method chart.")
         return
 
-    # Use a DataFrame for easier manipulation
     df = pd.DataFrame(all_trades)
     successful_trades = df[df['status'] == 'successful']
 
@@ -271,7 +270,6 @@ def plot_trades_by_payment_method(all_trades, output_path):
         logging.info("No successful trades for payment method chart.")
         return
 
-    # Group by payment method and account, then count the trades
     trade_counts = successful_trades.groupby(
         ['payment_method_name', 'account_name']).size().unstack(fill_value=0)
 
@@ -279,7 +277,6 @@ def plot_trades_by_payment_method(all_trades, output_path):
         logging.info("No data to plot for payment methods.")
         return
 
-    # Create the stacked bar chart
     ax = trade_counts.plot(kind='bar', stacked=True,
                            figsize=(14, 8), colormap='viridis')
 
@@ -324,8 +321,6 @@ def plot_trades_per_time_of_day(all_trades, output_path):
             started_at = trade.get("started_at")
             if started_at:
                 try:
-                    # The timestamps from the API are not in ISO 8601 format
-                    # so we need to parse them differently.
                     dt = datetime.strptime(started_at, "%Y-%m-%d %H:%M:%S")
                     dt_utc = dt.replace(tzinfo=timezone.utc)
                     dt_mexico = dt_utc.astimezone(mexico_tz)
