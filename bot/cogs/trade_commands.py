@@ -44,7 +44,7 @@ class TradeCommands(commands.Cog):
             return
         
         try:
-            response = requests.get("http://1227.0.0.1:5001/get_active_trades", timeout=10)
+            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
             trades = response.json() if response.status_code == 200 else []
         except requests.exceptions.RequestException as e:
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
