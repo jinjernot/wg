@@ -24,13 +24,6 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
-    # --- ADDED THIS BLOCK TO REFRESH ON STARTUP ---
-    trade_cog = bot.get_cog("TradeCommands")
-    if trade_cog:
-        await trade_cog.refresh_live_trades_channel()
-    else:
-        logger.error("TradeCommands cog not found. Could not refresh live trades channel on startup.")
-
 
 async def load_cogs():
     """Loads all cogs from the 'cogs' directory."""

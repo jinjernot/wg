@@ -29,7 +29,12 @@ def format_status_for_discord(status):
 class TradeCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.refresh_live_trades_channel.start()
 
+    def cog_unload(self):
+        self.refresh_live_trades_channel.cancel()
+
+    @tasks.loop(seconds=60)
     async def refresh_live_trades_channel(self):
         """Fetches active trades, purges the channel, and posts a new summary."""
         channel = self.bot.get_channel(DISCORD_ACTIVE_TRADES_CHANNEL_ID)
@@ -60,9 +65,13 @@ class TradeCommands(commands.Cog):
 
             await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
             await channel.send(embed=embed)
-            logger.info("Refreshed the active trades channel on startup.")
+            logger.info("Refreshed the active trades channel.")
         except requests.exceptions.RequestException as e:
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
+
+    @refresh_live_trades_channel.before_loop
+    async def before_refresh(self):
+        await self.bot.wait_until_ready()
 
 
     @app_commands.command(name="trades", description="Get a list of currently active trades.")
