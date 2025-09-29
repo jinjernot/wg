@@ -29,6 +29,7 @@ def format_status_for_discord(status):
 class TradeCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.last_known_trades_state = set()
         self.refresh_live_trades_channel.start()
 
     def cog_unload(self):
@@ -36,38 +37,56 @@ class TradeCommands(commands.Cog):
 
     @tasks.loop(seconds=60)
     async def refresh_live_trades_channel(self):
-        """Fetches active trades, purges the channel, and posts a new summary."""
+        """Fetches active trades and posts a summary only if there are changes."""
         channel = self.bot.get_channel(DISCORD_ACTIVE_TRADES_CHANNEL_ID)
         if not channel:
-            logger.error(f"Could not find channel {DISCORD_ACTIVE_TRADES_CHANNEL_ID}. Cannot refresh live feed.")
+            logger.error(f"Could not find channel with ID {DISCORD_ACTIVE_TRADES_CHANNEL_ID}. Cannot refresh live feed.")
             return
+        
         try:
-            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
+            response = requests.get("http://1227.0.0.1:5001/get_active_trades", timeout=10)
             trades = response.json() if response.status_code == 200 else []
-
-            if not trades:
-                embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
-            else:
-                embed_data = ACTIVE_TRADES_EMBED.copy()
-                embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
-                embed = discord.Embed.from_dict(embed_data)
-                for trade in trades[:20]:
-                    buyer = trade.get('responder_username', 'N/A')
-                    amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
-                    status = trade.get('trade_status', 'N/A')
-                    embed.add_field(
-                        name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                        value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status)}",
-                        inline=False
-                    )
-            embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-            embed.set_footer(text="Last updated")
-
-            await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
-            await channel.send(embed=embed)
-            logger.info("Refreshed the active trades channel.")
         except requests.exceptions.RequestException as e:
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
+            return
+
+        # Create a simple representation of the current trades' state (hash, status)
+        current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status')) for trade in trades}
+
+        # If the state hasn't changed, do nothing
+        if current_trades_state == self.last_known_trades_state:
+            logger.info("No changes in active trades. Skipping Discord channel update.")
+            return
+
+        logger.info("Change detected in active trades. Refreshing channel.")
+
+        # If we've reached here, it means there's a change. Proceed with the update.
+        if not trades:
+            embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
+        else:
+            embed_data = ACTIVE_TRADES_EMBED.copy()
+            embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
+            embed = discord.Embed.from_dict(embed_data)
+            for trade in trades[:20]:
+                buyer = trade.get('responder_username', 'N/A')
+                amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
+                status = trade.get('trade_status', 'N/A')
+                embed.add_field(
+                    name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
+                    value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status)}",
+                    inline=False
+                )
+        
+        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+        embed.set_footer(text="Last updated")
+
+        await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
+        await channel.send(embed=embed)
+        
+        # Update the state to the new one
+        self.last_known_trades_state = current_trades_state
+        logger.info("Successfully refreshed the active trades channel with new data.")
+
 
     @refresh_live_trades_channel.before_loop
     async def before_refresh(self):
