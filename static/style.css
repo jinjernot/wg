@@ -300,6 +300,15 @@ tr.status-paid:hover {
     background-color: #38a169;
 }
 
+tr.status-paid-no-attachment {
+    background-color: #b93c3c;
+    font-weight: bold;
+}
+
+tr.status-paid-no-attachment:hover {
+    background-color: #e53e3e;
+}
+
 tr.status-disputed {
     background-color: #b7791f; 
     font-weight: bold;

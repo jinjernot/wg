@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
+from core.api.trade_chat import get_all_messages_from_chat
 
 trades_bp = Blueprint('trades', __name__)
 logger = logging.getLogger(__name__)
@@ -28,7 +29,15 @@ def get_active_trades():
                         account_name_source = filename.replace("_trades.json", "").replace("_", " ").title()
                         for trade in trades_list:
                             trade['account_name_source'] = account_name_source
-                        active_trades_data.extend(trades_list)
+                            if trade.get('trade_status') == 'Paid':
+                                account = next((acc for acc in ACCOUNTS if acc["name"] == trade.get("owner_username")), None)
+                                if account:
+                                    token = fetch_token_with_retry(account)
+                                    if token:
+                                        headers = {"Authorization": f"Bearer {token}"}
+                                        all_messages = get_all_messages_from_chat(trade.get("trade_hash"), account, headers)
+                                        trade['has_attachment'] = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                            active_trades_data.extend(trades_list)
             except Exception as e:
                 logger.error(f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)

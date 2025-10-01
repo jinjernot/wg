@@ -22,7 +22,8 @@ from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
     send_payment_reminder_message,
-    send_afk_message
+    send_afk_message,
+    send_payment_confirmed_no_attachment_message
 )
 from core.messaging.attachment_message import send_attachment_message
 from core.messaging.alerts.telegram_alert import (
@@ -128,13 +129,23 @@ class Trade:
                     self.trade_hash, self.account, self.headers)
                 self.trade_state['completion_message_sent'] = True
             elif current_status == 'Paid':
-                send_payment_received_message(
-                    self.trade_hash, self.account, self.headers)
-                if 'paid_timestamp' not in self.trade_state:
-                    self.trade_state['paid_timestamp'] = datetime.now(
-                        timezone.utc).timestamp()
+                self.handle_paid_status()
             self.trade_state.setdefault(
                 'status_history', []).append(current_status)
+
+    def handle_paid_status(self):
+        """Handles the logic when a trade is marked as paid."""
+        send_payment_received_message(self.trade_hash, self.account, self.headers)
+        if 'paid_timestamp' not in self.trade_state:
+            self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
+
+        # Check if an attachment has been sent
+        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+
+        if not has_attachment:
+            logger.info(f"Trade {self.trade_hash} is 'Paid' but has no attachment. Sending a reminder.")
+            send_payment_confirmed_no_attachment_message(self.trade_hash, self.account, self.headers)
 
     def get_credential_identifier_for_trade(self):
         """Finds the name identifier for credentials based on the selected payment account."""

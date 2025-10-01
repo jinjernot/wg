@@ -285,7 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = table.querySelector('tbody');
         trades.forEach(trade => {
             const row = document.createElement('tr');
-            if (trade.trade_status === 'Paid') {
+            if (trade.trade_status === 'Paid' && !trade.has_attachment) {
+                row.classList.add('status-paid-no-attachment');
+            } else if (trade.trade_status === 'Paid') {
                 row.classList.add('status-paid');
             } else if (trade.trade_status === 'Dispute open') {
                 row.classList.add('status-disputed');
