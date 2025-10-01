@@ -123,9 +123,10 @@ class Trade:
                 self.trade_hash, self.owner_username, current_status, self.platform
             )
 
-            if current_status == 'Successful':
+            if current_status == 'Successful' and not self.trade_state.get('completion_message_sent'):
                 send_trade_completion_message(
                     self.trade_hash, self.account, self.headers)
+                self.trade_state['completion_message_sent'] = True
             elif current_status == 'Paid':
                 send_payment_received_message(
                     self.trade_hash, self.account, self.headers)
