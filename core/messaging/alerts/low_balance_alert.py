@@ -25,6 +25,10 @@ def check_wallet_balances_and_alert():
 
     for account_name, balance_data in balances.items():
         logger.info(f"Processing account: {account_name}")
+        # Skip paxful accounts for low balance alerts
+        if "paxful" in account_name.lower():
+            logger.info(f"Skipping Paxful account {account_name} for low balance alerts.")
+            continue
         if "error" in balance_data:
             logger.error(f"Could not check balance for {account_name}: {balance_data['error']}")
             continue
