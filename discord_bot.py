@@ -9,7 +9,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # --- Custom Bot Class ---
-# This custom class ensures that commands are properly handled when cogs are loaded.
 class MyBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -18,9 +17,15 @@ class MyBot(commands.Bot):
         """This is called automatically when the bot logs in."""
         logger.info("Running setup_hook...")
         await self.load_all_cogs()
-        logger.info("Cogs loaded. Attempting to sync commands to the guild.")
+        
+        # --- ADDED DELAY ---
+        # Wait a couple of seconds to ensure all commands are registered internally
+        # before attempting to sync. This can resolve stubborn race conditions.
+        logger.info("Waiting for 2 seconds before syncing...")
+        await asyncio.sleep(2) 
+        
+        logger.info("Attempting to sync commands to the guild.")
         try:
-            # Sync commands to our specific guild.
             synced = await self.tree.sync(guild=discord.Object(id=DISCORD_GUILD_ID))
             logger.info(f"--- Successfully synced {len(synced)} command(s). ---")
         except Exception as e:
@@ -40,7 +45,6 @@ class MyBot(commands.Bot):
 # --- Bot Initialization ---
 intents = discord.Intents.default()
 intents.message_content = True 
-# We now use our custom MyBot class instead of the standard commands.Bot
 bot = MyBot(command_prefix="!", intents=intents)
 
 # --- Bot Events ---
