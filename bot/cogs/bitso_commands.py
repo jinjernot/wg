@@ -13,7 +13,7 @@ from config_messages.discord_messages import SERVER_UNREACHABLE
 from config import DISCORD_GUILD_ID
 from config import REPORTS_DIR
 
-MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 class BitsoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):

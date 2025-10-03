@@ -11,7 +11,7 @@ from config_messages.discord_messages import (
 )
 
 logger = logging.getLogger(__name__)
-MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 def format_status_for_discord(status):

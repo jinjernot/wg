@@ -6,7 +6,7 @@ import os
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import SERVER_UNREACHABLE
 
-MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 class ChartCommands(commands.Cog):

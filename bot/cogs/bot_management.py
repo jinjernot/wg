@@ -8,7 +8,7 @@ from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, S
 from core.api.wallet import get_wallet_balances
 
 logger = logging.getLogger(__name__)
-MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 class BotManagement(commands.Cog):
