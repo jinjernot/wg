@@ -3,6 +3,7 @@ import core.utils.web_utils as web_utils
 
 main_bp = Blueprint('main', __name__)
 
+
 @main_bp.route("/")
 def index():
     payment_data_from_files = web_utils.get_payment_data()
@@ -13,7 +14,8 @@ def index():
             if owner_name not in user_grouped_data:
                 user_grouped_data[owner_name] = {}
             for method_name, details_data in methods_data.items():
-                user_grouped_data[owner_name][method_name] = { "filename": filename, "details": details_data }
+                user_grouped_data[owner_name][method_name] = {
+                    "filename": filename, "details": details_data}
     return render_template(
         "index.html",
         user_grouped_data=user_grouped_data,

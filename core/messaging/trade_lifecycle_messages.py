@@ -33,8 +33,8 @@ def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
     
 def send_afk_message(trade_hash, account, headers, max_retries=3):
     """Sends a message to the user to ask them to be patient."""
-    _send_lifecycle_message(trade_hash, account, headers, "Thank you for your patience, I will be with you shortly.", "AFK", max_retries)
+    _send_lifecycle_message(trade_hash, account, headers, AFK_MESSAGE, "AFK", max_retries)
 
 def send_payment_confirmed_no_attachment_message(trade_hash, account, headers, max_retries=3):
     """Sends a reminder to attach proof of payment."""
-    _send_lifecycle_message(trade_hash, account, headers, "Thanks for marking the trade as paid! Please don't forget to upload a screenshot of your receipt so I can verify the payment.", "No Attachment Reminder", max_retries)
+    _send_lifecycle_message(trade_hash, account, headers, NO_ATTACHMENT_MESSAGE, "No Attachment Reminder", max_retries)

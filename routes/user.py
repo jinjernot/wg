@@ -3,6 +3,7 @@ from core.utils.profile import generate_user_profile
 
 user_bp = Blueprint('user', __name__)
 
+
 @user_bp.route("/user_profile/<username>")
 def get_user_profile(username):
     profile_data = generate_user_profile(username)

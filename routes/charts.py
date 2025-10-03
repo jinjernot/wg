@@ -6,6 +6,7 @@ from config import TRADE_HISTORY
 charts_bp = Blueprint('charts', __name__)
 logger = logging.getLogger(__name__)
 
+
 @charts_bp.route("/generate_charts", methods=["POST"])
 def generate_charts():
     try:
@@ -14,6 +15,7 @@ def generate_charts():
     except Exception as e:
         logger.error(f"Failed to generate charts: {e}")
         return jsonify({"success": False, "error": "Failed to generate charts."}), 500
+
 
 @charts_bp.route('/charts/<filename>')
 def get_chart(filename):

@@ -7,6 +7,7 @@ import os
 
 settings_bp = Blueprint('settings', __name__)
 
+
 @settings_bp.route("/update_setting", methods=["POST"])
 def update_setting():
     data = request.json
@@ -28,6 +29,7 @@ def update_setting():
 
     status_text = "enabled" if is_enabled else "disabled"
     return jsonify({"success": True, "message": f"Setting '{key}' has been {status_text}."})
+
 
 @settings_bp.route("/update_all_selections", methods=["POST"])
 def update_all_selections():
@@ -60,9 +62,11 @@ def update_all_selections():
                     json.dump(file_data, f, indent=4)
                     f.truncate()
                 else:
-                    errors.append(f"Invalid structure in {filename} for {owner_username}.")
+                    errors.append(
+                        f"Invalid structure in {filename} for {owner_username}.")
         except Exception as e:
-            errors.append(f"An unexpected error occurred with {filename}: {str(e)}")
+            errors.append(
+                f"An unexpected error occurred with {filename}: {str(e)}")
 
     if errors:
         return jsonify({"success": False, "error": " | ".join(errors)}), 500

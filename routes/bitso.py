@@ -8,6 +8,7 @@ import bitso_config
 bitso_bp = Blueprint('bitso', __name__)
 logger = logging.getLogger(__name__)
 
+
 @bitso_bp.route("/bitso_summary")
 def get_bitso_summary():
     try:
@@ -16,11 +17,13 @@ def get_bitso_summary():
             if not api_key or not api_secret:
                 print(f"Missing credentials for {user}. Skipping...")
                 continue
-            fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
+            fundings = fetch_funding_transactions_for_user(
+                user, api_key, api_secret)
             all_fundings.extend(fundings)
 
         now = datetime.now()
-        filtered_fundings = filter_fundings_by_month(all_fundings, now.year, now.month)
+        filtered_fundings = filter_fundings_by_month(
+            all_fundings, now.year, now.month)
 
         deposits_by_sender = {}
         for funding in filtered_fundings:
@@ -35,7 +38,8 @@ def get_bitso_summary():
 
                 name = bitso_config.ACCOUNT.get(clabe, clabe)
                 if name:
-                    deposits_by_sender[name] = deposits_by_sender.get(name, 0) + amount
+                    deposits_by_sender[name] = deposits_by_sender.get(
+                        name, 0) + amount
 
         sorted_deposits = sorted(deposits_by_sender.items())
 

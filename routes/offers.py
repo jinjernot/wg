@@ -4,6 +4,7 @@ import core.utils.web_utils as web_utils
 
 offers_bp = Blueprint('offers', __name__)
 
+
 @offers_bp.route("/offer/toggle", methods=["POST"])
 def toggle_offers():
     data = request.json
@@ -13,7 +14,8 @@ def toggle_offers():
 
     results = set_offer_status(turn_on=is_enabled)
     successful_accounts = [r["account"] for r in results if r["success"]]
-    failed_accounts = [f"{r['account']} ({r['error']})" for r in results if not r["success"]]
+    failed_accounts = [
+        f"{r['account']} ({r['error']})" for r in results if not r["success"]]
 
     message = ""
     if successful_accounts:
@@ -30,10 +32,12 @@ def toggle_offers():
 
     return jsonify({"success": success, "message": message})
 
+
 @offers_bp.route("/get_offers")
 def get_offers_route():
     offers = get_all_offers()
     return jsonify(offers)
+
 
 @offers_bp.route("/offer/toggle_single", methods=["POST"])
 def toggle_single_offer_route():

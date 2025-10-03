@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 ACTIVE_TRADES_DIR = os.path.join('data', 'logs', 'active_trades')
 
+
 @trades_bp.route("/get_active_trades")
 def get_active_trades():
     active_trades_data = []
@@ -26,22 +27,30 @@ def get_active_trades():
                     data = json.load(f)
                     trades_list = data.get("data", {}).get("trades", [])
                     if trades_list:
-                        account_name_source = filename.replace("_trades.json", "").replace("_", " ").title()
+                        account_name_source = filename.replace(
+                            "_trades.json", "").replace("_", " ").title()
                         for trade in trades_list:
                             trade['account_name_source'] = account_name_source
                             if trade.get('trade_status') == 'Paid':
-                                account_name_for_lookup = account_name_source.replace(" ", "_")
-                                account = next((acc for acc in ACCOUNTS if acc["name"] == account_name_for_lookup), None)
+                                account_name_for_lookup = account_name_source.replace(
+                                    " ", "_")
+                                account = next(
+                                    (acc for acc in ACCOUNTS if acc["name"] == account_name_for_lookup), None)
                                 if account:
                                     token = fetch_token_with_retry(account)
                                     if token:
-                                        headers = {"Authorization": f"Bearer {token}"}
-                                        all_messages = get_all_messages_from_chat(trade.get("trade_hash"), account, headers)
-                                        trade['has_attachment'] = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                                        headers = {
+                                            "Authorization": f"Bearer {token}"}
+                                        all_messages = get_all_messages_from_chat(
+                                            trade.get("trade_hash"), account, headers)
+                                        trade['has_attachment'] = any(
+                                            msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
                         active_trades_data.extend(trades_list)
             except Exception as e:
-                logger.error(f"Could not read or parse trades file {filename}: {e}")
+                logger.error(
+                    f"Could not read or parse trades file {filename}: {e}")
     return jsonify(active_trades_data)
+
 
 @trades_bp.route("/send_manual_message", methods=["POST"])
 def send_manual_message():
@@ -54,7 +63,8 @@ def send_manual_message():
         return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
 
     formatted_account_name = account_name.replace(" ", "_")
-    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
+    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower(
+    ) == formatted_account_name.lower()), None)
 
     if not target_account:
         return jsonify({"success": False, "error": f"Account '{account_name}' not found."}), 404
@@ -63,7 +73,8 @@ def send_manual_message():
     if not token:
         return jsonify({"success": False, "error": "Could not authenticate."}), 500
 
-    headers = { "Authorization": f"Bearer {token}", "Content-Type": "application/x-www-form-urlencoded" }
+    headers = {"Authorization": f"Bearer {token}",
+               "Content-Type": "application/x-www-form-urlencoded"}
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in target_account["name"] else CHAT_URL_NOONES
     body = {"trade_hash": trade_hash, "message": message}
 
