@@ -1,4 +1,5 @@
 import logging
+import random
 from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES
 from core.messaging.message_sender import send_message_with_retry
 from config_messages.chat_messages import ATTACHMENT_MESSAGE
@@ -10,9 +11,10 @@ def send_attachment_message(trade_hash, account, headers, max_retries=3):
     Sends an initial message to the chat saying "Checking, this may take a few minutes."
     """
     try:
+        message = random.choice(ATTACHMENT_MESSAGE)
         body = {
             "trade_hash": trade_hash,
-            "message": ATTACHMENT_MESSAGE
+            "message": message
         }
 
         chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES

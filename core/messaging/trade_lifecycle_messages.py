@@ -1,4 +1,5 @@
 import logging
+import random
 from core.messaging.message_sender import send_message_with_retry
 from config import (
     CHAT_URL_PAXFUL,
@@ -8,9 +9,10 @@ from config_messages.chat_messages import *
 
 logger = logging.getLogger(__name__)
 
-def _send_lifecycle_message(trade_hash, account, headers, message, message_type, max_retries=3):
+def _send_lifecycle_message(trade_hash, account, headers, message_list, message_type, max_retries=3):
     """Generic function to send a trade lifecycle message."""
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
+    message = random.choice(message_list) # Select a random message from the list
     body = {"trade_hash": trade_hash, "message": message}
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
@@ -38,3 +40,7 @@ def send_afk_message(trade_hash, account, headers, max_retries=3):
 def send_payment_confirmed_no_attachment_message(trade_hash, account, headers, max_retries=3):
     """Sends a reminder to attach proof of payment."""
     _send_lifecycle_message(trade_hash, account, headers, NO_ATTACHMENT_MESSAGE, "No Attachment Reminder", max_retries)
+
+def send_attachment_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message confirming an attachment was received and is being checked."""
+    _send_lifecycle_message(trade_hash, account, headers, ATTACHMENT_MESSAGE, "Attachment received", max_retries)

@@ -22,10 +22,11 @@ from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
     send_payment_reminder_message,
+    send_attachment_message,
     send_afk_message,
     send_payment_confirmed_no_attachment_message
 )
-from core.messaging.attachment_message import send_attachment_message
+#from core.messaging.attachment_message import send_attachment_message
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
@@ -350,7 +351,7 @@ class Trade:
 
             if consecutive_buyer_messages >= message_threshold and time_since_first_message > time_threshold_minutes:
                 logger.info(
-                    f"✅ AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes. Sending AFK message.")
+                    f"AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes. Sending AFK message.")
                 send_afk_message(self.trade_hash, self.account, self.headers)
                 self.trade_state['afk_message_sent'] = True
                 self.save()
