@@ -8,58 +8,50 @@ from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Custom Bot Class ---
+# This custom class ensures that commands are properly handled when cogs are loaded.
+class MyBot(commands.Bot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    async def setup_hook(self):
+        """This is called automatically when the bot logs in."""
+        logger.info("Running setup_hook...")
+        await self.load_all_cogs()
+        logger.info("Cogs loaded. Attempting to sync commands to the guild.")
+        try:
+            # Sync commands to our specific guild.
+            synced = await self.tree.sync(guild=discord.Object(id=DISCORD_GUILD_ID))
+            logger.info(f"--- Successfully synced {len(synced)} command(s). ---")
+        except Exception as e:
+            logger.error(f"Failed to sync commands on startup: {e}", exc_info=True)
+
+    async def load_all_cogs(self):
+        """Loads all cogs from the 'bot/cogs' directory."""
+        cogs_path = os.path.join('bot', 'cogs')
+        for filename in os.listdir(cogs_path):
+            if filename.endswith('.py'):
+                try:
+                    await self.load_extension(f'bot.cogs.{filename[:-3]}')
+                    logger.info(f"Loaded cog: {filename}")
+                except Exception as e:
+                    logger.error(f"Failed to load cog {filename}: {e}", exc_info=True)
+
+# --- Bot Initialization ---
 intents = discord.Intents.default()
 intents.message_content = True 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# We now use our custom MyBot class instead of the standard commands.Bot
+bot = MyBot(command_prefix="!", intents=intents)
 
 # --- Bot Events ---
 @bot.event
 async def on_ready():
     logger.info(f'Logged in as {bot.user}. Bot is ready!')
     await bot.change_presence(activity=discord.Game(name="/status for info"))
-    # The automatic sync on startup can sometimes be unreliable with stubborn caches.
-    # We will rely on the manual sync command for now.
-    logger.info("Bot is ready. Use the !sync command to update slash commands.")
-
-# --- Manual Sync Command ---
-@bot.command()
-@commands.guild_only() # Optional: Restricts the command to a server
-@commands.is_owner()  # Ensures only you (the bot owner) can run this
-async def sync(ctx: commands.Context):
-    """
-    Manually syncs slash commands to the current guild.
-    """
-    logger.info(f"'{ctx.author}' is attempting to manually sync commands...")
-    await ctx.send("Syncing commands to the server...")
-    try:
-        # This is a forceful way to sync commands to a specific guild
-        synced = await bot.tree.sync(guild=ctx.guild)
-        
-        message = f"Successfully synced **{len(synced)}** command(s) to this server."
-        logger.info(message)
-        await ctx.send(message)
-    except Exception as e:
-        message = f"Failed to sync commands: {e}"
-        logger.error(message, exc_info=True)
-        await ctx.send(message)
-
-async def load_cogs():
-    """Loads all cogs from the 'bot/cogs' directory."""
-    cogs_path = os.path.join('bot', 'cogs')
-    for filename in os.listdir(cogs_path):
-        if filename.endswith('.py'):
-            try:
-                await bot.load_extension(f'bot.cogs.{filename[:-3]}')
-                logger.info(f"Loaded cog: {filename}")
-            except Exception as e:
-                logger.error(f"Failed to load cog {filename}: {e}", exc_info=True)
-
-async def main():
-    """Main function to load cogs and run the bot."""
-    async with bot:
-        await load_cogs()
-        await bot.start(DISCORD_BOT_TOKEN)
 
 # --- Starting the Bot ---
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        bot.run(DISCORD_BOT_TOKEN)
+    except Exception as e:
+        logger.critical(f"An error occurred while running the bot: {e}", exc_info=True)
