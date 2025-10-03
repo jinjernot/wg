@@ -5,6 +5,8 @@ import requests
 import logging
 import os
 import datetime
+import time # Import the time library
+
 from config import (
     DISCORD_BOT_TOKEN,
     DISCORD_GUILD_ID,
@@ -41,9 +43,16 @@ last_known_trades_state = set()
 
 @bot.event
 async def on_ready():
+    # --- DIAGNOSTIC ID ---
+    unique_id = int(time.time() * 1000)
+    logger.info(f"################################################")
+    logger.info(f"### BOT INSTANCE STARTED WITH UNIQUE ID: {unique_id} ###")
+    logger.info(f"################################################")
+
     logger.info(f'Logged in as {bot.user}. Bot is ready!')
     await bot.change_presence(activity=discord.Game(name="/status for info"))
-    refresh_live_trades_channel.start()
+    if not refresh_live_trades_channel.is_running():
+        refresh_live_trades_channel.start()
 
 @bot.event
 async def setup_hook():
