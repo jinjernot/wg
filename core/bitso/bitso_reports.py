@@ -73,9 +73,9 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     daily_income.plot(kind='bar', color='skyblue', edgecolor='black')
 
     chart_date = datetime(year, month, 1)
-    plt.title(f'Feria lavada: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
+    plt.title(f'Fondos: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
     plt.xlabel('Dia del mes', fontsize=12)
-    plt.ylabel('Dinero para la pension', fontsize=12)
+    plt.ylabel('Dinero para el perico', fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d'))
     plt.xticks(rotation=0)
