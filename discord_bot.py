@@ -116,14 +116,14 @@ async def before_refresh():
     await bot.wait_until_ready()
 
 @bot.tree.command(name="status", description="Check the status of the trading bot.", guild=GUILD_OBJECT)
-async def status_command(interaction: discord.Interaction):
+async def status(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     embed_data = {}
     try:
         response = requests.get("http://127.0.0.1:5001/trading_status", timeout=5)
         if response.status_code == 200:
-            status = response.json().get("status")
-            embed_data = STATUS_EMBED["running"] if status == "Running" else STATUS_EMBED["stopped"]
+            status_json = response.json().get("status")
+            embed_data = STATUS_EMBED["running"] if status_json == "Running" else STATUS_EMBED["stopped"]
         else:
             embed_data = STATUS_EMBED["error"].copy()
             embed_data["description"] = embed_data["description"].format(status_code=response.status_code)
@@ -137,7 +137,7 @@ async def status_command(interaction: discord.Interaction):
     app_commands.Choice(name="Start", value="start"),
     app_commands.Choice(name="Stop", value="stop"),
 ])
-async def control_bot_command(interaction: discord.Interaction, action: app_commands.Choice[str]):
+async def bot_control(interaction: discord.Interaction, action: app_commands.Choice[str]):
     await interaction.response.defer(ephemeral=True)
     endpoint = "/start_trading" if action.value == "start" else "/stop_trading"
     try:
@@ -164,7 +164,7 @@ async def control_bot_command(interaction: discord.Interaction, action: app_comm
     app_commands.Choice(name="On", value="true"),
     app_commands.Choice(name="Off", value="false"),
 ])
-async def settings_command(interaction: discord.Interaction, setting: app_commands.Choice[str], status: app_commands.Choice[str]):
+async def settings(interaction: discord.Interaction, setting: app_commands.Choice[str], status: app_commands.Choice[str]):
     await interaction.response.defer(ephemeral=True)
     payload = {"key": setting.value, "enabled": status.value == "true"}
     try:
@@ -181,7 +181,7 @@ async def settings_command(interaction: discord.Interaction, setting: app_comman
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
 @bot.tree.command(name="balance", description="Check the wallet balances of all accounts.", guild=GUILD_OBJECT)
-async def balance_command(interaction: discord.Interaction):
+async def balance(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         balances = get_wallet_balances()
@@ -207,7 +207,7 @@ async def balance_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="bitso", description="Get a summary of Bitso deposits for a specific month.", guild=GUILD_OBJECT)
 @app_commands.describe(month="The month to get the summary for (e.g., 'August' or 'August 2023'). Defaults to the current month.")
-async def bitso_summary_command(interaction: discord.Interaction, month: str = None):
+async def bitso(interaction: discord.Interaction, month: str = None):
     await interaction.response.defer(ephemeral=True)
     try:
         params = {}
@@ -233,7 +233,7 @@ async def bitso_summary_command(interaction: discord.Interaction, month: str = N
 
 @bot.tree.command(name="bitso_chart", description="Generate a chart of Bitso income for a specific month.", guild=GUILD_OBJECT)
 @app_commands.describe(month="The month to generate the report for (e.g., 'August' or 'August 2023')")
-async def bitso_chart_command(interaction: discord.Interaction, month: str = None):
+async def bitso_chart(interaction: discord.Interaction, month: str = None):
     await interaction.response.defer(ephemeral=True)
     try:
         target_date = date_parse(month) if month else datetime.datetime.now()
@@ -257,7 +257,7 @@ async def bitso_chart_command(interaction: discord.Interaction, month: str = Non
         await interaction.followup.send(f"An error occurred: {e}", ephemeral=True)
 
 @bot.tree.command(name="charts", description="Generate and display charts for your trading activity.", guild=GUILD_OBJECT)
-async def charts_command(interaction: discord.Interaction):
+async def charts(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         response = requests.post("http://127.0.0.1:5001/generate_charts", timeout=60)
@@ -283,7 +283,7 @@ async def charts_command(interaction: discord.Interaction):
     app_commands.Choice(name="On", value="on"),
     app_commands.Choice(name="Off", value="off"),
 ])
-async def toggle_offers_command(interaction: discord.Interaction, status: app_commands.Choice[str]):
+async def offers(interaction: discord.Interaction, status: app_commands.Choice[str]):
     await interaction.response.defer(ephemeral=True)
     is_enabled = status.value == "on"
     try:
@@ -303,16 +303,16 @@ async def toggle_offers_command(interaction: discord.Interaction, status: app_co
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
 @bot.tree.command(name="list_offers", description="Lists all of your active offers.", guild=GUILD_OBJECT)
-async def list_offers_command(interaction: discord.Interaction):
+async def list_offers(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         response = requests.get("http://127.0.0.1:5001/get_offers", timeout=15)
-        offers = response.json() if response.status_code == 200 else []
-        if not offers:
+        offers_list = response.json() if response.status_code == 200 else []
+        if not offers_list:
             await interaction.followup.send("You have no active offers.", ephemeral=True)
             return
-        embed = discord.Embed(title=f"Your Active Offers ({len(offers)})", color=COLORS["info"])
-        for offer in offers[:20]:
+        embed = discord.Embed(title=f"Your Active Offers ({len(offers_list)})", color=COLORS["info"])
+        for offer in offers_list[:20]:
             status = "✅ On" if offer.get('enabled') else "❌ Off"
             embed.add_field(
                 name=f"{offer.get('payment_method_name', 'N/A')} ({offer.get('account_name', 'N/A')})",
@@ -329,7 +329,7 @@ async def list_offers_command(interaction: discord.Interaction):
 @bot.tree.command(name="toggle_offer", description="Turn a specific offer on or off.", guild=GUILD_OBJECT)
 @app_commands.describe(offer_hash="The hash of the offer to toggle", account_name="The account that owns the offer (e.g., David_Noones)", status="The desired status")
 @app_commands.choices(status=[app_commands.Choice(name="On", value="on"), app_commands.Choice(name="Off", value="off")])
-async def toggle_offer_command(interaction: discord.Interaction, offer_hash: str, account_name: str, status: app_commands.Choice[str]):
+async def toggle_offer(interaction: discord.Interaction, offer_hash: str, account_name: str, status: app_commands.Choice[str]):
     await interaction.response.defer(ephemeral=True)
     is_enabled = status.value == "on"
     payload = {"offer_hash": offer_hash, "account_name": account_name, "enabled": is_enabled}
@@ -345,18 +345,18 @@ async def toggle_offer_command(interaction: discord.Interaction, offer_hash: str
         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
 @bot.tree.command(name="trades", description="Get a list of currently active trades.", guild=GUILD_OBJECT)
-async def active_trades_command(interaction: discord.Interaction):
+async def trades(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
-        trades = response.json() if response.status_code == 200 else []
-        if not trades:
+        trades_list = response.json() if response.status_code == 200 else []
+        if not trades_list:
             await interaction.followup.send(embed=discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED), ephemeral=True)
             return
         embed_data = ACTIVE_TRADES_EMBED.copy()
-        embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
+        embed_data["title"] = embed_data["title"].format(trade_count=len(trades_list))
         embed = discord.Embed.from_dict(embed_data)
-        for trade in trades[:10]:
+        for trade in trades_list[:10]:
             embed.add_field(
                 name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {trade.get('responder_username', 'N/A')}",
                 value=f"**Amount**: {trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}\n"
@@ -371,7 +371,7 @@ async def active_trades_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="message", description="Send a manual message to a trade chat.", guild=GUILD_OBJECT)
 @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)", message="The message you want to send")
-async def send_message_command(interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
+async def message(interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
     await interaction.response.defer(ephemeral=True)
     payload = {"trade_hash": trade_hash, "account_name": account_name, "message": message}
     try:
@@ -392,7 +392,7 @@ async def send_message_command(interaction: discord.Interaction, trade_hash: str
 
 @bot.tree.command(name="user", description="Get the trading history for a specific user.", guild=GUILD_OBJECT)
 @app_commands.describe(username="The username of the trader to look up.")
-async def user_profile_command(interaction: discord.Interaction, username: str):
+async def user(interaction: discord.Interaction, username: str):
     await interaction.response.defer(ephemeral=True)
     try:
         response = requests.get(f"http://127.0.0.1:5001/user_profile/{username}", timeout=10)
