@@ -6,22 +6,22 @@ import logging
 import os
 import datetime
 from config import (
-    DISCORD_BOT_TOKEN, 
-    DISCORD_GUILD_ID, 
+    DISCORD_BOT_TOKEN,
+    DISCORD_GUILD_ID,
     DISCORD_ACTIVE_TRADES_CHANNEL_ID,
     REPORTS_DIR
 )
 from config_messages.discord_messages import (
-    STATUS_EMBED, 
-    BOT_CONTROL_EMBEDS, 
-    SETTINGS_EMBEDS, 
-    SERVER_UNREACHABLE, 
+    STATUS_EMBED,
+    BOT_CONTROL_EMBEDS,
+    SETTINGS_EMBEDS,
+    SERVER_UNREACHABLE,
     COLORS,
-    NO_ACTIVE_TRADES_EMBED, 
-    ACTIVE_TRADES_EMBED, 
+    NO_ACTIVE_TRADES_EMBED,
+    ACTIVE_TRADES_EMBED,
     SEND_MESSAGE_EMBEDS,
-    USER_PROFILE_EMBED, 
-    USER_NOT_FOUND_EMBED, 
+    USER_PROFILE_EMBED,
+    USER_NOT_FOUND_EMBED,
     TOGGLE_OFFERS_EMBED
 )
 import bitso_config
@@ -71,7 +71,7 @@ async def refresh_live_trades_channel():
     if not channel:
         logger.error(f"Could not find channel with ID {DISCORD_ACTIVE_TRADES_CHANNEL_ID}.")
         return
-    
+
     try:
         response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
         trades = response.json() if response.status_code == 200 else []
@@ -101,13 +101,13 @@ async def refresh_live_trades_channel():
                 value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status)}",
                 inline=False
             )
-    
+
     embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
     embed.set_footer(text="Last updated")
 
     await channel.purge(limit=10, check=lambda m: m.author == bot.user)
     await channel.send(embed=embed)
-    
+
     last_known_trades_state = current_trades_state
     logger.info("Successfully refreshed the active trades channel with new data.")
 
@@ -137,7 +137,7 @@ async def status(interaction: discord.Interaction):
     app_commands.Choice(name="Start", value="start"),
     app_commands.Choice(name="Stop", value="stop"),
 ])
-async def bot_control(interaction: discord.Interaction, action: app_commands.Choice[str]):
+async def bot_command(interaction: discord.Interaction, action: app_commands.Choice[str]):
     await interaction.response.defer(ephemeral=True)
     endpoint = "/start_trading" if action.value == "start" else "/stop_trading"
     try:
@@ -313,12 +313,12 @@ async def list_offers(interaction: discord.Interaction):
             return
         embed = discord.Embed(title=f"Your Active Offers ({len(offers_list)})", color=COLORS["info"])
         for offer in offers_list[:20]:
-            status = "✅ On" if offer.get('enabled') else "❌ Off"
+            status_str = "✅ On" if offer.get('enabled') else "❌ Off"
             embed.add_field(
                 name=f"{offer.get('payment_method_name', 'N/A')} ({offer.get('account_name', 'N/A')})",
                 value=f"**Margin**: {offer.get('margin', 'N/A')}%\n"
                       f"**Range**: {offer.get('fiat_amount_range_min', 'N/A')} - {offer.get('fiat_amount_range_max', 'N/A')} {offer.get('fiat_currency_code', '')}\n"
-                      f"**Status**: {status}\n"
+                      f"**Status**: {status_str}\n"
                       f"**Hash**: `{offer.get('offer_hash', 'N/A')}`",
                 inline=False
             )
