@@ -27,8 +27,8 @@ async def on_ready():
 
 async def load_cogs():
     """Loads all cogs from the 'cogs' directory."""
-
-    for filename in os.listdir(COGS_DIR):
+    cogs_path = os.path.join('bot', 'cogs') 
+    for filename in os.listdir(cogs_path):
         if filename.endswith('.py'):
             try:
                 # The path should be bot.cogs.filename
