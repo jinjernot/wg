@@ -36,8 +36,15 @@ def get_crypto_in_open_trades(account):
             # Consider trades that are active but not yet completed or canceled
             if trade.get('trade_status') not in ['Successful', 'Cancelled', 'Dispute closed']:
                 try:
-                    crypto_amount = float(trade.get('crypto_amount_requested', 0))
-                    crypto_code = trade.get('crypto_currency_code', '').upper()
+                    crypto_amount = float(
+                        trade.get('crypto_amount_requested', 0))
+                    crypto_code = trade.get(
+                        'crypto_currency_code', '').upper()
+
+                    if crypto_code == 'BTC':
+                        # Convert from satoshis to BTC
+                        crypto_amount /= 100_000_000
+
                     if crypto_amount > 0 and crypto_code:
                         total_crypto_locked[crypto_code] = total_crypto_locked.get(
                             crypto_code, 0) + crypto_amount
@@ -50,7 +57,7 @@ def get_crypto_in_open_trades(account):
 
 def check_wallet_balances_and_alert():
     """
-    Checks wallet balances, adds funds from open trades, converts to USD, 
+    Checks wallet balances, adds funds from open trades, converts to USD,
     and sends alerts if any balance is below the threshold.
     """
     logger.info("--- Running Low Balance Check ---")
@@ -75,13 +82,16 @@ def check_wallet_balances_and_alert():
 
         # --- Get crypto locked in open trades ---
         crypto_in_trades = get_crypto_in_open_trades(account)
-        
+
         # --- Create a mutable copy of the balance data to include funds in escrow ---
-        effective_balances = {k: float(v) for k, v in balance_data.items()}
+        effective_balances = {k: float(
+            v) for k, v in balance_data.items() if v is not None}
 
         for currency, amount in crypto_in_trades.items():
-            effective_balances[currency] = effective_balances.get(currency, 0) + amount
-            logger.info(f"Adjusted {currency} balance for {account_name} by {amount} from open trades.")
+            effective_balances[currency] = effective_balances.get(
+                currency, 0) + amount
+            logger.info(
+                f"Adjusted {currency} balance for {account_name} by {amount} from open trades.")
 
         total_balance_usd = 0
         balance_details_for_alert = []
