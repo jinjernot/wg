@@ -44,6 +44,9 @@ def get_crypto_in_open_trades(account):
                     if crypto_code == 'BTC':
                         # Convert from satoshis to BTC
                         crypto_amount /= 100_000_000
+                    elif crypto_code == 'USDT':
+                        # Convert from the smallest unit to USDT
+                        crypto_amount /= 1_000_000
 
                     if crypto_amount > 0 and crypto_code:
                         total_crypto_locked[crypto_code] = total_crypto_locked.get(
