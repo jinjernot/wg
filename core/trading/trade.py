@@ -93,7 +93,7 @@ class Trade:
             f"New trade found: {self.trade_hash}. Handling initial messages.")
         send_telegram_alert(self.trade_state, self.platform)
 
-        create_new_trade_embed(self.trade_state, self.platform)
+        #create_new_trade_embed(self.trade_state, self.platform)
 
         new_trade_embed_data = create_new_trade_embed(
             self.trade_state, self.platform, send=False)
