@@ -68,6 +68,7 @@ class Trade:
 
     def process(self):
         """Main entry point to process a trade's lifecycle."""
+        logger.info(f"--- Starting to process trade: {self.trade_hash} ---")
         if self.trade_state.get("trade_status") == "Dispute open":
             logger.info(
                 f"Trade {self.trade_hash} is in dispute. Halting all automated messages.")
@@ -86,11 +87,12 @@ class Trade:
         self.check_for_afk()
         self.check_for_inactivity()
         self.save()
+        logger.info(f"--- Finished processing trade: {self.trade_hash} ---")
 
     def handle_new_trade(self):
         """Handles logic for a trade seen for the first time."""
         logger.info(
-            f"New trade found: {self.trade_hash}. Handling initial messages.")
+            f"--- New trade found: {self.trade_hash}. Handling initial messages. ---")
         send_telegram_alert(self.trade_state, self.platform)
 
         #create_new_trade_embed(self.trade_state, self.platform)
@@ -114,6 +116,7 @@ class Trade:
 
     def check_status_change(self):
         """Checks for and handles changes in the trade's status."""
+        logger.info(f"--- Checking Status Change for {self.trade_hash} ---")
         current_status = self.trade_state.get("trade_status")
         if current_status not in self.trade_state.get('status_history', []):
             logger.info(
@@ -136,6 +139,7 @@ class Trade:
 
     def handle_paid_status(self):
         """Handles the logic when a trade is marked as paid."""
+        logger.info(f"--- Handling 'Paid' status for {self.trade_hash} ---")
         send_payment_received_message(self.trade_hash, self.account, self.headers)
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
@@ -150,6 +154,7 @@ class Trade:
 
     def get_credential_identifier_for_trade(self):
         """Finds the name identifier for credentials based on the selected payment account."""
+        logger.info(f"--- Getting Credential Identifier for {self.trade_hash} ---")
         slug = self.trade_state.get("payment_method_slug", "").lower()
 
         json_key_slug = ""
@@ -192,6 +197,7 @@ class Trade:
 
     def check_for_email_confirmation(self):
         """Checks for payment confirmation emails if the trade is marked as Paid."""
+        logger.info(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
         is_paid = self.trade_state.get("trade_status") == 'Paid'
         is_relevant = self.trade_state.get("payment_method_slug", "").lower() in [
             "oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
@@ -242,6 +248,7 @@ class Trade:
 
     def check_chat_and_attachments(self):
         """Fetches chat history and processes any new attachments."""
+        logger.info(f"--- Checking Chat & Attachments for {self.trade_hash} ---")
         attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
             self.trade_hash, self.owner_username, self.account, self.headers)
         if last_buyer_ts:
@@ -263,7 +270,7 @@ class Trade:
         for attachment in new_attachments:
             path, author = attachment['path'], attachment['author']
             if author not in ["davidvs", "JoeWillgang"]:
-
+                logger.info(f"--- Processing new attachment by {author} for {self.trade_hash} ---")
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
                 save_ocr_text(self.trade_hash, self.owner_username,
@@ -279,6 +286,7 @@ class Trade:
                         f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
 
                 # --- Perform and Alert on Amount Validation ---
+                logger.info(f"--- Performing Amount Validation for {self.trade_hash} ---")
                 found_amount = find_amount_in_text(
                     text, self.trade_state.get("fiat_amount_requested"))
                 if not self.trade_state.get('amount_validation_alert_sent'):
@@ -292,6 +300,7 @@ class Trade:
 
                 # --- Perform and Alert on Name Validation ---
                 if expected_names:
+                    logger.info(f"--- Performing Name Validation for {self.trade_hash} ---")
                     is_name_found = find_name_in_text(text, expected_names)
                     if not self.trade_state.get('name_validation_alert_sent'):
                         send_name_validation_alert(
@@ -304,6 +313,7 @@ class Trade:
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""
+        logger.info(f"--- Checking for AFK: {self.trade_hash} ---")
         if self.trade_state.get('afk_message_sent'):
             return
 
@@ -365,6 +375,7 @@ class Trade:
 
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
+        logger.info(f"--- Checking for Inactivity: {self.trade_hash} ---")
         is_active = self.trade_state.get(
             "trade_status", "").startswith('Active')
         if not is_active or self.trade_state.get('reminder_sent'):

@@ -13,6 +13,7 @@ def process_trades(account):
     Main loop to fetch and process trades for a given account.
     """
     while True:
+        logger.info(f"--- Starting new trade processing cycle for {account['name']} ---")
         access_token = fetch_token_with_retry(account)
         if not access_token:
             logger.error(f"Failed to fetch access token for {account['name']}. Retrying in 60s.")
@@ -25,6 +26,7 @@ def process_trades(account):
         trades = get_trade_list(account, headers, limit=10, page=1, include_completed=True)
 
         if trades:
+            logger.info(f"Found {len(trades)} trades to process for {account['name']}.")
             for trade_data in trades:
                 try:
                     trade = Trade(trade_data, account, headers)
@@ -34,4 +36,5 @@ def process_trades(account):
         else:
             logger.debug(f"No active trades found for {account['name']}.")
 
+        logger.info(f"--- Finished trade processing cycle for {account['name']}. Waiting... ---")
         time.sleep(60)

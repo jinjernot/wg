@@ -17,7 +17,7 @@ def setup_logging():
         verbose_enabled = True
 
     log_level = logging.INFO if verbose_enabled else logging.WARNING
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    log_format = '%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
     
     logging.basicConfig(level=log_level, format=log_format, force=True)
 
