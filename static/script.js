@@ -444,5 +444,5 @@ function updateBalancesDashboard(balances) {
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
     setInterval(fetchOffers, 120000); 
-    setInterval(fetchWalletBalances, 300000); // Refresh balances every 5 minutes
+    setInterval(fetchWalletBalances, 300000);
 });

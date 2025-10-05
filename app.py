@@ -3,6 +3,7 @@ import logging
 from flask import Flask
 from core.utils.log_config import setup_logging
 from config import JSON_PATH
+from core.utils.bot_process_manager import start_trading
 
 # Import blueprints
 from routes.main import main_bp
@@ -33,6 +34,9 @@ app.register_blueprint(user_bp)
 app.register_blueprint(bitso_bp)
 app.register_blueprint(charts_bp)
 app.register_blueprint(bot_bp)
+
+with app.app_context():
+    start_trading()
 
 
 if __name__ == "__main__":
