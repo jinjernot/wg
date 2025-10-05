@@ -13,12 +13,12 @@ from config_messages.discord_messages import SERVER_UNREACHABLE
 from config import DISCORD_GUILD_ID
 from config import REPORTS_DIR
 
-#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 class BitsoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="bitso", description="Get a summary of Bitso deposits for a specific month.")
     @app_commands.describe(month="The month to get the summary for (e.g., 'August' or 'August 2023'). Defaults to the current month.")
     async def bitso_summary_command(self, interaction: discord.Interaction, month: str = None):
@@ -47,7 +47,8 @@ class BitsoCommands(commands.Cog):
                 await interaction.followup.send(f"Error: Server responded with {response.status_code}.", ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-
+            
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="bitso_chart", description="Generate a chart of Bitso income for a specific month.")
     @app_commands.describe(month="The month to generate the report for (e.g., 'August' or 'August 2023')")
     async def bitso_chart_command(self, interaction: discord.Interaction, month: str = None):

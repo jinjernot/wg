@@ -5,13 +5,14 @@ import requests
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import TOGGLE_OFFERS_EMBED, COLORS, SERVER_UNREACHABLE
 
-#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 class OfferCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
+        
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="offers", description="Turn all trading offers on or off.")
     @app_commands.describe(status="The desired status for your offers")
     @app_commands.choices(status=[
@@ -41,6 +42,7 @@ class OfferCommands(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="list_offers", description="Lists all of your active offers.")
     async def list_offers_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -68,6 +70,7 @@ class OfferCommands(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="toggle_offer", description="Turn a specific offer on or off.")
     @app_commands.describe(offer_hash="The hash of the offer to toggle", account_name="The account that owns the offer (e.g., David_Noones)", status="The desired status")
     @app_commands.choices(status=[app_commands.Choice(name="On", value="on"), app_commands.Choice(name="Off", value="off")])

@@ -8,13 +8,14 @@ from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, S
 from core.api.wallet import get_wallet_balances
 
 logger = logging.getLogger(__name__)
-#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 class BotManagement(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="status", description="Check the status of the trading bot.")
     async def status_command(self, interaction: discord.Interaction):
         """Handles the /status slash command."""
@@ -34,6 +35,7 @@ class BotManagement(commands.Cog):
             embed_data = STATUS_EMBED["unreachable"]
         await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="bot", description="Start or stop the trading bot process.")
     @app_commands.describe(action="Choose whether to start or stop the bot")
     @app_commands.choices(action=[
@@ -63,6 +65,7 @@ class BotManagement(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="settings", description="Change a bot setting.")
     @app_commands.describe(setting="The setting you want to change", status="The new status for the setting")
     @app_commands.choices(setting=[
@@ -93,7 +96,8 @@ class BotManagement(commands.Cog):
             await interaction.followup.send(embed=discord.Embed.from_dict(embed_data), ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-
+            
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="balance", description="Check the wallet balances of all accounts.")
     async def balance_command(self, interaction: discord.Interaction):
         """Fetches and displays wallet balances."""

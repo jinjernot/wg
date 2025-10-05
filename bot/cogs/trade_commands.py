@@ -11,7 +11,7 @@ from config_messages.discord_messages import (
 )
 
 logger = logging.getLogger(__name__)
-#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 def format_status_for_discord(status):
@@ -92,7 +92,7 @@ class TradeCommands(commands.Cog):
     async def before_refresh(self):
         await self.bot.wait_until_ready()
 
-
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="trades", description="Get a list of currently active trades.")
     async def active_trades_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -122,6 +122,7 @@ class TradeCommands(commands.Cog):
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="message", description="Send a manual message to a trade chat.")
     @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)", message="The message you want to send")
     async def send_message_command(self, interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
@@ -147,7 +148,8 @@ class TradeCommands(commands.Cog):
             await interaction.followup.send(embed=embed, ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-
+            
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="user", description="Get the trading history for a specific user.")
     @app_commands.describe(username="The username of the trader to look up.")
     async def user_profile_command(self, interaction: discord.Interaction, username: str):

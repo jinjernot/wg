@@ -6,13 +6,14 @@ import os
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import SERVER_UNREACHABLE
 
-#MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
 class ChartCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
+        
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="charts", description="Generate and display charts for your trading activity.")
     async def charts_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
