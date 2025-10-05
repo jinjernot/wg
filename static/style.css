@@ -1,7 +1,7 @@
 :root {
-    --bg-color: #111827;
-    --card-color: #1F2937;
-    --border-color: #374151;
+    --bg-color: #0c0c0c; /* Near black */
+    --card-color: #1a1a1a; /* Very dark gray */
+    --border-color: #2a2a2a; /* Slightly lighter gray for borders */
     --text-primary: #F9FAFB;
     --text-secondary: #9CA3AF;
     --accent-color: #3B82F6;
@@ -29,7 +29,7 @@ body {
 }
 
 .logo-img {
-    height: 36px; /* Reduced from 40px */
+    height: 36px;
     width: auto;
 }
 
