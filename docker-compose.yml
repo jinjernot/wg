@@ -15,6 +15,11 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
 
   # The Discord Bot Service
   discord_bot:
@@ -27,3 +32,6 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    depends_on:
+      webapp:
+        condition: service_healthy
