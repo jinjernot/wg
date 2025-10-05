@@ -5,7 +5,6 @@ import requests
 import logging
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, SETTINGS_EMBEDS, SERVER_UNREACHABLE, COLORS
-from core.api.wallet import get_wallet_balances
 
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
@@ -103,9 +102,11 @@ class BotManagement(commands.Cog):
         """Fetches and displays wallet balances."""
         await interaction.response.defer(ephemeral=True)
         try:
-            balances = get_wallet_balances()
+            # Fetch balances from the web server route, which includes locked funds
+            response = requests.get("http://127.0.0.1:5001/get_wallet_balances", timeout=15)
+            balances = response.json() if response.status_code == 200 else {}
 
-            embed = discord.Embed(title="💰 Wallet Balances",
+            embed = discord.Embed(title="💰 Wallet Balances (including trades)",
                                   color=COLORS.get("info", 0x5865F2))
 
             if not balances:
@@ -117,8 +118,11 @@ class BotManagement(commands.Cog):
                 if "error" in balance_data:
                     value = f"❌ Error: {balance_data['error']}"
                 else:
+                    # Filter out zero balances for a cleaner look
                     filtered_balances = {
-                        code: amount for code, amount in balance_data.items() if float(amount) != 0}
+                        code: amount for code, amount in balance_data.items() 
+                        if float(amount) != 0
+                    }
 
                     if filtered_balances:
                         value = "\n".join(
@@ -131,6 +135,8 @@ class BotManagement(commands.Cog):
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+        except requests.exceptions.RequestException:
+            await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         except Exception as e:
             logger.error(f"An error occurred in the balance command: {e}")
             await interaction.followup.send("An unexpected error occurred while fetching balances.", ephemeral=True)
