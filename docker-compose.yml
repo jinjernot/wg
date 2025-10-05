@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # The Flask Web Application Service
   webapp:
     build: .
     container_name: willgang_webapp
@@ -17,6 +16,7 @@ services:
       - .env
     restart: unless-stopped
 
+  # The Discord Bot Service
   discord_bot:
     build: .
     container_name: willgang_discord_bot
