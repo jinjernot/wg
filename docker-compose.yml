@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  webapp:
+    build: .
+    container_name: willgang_webapp
+    command: gunicorn --bind 0.0.0.0:5001 --workers 4 app:app
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./attachments:/app/attachments
+      - ./ocr_logs:/app/ocr_logs
+      - ./trade_history:/app/trade_history
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  discord_bot:
+    build: .
+    container_name: willgang_discord_bot
+    command: python discord_bot.py
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    restart: unless-stopped
