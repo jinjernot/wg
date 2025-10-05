@@ -21,21 +21,16 @@ body {
 
 .header {
     background-color: var(--card-color);
-    padding: 1.25rem 2rem;
+    padding: 0.75rem 2rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
-.logo {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--accent-color);
-}
-
-.logo-bracket {
-    color: var(--text-secondary);
+.logo-img {
+    height: 36px; /* Reduced from 40px */
+    width: auto;
 }
 
 h1, h2, h3, h4 {
@@ -56,12 +51,13 @@ h4 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
 
 .dashboard-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 20px;
     padding: 20px;
+    align-items: start;
 }
 
-.column {
+.account-column {
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -200,3 +196,24 @@ tr.status-disputed:hover { background-color: rgba(245, 158, 11, 0.3); }
 .balance-list { list-style-type: none; padding: 0; margin: 0; font-size: 0.9rem; }
 .balance-list li { padding: 4px 0; }
 .balance-list strong { color: var(--text-secondary); }
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1200px) {
+    .dashboard-container {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem;
+    }
+    .balance-columns {
+        grid-template-columns: 1fr;
+    }
+}
