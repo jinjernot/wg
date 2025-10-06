@@ -219,33 +219,27 @@ def send_name_validation_alert(trade_hash, success, account_name):
 
 def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
     """
-    Builds and sends a Telegram alert for low wallet balance, ensuring all parts are escaped.
-    balance_details_raw is a list of tuples: [(amount_str, currency, balance_usd), ...]
+    Builds and sends a Telegram alert for low wallet balance using a template.
     """
-    
-    header = "⚠️ *Low Balance Alert* ⚠️\n\n"
-    line1 = f"The total balance for `{escape_markdown(account_name)}` is below the threshold\.\n\n"
-    
-    total_balance_str = f"{total_balance_usd:,.2f}"
-    threshold_str = f"{threshold:,.2f}"
-    
-    line2 = f"*Total Balance:* `${escape_markdown(total_balance_str)}`\n"
-    line3 = f"*Threshold:* `${escape_markdown(threshold_str)}`\n\n"
-    
-    details_header = "*Balance Details:*\n"
-    
-    details_lines = []
+    balance_details_formatted = []
     for amount, currency, usd_value in balance_details_raw:
         usd_str = f"{usd_value:,.2f}"
         line = f"\\- `{escape_markdown(amount)} {escape_markdown(currency)}` \\(approx\\, `${escape_markdown(usd_str)}`\\)"
-        details_lines.append(line)
-        
-    full_message = header + line1 + line2 + line3 + details_header + "\n".join(details_lines)
+        balance_details_formatted.append(line)
+    
+    details_str = "\n".join(balance_details_formatted)
+    
+    message = LOW_BALANCE_ALERT_MESSAGE.format(
+        account_name=escape_markdown(account_name),
+        total_balance_usd=escape_markdown(f"{total_balance_usd:,.2f}"),
+        threshold=escape_markdown(f"{threshold:,.2f}"),
+        balance_details=details_str
+    )
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "text": full_message,
+        "text": message,
         "parse_mode": "MarkdownV2"
     }
     response = requests.post(url, json=payload)
