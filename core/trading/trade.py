@@ -14,7 +14,9 @@ from core.validation.ocr import (
     find_amount_in_text,
     find_name_in_text,
     identify_bank_from_text,
-    save_ocr_text
+    save_ocr_text,
+    hash_image,
+    is_duplicate_receipt
 )
 from core.messaging.welcome_message import send_welcome_message
 from core.messaging.payment_details import send_payment_details_message
@@ -34,7 +36,8 @@ from core.messaging.alerts.telegram_alert import (
     send_amount_validation_alert,
     send_email_validation_alert,
     send_name_validation_alert,
-    send_chat_message_alert
+    send_chat_message_alert,
+    send_duplicate_receipt_alert
 )
 from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
@@ -43,7 +46,8 @@ from core.messaging.alerts.discord_alert import (
     create_amount_validation_embed,
     create_email_validation_embed,
     create_name_validation_embed,
-    create_chat_message_embed
+    create_chat_message_embed,
+    create_duplicate_receipt_embed
 )
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
@@ -328,6 +332,14 @@ class Trade:
             path, author = attachment['path'], attachment['author']
             if author not in ["davidvs", "JoeWillgang"]:
                 logger.info(f"--- Processing new attachment by {author} for {self.trade_hash} ---")
+                
+                # Check for duplicate receipt
+                image_hash = hash_image(path)
+                is_duplicate, previous_trade_info = is_duplicate_receipt(image_hash, self.trade_hash, self.owner_username)
+                if is_duplicate:
+                    send_duplicate_receipt_alert(self.trade_hash, self.owner_username, path, previous_trade_info)
+                    create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
+
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
                 save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)

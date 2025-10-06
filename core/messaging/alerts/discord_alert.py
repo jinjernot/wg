@@ -7,6 +7,7 @@ from config_messages.discord_messages import (
     AMOUNT_VALIDATION_EMBEDS,
     EMAIL_VALIDATION_EMBEDS,
     NAME_VALIDATION_EMBEDS,
+    DUPLICATE_RECEIPT_EMBEDS,
     COLORS
 )
 from .discord_thread_manager import get_thread_id
@@ -265,3 +266,23 @@ def create_name_validation_embed(trade_hash, success, account_name):
         "footer": {"text": f"Trade: {trade_hash}"}
     }
     send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
+
+def create_duplicate_receipt_embed(trade_hash, owner_username, image_path, platform, previous_trade_info):
+    """Builds and sends a duplicate receipt embed."""
+    template = DUPLICATE_RECEIPT_EMBEDS["warning"]
+    
+    previous_trade_hash = previous_trade_info.get("trade_hash", "N/A")
+    previous_owner = previous_trade_info.get("owner_username", "N/A")
+
+    embed_data = {
+        "title": template["title"],
+        "color": COLORS.get("error", 0xFF0000),
+        "description": template["description"].format(
+            trade_hash=trade_hash,
+            owner_username=owner_username,
+            previous_trade_hash=previous_trade_hash,
+            previous_owner=previous_owner
+        ),
+        "footer": {"text": "WillGang Bot"}
+    }
+    send_discord_embed_with_image(embed_data, image_path, alert_type="attachments", trade_hash=trade_hash)

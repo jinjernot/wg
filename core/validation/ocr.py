@@ -5,6 +5,7 @@ import cv2
 import re
 import os
 import numpy as np
+import hashlib
 
 from datetime import datetime
 from PIL import Image
@@ -14,6 +15,7 @@ from config import OCR_LOG_PATH
 logger = logging.getLogger(__name__)
 
 os.makedirs(OCR_LOG_PATH, exist_ok=True)
+RECEIPT_HASH_DB = os.path.join("data", "processed_receipts.json")
 
 def load_ocr_templates():
     """Loads OCR keyword templates from a JSON file."""
@@ -31,6 +33,46 @@ try:
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 except FileNotFoundError:
     logger.warning("Tesseract executable not found. Update the path in ocr.py if needed.")
+
+def hash_image(image_path):
+    """Computes a SHA256 hash of an image file."""
+    hasher = hashlib.sha256()
+    try:
+        with open(image_path, "rb") as f:
+            buf = f.read()
+            hasher.update(buf)
+        return hasher.hexdigest()
+    except IOError as e:
+        logger.error(f"Could not read image file for hashing: {e}")
+        return None
+
+def is_duplicate_receipt(image_hash, trade_hash, owner_username):
+    """Checks if a receipt with the given hash has been seen before."""
+    if not image_hash:
+        return False, None
+
+    try:
+        with open(RECEIPT_HASH_DB, "r") as f:
+            receipt_db = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        receipt_db = {}
+
+    if image_hash in receipt_db:
+        previous_trade = receipt_db[image_hash]
+        if previous_trade["trade_hash"] != trade_hash:
+            return True, previous_trade
+    
+    receipt_db[image_hash] = {
+        "trade_hash": trade_hash,
+        "owner_username": owner_username,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    with open(RECEIPT_HASH_DB, "w") as f:
+        json.dump(receipt_db, f, indent=4)
+        
+    return False, None
+
 
 def save_ocr_text(trade_hash, owner_username, text, identified_bank=None):
     """Saves the extracted OCR text to a structured folder."""

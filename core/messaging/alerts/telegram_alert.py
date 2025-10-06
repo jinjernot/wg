@@ -9,6 +9,7 @@ from config_messages.telegram_messages import (
     NOONES_ALERT_MESSAGE, 
     NEW_CHAT_ALERT_MESSAGE, 
     NEW_ATTACHMENT_ALERT_MESSAGE,
+    NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE,
     AMOUNT_VALIDATION_NOT_FOUND_ALERT,
     AMOUNT_VALIDATION_MATCH_ALERT,
     AMOUNT_VALIDATION_MISMATCH_ALERT,
@@ -17,11 +18,8 @@ from config_messages.telegram_messages import (
     NAME_VALIDATION_SUCCESS_ALERT,
     NAME_VALIDATION_FAILURE_ALERT,
     LOW_BALANCE_ALERT_MESSAGE,
+    DUPLICATE_RECEIPT_ALERT_MESSAGE
 )
-
-# Define the new message template here for now
-NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE = "📄 *New Attachment Received* 📄\n\n*Bank Identified:* `{bank_name}`\n*Trade Hash:* `{trade_hash}`\n*Account:* `{owner_username}`\n*Uploaded By:* `{author}`"
-
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +132,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
     except Exception as e:
         logger.error(f"An unexpected error occurred while sending attachment alert: {e}")
         
+                
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     if found_amount is None:
         message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(
@@ -254,3 +253,36 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
         logger.info(f"Low balance alert for {account_name} sent successfully.")
     else:
         logger.error(f"Failed to send low balance alert for {account_name}: {response.status_code} - {response.text}")
+
+def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previous_trade_info):
+    """Sends a Telegram alert for a duplicate receipt."""
+    previous_trade_hash = previous_trade_info['trade_hash']
+    previous_owner = previous_trade_info['owner_username']
+    
+    caption = DUPLICATE_RECEIPT_ALERT_MESSAGE.format(
+        trade_hash=escape_markdown(trade_hash),
+        owner_username=escape_markdown(owner_username),
+        previous_trade_hash=escape_markdown(previous_trade_hash),
+        previous_owner=escape_markdown(previous_owner)
+    )
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    data = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "caption": caption,
+        "parse_mode": "MarkdownV2"
+    }
+
+    try:
+        with open(image_path, 'rb') as photo_file:
+            files = {'photo': photo_file}
+            response = requests.post(url, data=data, files=files)
+        
+        if response.status_code == 200:
+            logger.info("Duplicate receipt alert with image sent successfully.")
+        else:
+            logger.error(f"Failed to send duplicate receipt alert with image: {response.status_code} - {response.text}")
+    except IOError as e:
+        logger.error(f"Error opening image file {image_path}: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while sending duplicate receipt alert: {e}")
