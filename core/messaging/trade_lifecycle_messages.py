@@ -37,6 +37,10 @@ def send_afk_message(trade_hash, account, headers, max_retries=3):
     """Sends a message to the user to ask them to be patient."""
     _send_lifecycle_message(trade_hash, account, headers, AFK_MESSAGE, "AFK", max_retries)
 
+def send_extended_afk_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message to the user indicating a longer delay."""
+    _send_lifecycle_message(trade_hash, account, headers, EXTENDED_AFK_MESSAGE, "Extended AFK", max_retries)
+
 def send_payment_confirmed_no_attachment_message(trade_hash, account, headers, max_retries=3):
     """Sends a reminder to attach proof of payment."""
     _send_lifecycle_message(trade_hash, account, headers, NO_ATTACHMENT_MESSAGE, "No Attachment Reminder", max_retries)

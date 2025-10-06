@@ -24,6 +24,7 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_reminder_message,
     send_attachment_message,
     send_afk_message,
+    send_extended_afk_message,
     send_payment_confirmed_no_attachment_message,
     send_online_reply_message
 )
@@ -87,6 +88,7 @@ class Trade:
         self.check_for_email_confirmation()
         self.check_chat_and_attachments()
         self.check_for_afk()
+        self.check_for_extended_afk()
         self.check_for_inactivity()
         self.save()
         logger.info(f"--- Finished processing trade: {self.trade_hash} ---")
@@ -395,6 +397,39 @@ class Trade:
                 if time_since_first_message <= time_threshold_minutes:
                     logger.info(
                         f"AFK not triggered for {self.trade_hash}: Not enough time has passed ({time_since_first_message:.2f}/{time_threshold_minutes} minutes).")
+
+    def check_for_extended_afk(self):
+        """Checks for extended inactivity from the buyer and sends a specific message."""
+        logger.info(f"--- Checking for Extended AFK: {self.trade_hash} ---")
+        if self.trade_state.get('extended_afk_message_sent'):
+            return
+
+        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        if not all_messages:
+            return
+
+        owner_usernames = ["davidvs", "JoeWillgang"]
+        # Find the timestamp of the last message sent by the buyer
+        last_buyer_message_ts = None
+        for msg in reversed(all_messages):
+            if msg.get("author") not in owner_usernames:
+                last_buyer_message_ts = msg.get("timestamp")
+                break
+
+        if not last_buyer_message_ts:
+            return
+
+        time_since_last_buyer_message = (datetime.now(timezone.utc).timestamp() - last_buyer_message_ts) / 60
+        logger.debug(f"Extended AFK Check for trade {self.trade_hash}: Time since last buyer message is {time_since_last_buyer_message:.2f} minutes.")
+
+        extended_time_threshold_minutes = 15  # 15 minutes
+
+        if time_since_last_buyer_message > extended_time_threshold_minutes:
+            logger.info(
+                f"EXTENDED AFK TRIGGERED for trade {self.trade_hash}. No response for over {extended_time_threshold_minutes} minutes. Sending extended AFK message.")
+            send_extended_afk_message(self.trade_hash, self.account, self.headers)
+            self.trade_state['extended_afk_message_sent'] = True
+            self.save()
 
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
