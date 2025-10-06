@@ -371,26 +371,27 @@ class Trade:
         if all_messages:
             self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
     
-def handle_online_query(self, new_messages):
-    """Checks for messages asking if the user is online and sends a reply."""
-    logger.info(f"--- Checking for Online Query: {self.trade_hash} ---")
-    if self.trade_state.get('online_reply_sent'):
-        return
+    def handle_online_query(self, new_messages):
+        """Checks for messages asking if the user is online and sends a reply."""
+        logger.info(f"--- Checking for Online Query: {self.trade_hash} ---")
+        if self.trade_state.get('online_reply_sent'):
+            return
 
-    online_keywords = ONLINE_QUERY_KEYWORDS
-    
-    for msg in new_messages:
-        message_text = msg.get("text", "")
-        if isinstance(message_text, dict):
-            message_text = str(message_text)
-            
-        message_text = message_text.lower()
-        if any(keyword in message_text for keyword in online_keywords):
-            logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
-            send_online_reply_message(self.trade_hash, self.account, self.headers)
-            self.trade_state['online_reply_sent'] = True
-            self.save()
-            break
+        online_keywords = ONLINE_QUERY_KEYWORDS
+        
+        for msg in new_messages:
+            message_text = msg.get("text", "")
+            # FIX: Handle cases where 'text' can be a dictionary
+            if isinstance(message_text, dict):
+                message_text = str(message_text)
+
+            message_text = message_text.lower()
+            if any(keyword in message_text for keyword in online_keywords):
+                logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
+                send_online_reply_message(self.trade_hash, self.account, self.headers)
+                self.trade_state['online_reply_sent'] = True
+                self.save()
+                break
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""
