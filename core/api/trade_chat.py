@@ -126,10 +126,9 @@ def _process_new_messages(new_messages, trade_hash, owner_username, account, hea
                     if file_path:
                         new_attachments.append({"path": file_path, "author": author})
 
-        elif msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+        elif msg.get("type") != "trade_attach_uploaded" and msg.get("author") not in ["davidvs", "JoeWillgang", None]:
             message_text = msg.get("text")
-            if isinstance(message_text, dict): message_text = str(message_text)
-            if message_text:
+            if isinstance(message_text, str) and message_text:
                 msg_author = msg.get("author", "Unknown")
                 send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
                 create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)

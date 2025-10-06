@@ -279,10 +279,11 @@ class Trade:
         
         # Process new text messages
         for msg in new_messages:
-            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            # Check if the message is NOT an attachment upload notification before processing as a text message
+            if msg.get("type") != "trade_attach_uploaded" and msg.get("author") not in ["davidvs", "JoeWillgang", None]:
                 message_text = msg.get("text")
-                if isinstance(message_text, dict): message_text = str(message_text)
-                if message_text:
+                # Ensure that the message is a string before sending
+                if isinstance(message_text, str) and message_text:
                     msg_author = msg.get("author", "Unknown")
                     send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
                     create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
