@@ -33,6 +33,27 @@ def turn_on_offers_job():
         send_scheduled_task_alert(failure_message)
 
 
+def turn_off_offers_job():
+    """Job to be run by the scheduler to turn off offers."""
+    logger.info("SCHEDULER: Running scheduled job to turn off offers.")
+    send_scheduled_task_alert("Automatically turning off all offers.")
+
+    results = set_offer_status(turn_on=False)
+
+    successful_accounts = [r["account"] for r in results if r["success"]]
+    if successful_accounts:
+        success_message = f"Offers turned off for: {', '.join(successful_accounts)}."
+        logger.info(f"SCHEDULER: {success_message}")
+        send_scheduled_task_alert(success_message)
+
+    failed_accounts = [
+        f"{r['account']} ({r['error']})" for r in results if not r["success"]]
+    if failed_accounts:
+        failure_message = f"Failed to turn off offers for: {', '.join(failed_accounts)}."
+        logger.error(f"SCHEDULER: {failure_message}")
+        send_scheduled_task_alert(failure_message)
+
+
 def main():
 
     if not os.path.exists(TRADE_STORAGE_DIR):
@@ -45,10 +66,11 @@ def main():
 
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
     scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=0)
+    scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
     scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
     scheduler.start()
     logger.info(
-        "Scheduler started. Offers will be turned on daily at 8:00 AM Central Time.")
+        "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
 
     threads = []
     for account in ACCOUNTS:
