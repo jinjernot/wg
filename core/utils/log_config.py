@@ -21,7 +21,7 @@ def setup_logging():
     
     logging.basicConfig(level=log_level, format=log_format, force=True)
 
-    log_dir = "logs"
+    log_dir = os.path.join("data", "logs")
     os.makedirs(log_dir, exist_ok=True)
     error_log_path = os.path.join(log_dir, "error.log")
 

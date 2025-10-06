@@ -409,7 +409,6 @@ class Trade:
             return
 
         owner_usernames = ["davidvs", "JoeWillgang"]
-        # Find the timestamp of the last message sent by the buyer
         last_buyer_message_ts = None
         for msg in reversed(all_messages):
             if msg.get("author") not in owner_usernames:
@@ -422,7 +421,7 @@ class Trade:
         time_since_last_buyer_message = (datetime.now(timezone.utc).timestamp() - last_buyer_message_ts) / 60
         logger.debug(f"Extended AFK Check for trade {self.trade_hash}: Time since last buyer message is {time_since_last_buyer_message:.2f} minutes.")
 
-        extended_time_threshold_minutes = 15  # 15 minutes
+        extended_time_threshold_minutes = 15
 
         if time_since_last_buyer_message > extended_time_threshold_minutes:
             logger.info(
