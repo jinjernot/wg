@@ -4,6 +4,7 @@ import json
 import cv2
 import re
 import os
+import numpy as np
 
 from datetime import datetime
 from PIL import Image
@@ -57,10 +58,33 @@ def preprocess_image_for_ocr(image_path):
     try:
         img = cv2.imread(image_path)
         if img is None: return None
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        denoised = cv2.medianBlur(binary, 3)
-        return denoised
+
+        # Convert to LAB color space and work with the lightness channel
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        
+        # Apply CLAHE to the lightness channel
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        cl = clahe.apply(l)
+        limg = cv2.merge((cl,a,b))
+        
+        # Convert back to BGR color space
+        final_img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(final_img, cv2.COLOR_BGR2GRAY)
+        
+        # Denoising
+        denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+
+        # Sharpening
+        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+        sharpened = cv2.filter2D(denoised, -1, kernel)
+        
+        # Adaptive Thresholding
+        binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        
+        return binary
     except Exception as e:
         logger.error(f"An error occurred during image pre-processing for {image_path}: {e}")
         return None
