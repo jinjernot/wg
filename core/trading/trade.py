@@ -24,7 +24,8 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_reminder_message,
     send_attachment_message,
     send_afk_message,
-    send_payment_confirmed_no_attachment_message
+    send_payment_confirmed_no_attachment_message,
+    send_online_reply_message
 )
 #from core.messaging.attachment_message import send_attachment_message
 from core.messaging.alerts.telegram_alert import (
@@ -46,6 +47,7 @@ from core.messaging.alerts.discord_alert import (
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
 from core.api.trade_chat import fetch_trade_chat_messages, get_all_messages_from_chat
+from config_messages.chat_messages import ONLINE_QUERY_KEYWORDS
 
 logger = logging.getLogger(__name__)
 
@@ -249,10 +251,14 @@ class Trade:
     def check_chat_and_attachments(self):
         """Fetches chat history and processes any new attachments."""
         logger.info(f"--- Checking Chat & Attachments for {self.trade_hash} ---")
-        attachment_found, last_buyer_ts, new_attachments = fetch_trade_chat_messages(
+        attachment_found, last_buyer_ts, new_attachments, new_messages = fetch_trade_chat_messages(
             self.trade_hash, self.owner_username, self.account, self.headers)
         if last_buyer_ts:
             self.trade_state['last_buyer_ts'] = last_buyer_ts
+
+        if new_messages:
+            self.handle_online_query(new_messages)
+            
         if not new_attachments:
             return
         if not self.trade_state.get('attachment_message_sent'):
@@ -310,6 +316,23 @@ class Trade:
                         self.trade_state['name_validation_alert_sent'] = True
 
                 self.save()
+    
+    def handle_online_query(self, new_messages):
+        """Checks for messages asking if the user is online and sends a reply."""
+        logger.info(f"--- Checking for Online Query: {self.trade_hash} ---")
+        if self.trade_state.get('online_reply_sent'):
+            return
+
+        online_keywords = ONLINE_QUERY_KEYWORDS
+        
+        for msg in new_messages:
+            message_text = msg.get("text", "").lower()
+            if any(keyword in message_text for keyword in online_keywords):
+                logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
+                send_online_reply_message(self.trade_hash, self.account, self.headers)
+                self.trade_state['online_reply_sent'] = True
+                self.save()
+                break
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""

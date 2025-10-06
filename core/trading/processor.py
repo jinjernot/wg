@@ -2,7 +2,6 @@ import time
 import logging
 from core.api.auth import fetch_token_with_retry
 from core.api.trade_list import get_trade_list
-from core.validation.email import get_gmail_service
 from core.trading.trade import Trade
 from .trade import Trade
 

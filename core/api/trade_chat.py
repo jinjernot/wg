@@ -144,10 +144,10 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
     new_messages, latest_message_id = get_new_messages(trade_hash, account, headers, max_retries)
 
     if new_messages is None:
-        return False, None, []
+        return False, None, [], None
     
     if not new_messages:
-        return False, None, []
+        return False, None, [], []
 
     attachment_found, new_attachments = _process_new_messages(new_messages, trade_hash, owner_username, account, headers)
 
@@ -163,7 +163,7 @@ def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_
                 last_buyer_ts = msg.get("timestamp")
                 break
     
-    return attachment_found, last_buyer_ts, new_attachments
+    return attachment_found, last_buyer_ts, new_attachments, new_messages
 
 
 def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):

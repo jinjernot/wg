@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def _send_lifecycle_message(trade_hash, account, headers, message_list, message_type, max_retries=3):
     """Generic function to send a trade lifecycle message."""
     chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
-    message = random.choice(message_list) # Select a random message from the list
+    message = random.choice(message_list)
     body = {"trade_hash": trade_hash, "message": message}
     headers["Content-Type"] = "application/x-www-form-urlencoded"
 
@@ -44,3 +44,7 @@ def send_payment_confirmed_no_attachment_message(trade_hash, account, headers, m
 def send_attachment_message(trade_hash, account, headers, max_retries=3):
     """Sends a message confirming an attachment was received and is being checked."""
     _send_lifecycle_message(trade_hash, account, headers, ATTACHMENT_MESSAGE, "Attachment received", max_retries)
+
+def send_online_reply_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message to reply to "are you online?" questions."""
+    _send_lifecycle_message(trade_hash, account, headers, ONLINE_REPLY_MESSAGE, "Online reply", max_retries)
