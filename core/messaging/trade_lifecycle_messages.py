@@ -52,3 +52,11 @@ def send_attachment_message(trade_hash, account, headers, max_retries=3):
 def send_online_reply_message(trade_hash, account, headers, max_retries=3):
     """Sends a message to reply to "are you online?" questions."""
     _send_lifecycle_message(trade_hash, account, headers, ONLINE_REPLY_MESSAGE, "Online reply", max_retries)
+    
+def send_oxxo_redirect_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message redirecting the user to an OXXO offer."""
+    _send_lifecycle_message(trade_hash, account, headers, OXXO_IN_BANK_TRANSFER_MESSAGE, "OXXO Redirect", max_retries)
+    
+def send_third_party_allowed_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message to the user to inform them that third party is allowed."""
+    _send_lifecycle_message(trade_hash, account, headers, THIRD_PARTY_ALLOWED_MESSAGE, "Third Party Allowed", max_retries)

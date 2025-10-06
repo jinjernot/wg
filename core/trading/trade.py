@@ -28,7 +28,9 @@ from core.messaging.trade_lifecycle_messages import (
     send_afk_message,
     send_extended_afk_message,
     send_payment_confirmed_no_attachment_message,
-    send_online_reply_message
+    send_online_reply_message,
+    send_oxxo_redirect_message,
+    send_third_party_allowed_message
 )
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
@@ -290,6 +292,8 @@ class Trade:
 
         if new_messages:
             self.handle_online_query(new_messages)
+            self.handle_oxxo_query(new_messages)
+            self.handle_third_party_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
@@ -383,7 +387,6 @@ class Trade:
         
         for msg in new_messages:
             message_text = msg.get("text", "")
-            # FIX: Handle cases where 'text' can be a dictionary
             if isinstance(message_text, dict):
                 message_text = str(message_text)
 
@@ -394,6 +397,46 @@ class Trade:
                 self.trade_state['online_reply_sent'] = True
                 self.save()
                 break
+
+    def handle_oxxo_query(self, new_messages):
+        """Checks if a user mentions OXXO in a bank transfer trade."""
+        logger.info(f"--- Checking for OXXO Query in Bank Trade: {self.trade_hash} ---")
+        
+        payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
+        is_bank_transfer = payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
+        
+        if not is_bank_transfer or self.trade_state.get('oxxo_redirect_sent'):
+            return
+
+        for msg in new_messages:
+            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                message_text = msg.get("text", "")
+                if isinstance(message_text, str) and "oxxo" in message_text.lower():
+                    logger.info(f"OXXO keyword detected in bank transfer trade {self.trade_hash}. Sending redirect message.")
+                    send_oxxo_redirect_message(self.trade_hash, self.account, self.headers)
+                    self.trade_state['oxxo_redirect_sent'] = True
+                    self.save()
+                    break 
+
+    def handle_third_party_query(self, new_messages):
+        """Checks if a user asks about third party payments."""
+        logger.info(f"--- Checking for Third Party Query: {self.trade_hash} ---")
+        if self.trade_state.get('third_party_reply_sent'):
+            return
+
+        third_party_keywords = ["3rd party", "third party"]
+
+        for msg in new_messages:
+            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                message_text = msg.get("text", "")
+                if isinstance(message_text, str):
+                    message_lower = message_text.lower()
+                    if any(keyword in message_lower for keyword in third_party_keywords):
+                        logger.info(f"Third party query detected for trade {self.trade_hash}. Sending reply.")
+                        send_third_party_allowed_message(self.trade_hash, self.account, self.headers)
+                        self.trade_state['third_party_reply_sent'] = True
+                        self.save()
+                        break
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""
