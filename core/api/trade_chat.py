@@ -79,7 +79,7 @@ def get_new_messages(trade_hash, account, headers, max_retries=3):
     return None, None
 
 
-def _download_attachment(image_url_path, image_api_url, trade_hash, headers):
+def download_attachment(image_url_path, image_api_url, trade_hash, headers):
     match = re.search(r'attachment/([^?]+)', image_url_path)
     if not match:
         return None
@@ -122,7 +122,7 @@ def _process_new_messages(new_messages, trade_hash, owner_username, account, hea
             for file_info in files:
                 image_url_path = file_info.get("url")
                 if image_url_path:
-                    file_path = _download_attachment(image_url_path, image_api_url, trade_hash, headers)
+                    file_path = download_attachment(image_url_path, image_api_url, trade_hash, headers)
                     if file_path:
                         new_attachments.append({"path": file_path, "author": author})
 

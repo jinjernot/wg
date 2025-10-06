@@ -4,10 +4,10 @@ import os
 from datetime import datetime, timezone
 from config import (
     CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
-    EMAIL_CHECK_DURATION, JSON_PATH
+    EMAIL_CHECK_DURATION, JSON_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES
 )
 from core.state.get_files import load_processed_trades, save_processed_trade
-from core.api.trade_chat import fetch_trade_chat_messages
+from core.api.trade_chat import get_all_messages_from_chat, download_attachment
 from core.validation.email import check_for_payment_email, get_gmail_service
 from core.validation.ocr import (
     extract_text_from_image,
@@ -28,13 +28,13 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_confirmed_no_attachment_message,
     send_online_reply_message
 )
-#from core.messaging.attachment_message import send_attachment_message
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
     send_amount_validation_alert,
     send_email_validation_alert,
-    send_name_validation_alert
+    send_name_validation_alert,
+    send_chat_message_alert
 )
 from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
@@ -47,7 +47,6 @@ from core.messaging.alerts.discord_alert import (
 )
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
-from core.api.trade_chat import fetch_trade_chat_messages, get_all_messages_from_chat
 from config_messages.chat_messages import ONLINE_QUERY_KEYWORDS
 
 logger = logging.getLogger(__name__)
@@ -90,6 +89,7 @@ class Trade:
         self.check_for_afk()
         self.check_for_extended_afk()
         self.check_for_inactivity()
+        self.check_for_paid_without_attachment()
         self.save()
         logger.info(f"--- Finished processing trade: {self.trade_hash} ---")
 
@@ -98,8 +98,6 @@ class Trade:
         logger.info(
             f"--- New trade found: {self.trade_hash}. Handling initial messages. ---")
         send_telegram_alert(self.trade_state, self.platform)
-
-        #create_new_trade_embed(self.trade_state, self.platform)
 
         new_trade_embed_data = create_new_trade_embed(
             self.trade_state, self.platform, send=False)
@@ -126,8 +124,6 @@ class Trade:
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
 
-            # --- TRIGGER DISCORD ALERT FOR ANY STATUS CHANGE ---
-            # This will now send an alert for any new status.
             create_trade_status_update_embed(
                 self.trade_hash, self.owner_username, current_status, self.platform
             )
@@ -148,14 +144,20 @@ class Trade:
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
 
-        # Check if an attachment has been sent
-        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
-        has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+    def check_for_paid_without_attachment(self):
+        """If a trade is paid, and some time has passed, check for an attachment and send a reminder if needed."""
+        if self.trade_state.get("trade_status") == 'Paid' and not self.trade_state.get('no_attachment_reminder_sent'):
+            paid_timestamp = self.trade_state.get('paid_timestamp')
+            if paid_timestamp:
+                if (datetime.now(timezone.utc).timestamp() - paid_timestamp) > 120:
+                    all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+                    has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
 
-        if not has_attachment:
-            logger.info(f"Trade {self.trade_hash} is 'Paid' but has no attachment. Sending a reminder.")
-            send_payment_confirmed_no_attachment_message(self.trade_hash, self.account, self.headers)
-
+                    if not has_attachment:
+                        logger.info(f"Trade {self.trade_hash} is 'Paid' for over 2 minutes with no attachment. Sending a reminder.")
+                        send_payment_confirmed_no_attachment_message(self.trade_hash, self.account, self.headers)
+                        self.trade_state['no_attachment_reminder_sent'] = True
+                        
     def get_credential_identifier_for_trade(self):
         """Finds the name identifier for credentials based on the selected payment account."""
         logger.info(f"--- Getting Credential Identifier for {self.trade_hash} ---")
@@ -251,73 +253,111 @@ class Trade:
             self.trade_state['email_check_timed_out'] = True
 
     def check_chat_and_attachments(self):
-        """Fetches chat history and processes any new attachments."""
+        """Fetches the entire chat history and processes any unprocessed messages or attachments."""
         logger.info(f"--- Checking Chat & Attachments for {self.trade_hash} ---")
-        attachment_found, last_buyer_ts, new_attachments, new_messages = fetch_trade_chat_messages(
-            self.trade_hash, self.owner_username, self.account, self.headers)
-        if last_buyer_ts:
-            self.trade_state['last_buyer_ts'] = last_buyer_ts
+        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        if not all_messages:
+            return
+
+        # Determine which messages are new
+        last_processed_id = self.trade_state.get('last_processed_message_id')
+        new_messages = []
+        if last_processed_id:
+            last_index = -1
+            for i, msg in enumerate(all_messages):
+                if str(msg.get("id")) == str(last_processed_id):
+                    last_index = i
+                    break
+            if last_index != -1:
+                new_messages = all_messages[last_index + 1:]
+        else:
+            new_messages = all_messages
+        
+        # Process new text messages
+        for msg in new_messages:
+            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                message_text = msg.get("text")
+                if isinstance(message_text, dict): message_text = str(message_text)
+                if message_text:
+                    msg_author = msg.get("author", "Unknown")
+                    send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
+                    create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
 
         if new_messages:
             self.handle_online_query(new_messages)
-            
-        if not new_attachments:
+            for msg in reversed(new_messages):
+                 if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                    self.trade_state['last_buyer_ts'] = msg.get("timestamp")
+                    break
+
+        # Process attachments from entire history, avoiding duplicates
+        processed_attachments = self.trade_state.get('processed_attachments', [])
+        new_attachments_to_process = []
+        platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+        image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
+
+        for msg in all_messages:
+            if msg.get("type") == "trade_attach_uploaded":
+                files = msg.get("text", {}).get("files", [])
+                author = msg.get("author", "Unknown")
+                for file_info in files:
+                    image_url_path = file_info.get("url")
+                    if image_url_path and image_url_path not in processed_attachments:
+                        file_path = download_attachment(image_url_path, image_api_url, self.trade_hash, self.headers)
+                        if file_path:
+                            new_attachments_to_process.append({"path": file_path, "author": author})
+                            processed_attachments.append(image_url_path)
+        
+        self.trade_state['processed_attachments'] = processed_attachments
+
+        if not new_attachments_to_process:
+            if all_messages:
+                self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
             return
+
         if not self.trade_state.get('attachment_message_sent'):
-            logger.info(
-                f"New attachment found for trade {self.trade_hash}. Processing.")
-            send_attachment_message(
-                self.trade_hash, self.account, self.headers)
+            logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
+            send_attachment_message(self.trade_hash, self.account, self.headers)
             self.trade_state['attachment_message_sent'] = True
 
         credential_identifier = self.get_credential_identifier_for_trade()
         account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)
-        expected_names = account_config.get(
-            "name_receipt", []) if account_config else []
+        expected_names = account_config.get("name_receipt", []) if account_config else []
 
-        for attachment in new_attachments:
+        for attachment in new_attachments_to_process:
             path, author = attachment['path'], attachment['author']
             if author not in ["davidvs", "JoeWillgang"]:
                 logger.info(f"--- Processing new attachment by {author} for {self.trade_hash} ---")
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
-                save_ocr_text(self.trade_hash, self.owner_username,
-                              text, identified_bank)
-                send_attachment_alert(
-                    self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
-                create_attachment_embed(self.trade_hash, self.owner_username,
-                                        author, path, self.platform, bank_name=identified_bank)
+                save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)
+                send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
+                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
 
                 if identified_bank:
                     self.trade_state['ocr_identified_bank'] = identified_bank
-                    logger.info(
-                        f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
+                    logger.info(f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
 
-                # --- Perform and Alert on Amount Validation ---
                 logger.info(f"--- Performing Amount Validation for {self.trade_hash} ---")
-                found_amount = find_amount_in_text(
-                    text, self.trade_state.get("fiat_amount_requested"))
+                found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
                 if not self.trade_state.get('amount_validation_alert_sent'):
                     expected = self.trade_state.get("fiat_amount_requested")
                     currency = self.trade_state.get("fiat_currency_code")
-                    send_amount_validation_alert(
-                        self.trade_hash, self.owner_username, expected, found_amount, currency)
-                    create_amount_validation_embed(
-                        self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
                     self.trade_state['amount_validation_alert_sent'] = True
 
-                # --- Perform and Alert on Name Validation ---
                 if expected_names:
                     logger.info(f"--- Performing Name Validation for {self.trade_hash} ---")
                     is_name_found = find_name_in_text(text, expected_names)
                     if not self.trade_state.get('name_validation_alert_sent'):
-                        send_name_validation_alert(
-                            self.trade_hash, is_name_found, credential_identifier)
-                        create_name_validation_embed(
-                            self.trade_hash, is_name_found, credential_identifier)
+                        send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
+                        create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
                         self.trade_state['name_validation_alert_sent'] = True
-
                 self.save()
+
+        if all_messages:
+            self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
     
     def handle_online_query(self, new_messages):
         """Checks for messages asking if the user is online and sends a reply."""
@@ -342,14 +382,12 @@ class Trade:
         if self.trade_state.get('afk_message_sent'):
             return
 
-        # Fetch all messages using the new function
         all_messages = get_all_messages_from_chat(
             self.trade_hash, self.account, self.headers)
 
         if not all_messages:
             return
 
-        # Define your usernames to filter out your own messages
         owner_usernames = ["davidvs", "JoeWillgang"]
         buyer_messages = [msg for msg in all_messages if msg.get(
             "author") not in owner_usernames]
@@ -357,20 +395,17 @@ class Trade:
         if not buyer_messages:
             return
 
-        # Check if the last message is from the buyer
         if all_messages[-1].get("author") not in owner_usernames:
-            # Check how many messages the buyer has sent in a row
             consecutive_buyer_messages = 0
             for msg in reversed(all_messages):
                 if msg.get("author") not in owner_usernames:
                     consecutive_buyer_messages += 1
                 else:
-                    break  # Stop counting when we hit one of our own messages
+                    break
 
             logger.debug(
                 f"AFK Check for trade {self.trade_hash}: Found {consecutive_buyer_messages} consecutive buyer messages.")
 
-            # Get the timestamp of the first of these consecutive messages
             first_consecutive_message_ts = all_messages[-consecutive_buyer_messages].get(
                 "timestamp")
             if not first_consecutive_message_ts:
