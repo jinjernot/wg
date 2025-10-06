@@ -307,6 +307,7 @@ class Trade:
                 for file_info in files:
                     image_url_path = file_info.get("url")
                     if image_url_path and image_url_path not in processed_attachments:
+                        logger.info(f"New attachment uploaded by '{author}' for trade {self.trade_hash}. URL: {image_url_path}")
                         file_path = download_attachment(image_url_path, image_api_url, self.trade_hash, self.headers)
                         if file_path:
                             new_attachments_to_process.append({"path": file_path, "author": author})

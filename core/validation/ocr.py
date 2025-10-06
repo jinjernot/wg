@@ -16,6 +16,20 @@ logger = logging.getLogger(__name__)
 
 os.makedirs(OCR_LOG_PATH, exist_ok=True)
 RECEIPT_HASH_DB = os.path.join("data", "processed_receipts.json")
+DUPLICATE_LOG_PATH = os.path.join("data", "logs", "duplicate_receipts.log")
+
+def log_duplicate_receipt(trade_hash, owner_username, image_hash, previous_trade):
+    """Logs duplicate receipt information to a dedicated log file."""
+    os.makedirs(os.path.dirname(DUPLICATE_LOG_PATH), exist_ok=True)
+    with open(DUPLICATE_LOG_PATH, "a") as f:
+        log_entry = (
+            f"Timestamp: {datetime.now().isoformat()}, "
+            f"Current Trade Hash: {trade_hash}, "
+            f"Owner: {owner_username}, "
+            f"Image Hash: {image_hash}, "
+            f"Previous Trade Info: {previous_trade}\n"
+        )
+        f.write(log_entry)
 
 def load_ocr_templates():
     """Loads OCR keyword templates from a JSON file."""
@@ -60,6 +74,7 @@ def is_duplicate_receipt(image_hash, trade_hash, owner_username):
     if image_hash in receipt_db:
         previous_trade = receipt_db[image_hash]
         if previous_trade["trade_hash"] != trade_hash:
+            log_duplicate_receipt(trade_hash, owner_username, image_hash, previous_trade)
             return True, previous_trade
     
     receipt_db[image_hash] = {
