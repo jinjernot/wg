@@ -30,9 +30,9 @@ def setup_logging():
     )
     file_handler.setLevel(logging.ERROR)
     file_handler.setFormatter(logging.Formatter(log_format))
+    
     logging.getLogger().addHandler(file_handler)
     logging.getLogger('googleapiclient').setLevel(logging.WARNING)
     logging.getLogger('oauth2client').setLevel(logging.WARNING)
     logging.getLogger('google.auth').setLevel(logging.WARNING)
-    
     logging.info(f"Logger configured. Verbose logging: {'ON' if verbose_enabled else 'OFF'}. Errors will be logged to {error_log_path}")

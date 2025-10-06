@@ -1,6 +1,7 @@
 import logging
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from datetime import datetime
+from dateutil.parser import parse as date_parse
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month
 import bitso_config
@@ -12,6 +13,17 @@ logger = logging.getLogger(__name__)
 @bitso_bp.route("/bitso_summary")
 def get_bitso_summary():
     try:
+        month_str = request.args.get('month')
+        if month_str:
+            try:
+                target_date = date_parse(month_str)
+            except (ValueError, TypeError):
+                return jsonify({"success": False, "error": "Invalid month format."}), 400
+        else:
+            target_date = datetime.now()
+
+        year, month = target_date.year, target_date.month
+
         all_fundings = []
         for user, (api_key, api_secret) in bitso_config.API_KEYS.items():
             if not api_key or not api_secret:
@@ -21,9 +33,8 @@ def get_bitso_summary():
                 user, api_key, api_secret)
             all_fundings.extend(fundings)
 
-        now = datetime.now()
         filtered_fundings = filter_fundings_by_month(
-            all_fundings, now.year, now.month)
+            all_fundings, year, month)
 
         deposits_by_sender = {}
         for funding in filtered_fundings:
@@ -46,7 +57,8 @@ def get_bitso_summary():
         return jsonify({
             "success": True,
             "deposits_by_sender": sorted_deposits,
-            "total_deposits": sum(deposits_by_sender.values())
+            "total_deposits": sum(deposits_by_sender.values()),
+            "month_str": target_date.strftime('%B %Y')
         })
 
     except Exception as e:
