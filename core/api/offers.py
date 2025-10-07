@@ -135,7 +135,7 @@ def send_scheduled_task_alert(message):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "MarkdownV2"
     }
     try:
         response = requests.post(url, json=payload)
