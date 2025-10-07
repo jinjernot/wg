@@ -294,9 +294,6 @@ class Trade:
         if new_messages:
             self.handle_online_query(new_messages)
             self.handle_oxxo_query(new_messages)
-            self.handle_third_party_query(new_messages)
-            self.handle_payment_query(new_messages)
-            self.handle_release_query(new_messages)
             self.handle_bot_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
