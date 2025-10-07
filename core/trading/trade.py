@@ -4,7 +4,8 @@ import os
 from datetime import datetime, timezone
 from config import (
     CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
-    EMAIL_CHECK_DURATION, JSON_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES
+    EMAIL_CHECK_DURATION, JSON_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES,
+    ONLINE_QUERY_KEYWORDS
 )
 from core.state.get_files import load_processed_trades, save_processed_trade
 from core.api.trade_chat import get_all_messages_from_chat, download_attachment
@@ -53,7 +54,7 @@ from core.messaging.alerts.discord_alert import (
 )
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
-from config_messages.chat_messages import ONLINE_QUERY_KEYWORDS
+
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,9 @@ class Trade:
             self.handle_online_query(new_messages)
             self.handle_oxxo_query(new_messages)
             self.handle_third_party_query(new_messages)
+            self.handle_payment_query(new_messages)
+            self.handle_release_query(new_messages)
+            self.handle_bot_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
@@ -383,15 +387,13 @@ class Trade:
         if self.trade_state.get('online_reply_sent'):
             return
 
-        online_keywords = ONLINE_QUERY_KEYWORDS
-        
         for msg in new_messages:
             message_text = msg.get("text", "")
             if isinstance(message_text, dict):
                 message_text = str(message_text)
 
             message_text = message_text.lower()
-            if any(keyword in message_text for keyword in online_keywords):
+            if any(keyword in message_text for keyword in ONLINE_QUERY_KEYWORDS):
                 logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
                 send_online_reply_message(self.trade_hash, self.account, self.headers)
                 self.trade_state['online_reply_sent'] = True
