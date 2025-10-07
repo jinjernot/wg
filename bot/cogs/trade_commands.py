@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
 
-def format_status_for_discord(status):
+def format_status_for_discord(status, has_attachment=True):
     """Formats the trade status with color coding for Discord embeds."""
     status_lower = status.lower()
     if 'paid' in status_lower:
+        if not has_attachment:
+            return f"```diff\n- {status} (No Attachment)\n```"
         return f"```diff\n+ {status}\n```"
     elif 'dispute' in status_lower:
         return f"```fix\n{status}\n```"
@@ -50,8 +52,8 @@ class TradeCommands(commands.Cog):
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
             return
 
-        # Create a simple representation of the current trades' state (hash, status)
-        current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status')) for trade in trades}
+        # Create a simple representation of the current trades' state (hash, status, attachment status)
+        current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status'), trade.get('has_attachment')) for trade in trades}
 
         # If the state hasn't changed, do nothing
         if current_trades_state == self.last_known_trades_state:
@@ -71,9 +73,10 @@ class TradeCommands(commands.Cog):
                 buyer = trade.get('responder_username', 'N/A')
                 amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
                 status = trade.get('trade_status', 'N/A')
+                has_attachment = trade.get('has_attachment', True)
                 embed.add_field(
                     name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                    value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status)}",
+                    value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status, has_attachment)}",
                     inline=False
                 )
         
@@ -110,12 +113,14 @@ class TradeCommands(commands.Cog):
             embed = discord.Embed.from_dict(embed_data)
 
             for trade in trades[:10]:
+                status = trade.get('trade_status', 'N/A')
+                has_attachment = trade.get('has_attachment', True)
                 embed.add_field(
                     name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {trade.get('responder_username', 'N/A')}",
                     value=f"**Amount**: {trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}\n"
                           f"**Method**: {trade.get('payment_method_name', 'N/A')}\n"
                           f"**Account**: {trade.get('account_name_source', 'N/A')}\n"
-                          f"**Status**:{format_status_for_discord(trade.get('trade_status', 'N/A'))}",
+                          f"**Status**:{format_status_for_discord(status, has_attachment)}",
                     inline=False
                 )
             await interaction.followup.send(embed=embed, ephemeral=True)
