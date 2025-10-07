@@ -496,10 +496,11 @@ class Trade:
     def check_for_extended_afk(self):
         """Checks for extended inactivity from the buyer and sends a specific message."""
         logger.info(f"--- Checking for Extended AFK: {self.trade_hash} ---")
-        if self.trade_state.get('extended_afk_message_sent'):
+        if self.trade_state.get('extended_afk_message_sent') or not self.trade_state.get('afk_message_sent'):
             return
 
-        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        all_messages = get_all_messages_from_chat(
+            self.trade_hash, self.account, self.headers)
         if not all_messages:
             return
 
@@ -513,15 +514,18 @@ class Trade:
         if not last_buyer_message_ts:
             return
 
-        time_since_last_buyer_message = (datetime.now(timezone.utc).timestamp() - last_buyer_message_ts) / 60
-        logger.debug(f"Extended AFK Check for trade {self.trade_hash}: Time since last buyer message is {time_since_last_buyer_message:.2f} minutes.")
+        time_since_last_buyer_message = (
+            datetime.now(timezone.utc).timestamp() - last_buyer_message_ts) / 60
+        logger.debug(
+            f"Extended AFK Check for trade {self.trade_hash}: Time since last buyer message is {time_since_last_buyer_message:.2f} minutes.")
 
         extended_time_threshold_minutes = 15
 
         if time_since_last_buyer_message > extended_time_threshold_minutes:
             logger.info(
                 f"EXTENDED AFK TRIGGERED for trade {self.trade_hash}. No response for over {extended_time_threshold_minutes} minutes. Sending extended AFK message.")
-            send_extended_afk_message(self.trade_hash, self.account, self.headers)
+            send_extended_afk_message(
+                self.trade_hash, self.account, self.headers)
             self.trade_state['extended_afk_message_sent'] = True
             self.save()
 
