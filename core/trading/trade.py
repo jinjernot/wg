@@ -294,6 +294,7 @@ class Trade:
         if new_messages:
             self.handle_online_query(new_messages)
             self.handle_oxxo_query(new_messages)
+            self.handle_third_party_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
