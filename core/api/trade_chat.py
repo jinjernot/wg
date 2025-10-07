@@ -108,63 +108,6 @@ def download_attachment(image_url_path, image_api_url, trade_hash, headers):
         logger.error(f"Error downloading attachment for trade {trade_hash}: {e}")
     return None
 
-def _process_new_messages(new_messages, trade_hash, owner_username, account, headers):
-    attachment_found = False
-    new_attachments = []
-    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
-    image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
-
-    for msg in new_messages:
-        if msg.get("type") == "trade_attach_uploaded":
-            attachment_found = True
-            author = msg.get("author", "Unknown")
-            files = msg.get("text", {}).get("files", [])
-            for file_info in files:
-                image_url_path = file_info.get("url")
-                if image_url_path:
-                    file_path = download_attachment(image_url_path, image_api_url, trade_hash, headers)
-                    if file_path:
-                        new_attachments.append({"path": file_path, "author": author})
-
-        elif msg.get("type") != "trade_attach_uploaded" and msg.get("author") not in ["davidvs", "JoeWillgang", None]:
-            message_text = msg.get("text")
-            if isinstance(message_text, str) and message_text:
-                msg_author = msg.get("author", "Unknown")
-                send_chat_message_alert(message_text, trade_hash, owner_username, msg_author)
-                create_chat_message_embed(trade_hash, owner_username, msg_author, message_text, platform)
-    
-    return attachment_found, new_attachments
-
-def fetch_trade_chat_messages(trade_hash, owner_username, account, headers, max_retries=3):
-    """
-    Fetches chat messages, processes only new messages (including attachments)
-    based on the last processed message ID.
-    """
-    new_messages, latest_message_id = get_new_messages(trade_hash, account, headers, max_retries)
-
-    if new_messages is None:
-        return False, None, [], None
-    
-    if not new_messages:
-        return False, None, [], []
-
-    attachment_found, new_attachments = _process_new_messages(new_messages, trade_hash, owner_username, account, headers)
-
-    if latest_message_id:
-        save_last_message_id(trade_hash, latest_message_id)
-        LAST_MESSAGE_IDS[trade_hash] = latest_message_id
-
-    last_buyer_ts = None
-    all_messages, _ = get_new_messages(trade_hash, account, headers, max_retries) # Fetch all messages again to get the last buyer timestamp
-    if all_messages:
-        for msg in reversed(all_messages):
-            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
-                last_buyer_ts = msg.get("timestamp")
-                break
-    
-    return attachment_found, last_buyer_ts, new_attachments, new_messages
-
-
 def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):
     """
     Fetches all messages from a trade chat without considering the last processed message ID.
