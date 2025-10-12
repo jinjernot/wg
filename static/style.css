@@ -89,6 +89,39 @@ h4 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
     gap: 10px;
 }
 
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 1rem; /* Replaces h2 margin */
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-header h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.toggle-visibility-btn {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.toggle-visibility-btn:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+}
+
 .card-control button {
     padding: 12px;
     border: none;

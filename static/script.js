@@ -10,6 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const offersContainer = document.getElementById('offers-container');
     const generateChartsBtn = document.getElementById('generate-charts-btn'); 
     const balancesContainer = document.getElementById('wallet-balances-container');
+    const toggleOffersBtn = document.getElementById('toggle-offers-visibility-btn');
+
+    // --- Initial State ---
+    if (offersContainer) {
+        offersContainer.style.display = 'none';
+    }
 
     // --- Event Listeners ---
     if (startBtn) {
@@ -51,6 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 generateChartsBtn.disabled = false;
                 generateChartsBtn.textContent = 'Generate Reports';
             }
+        });
+    }
+
+    if (toggleOffersBtn) {
+        toggleOffersBtn.addEventListener('click', () => {
+            const isHidden = offersContainer.style.display === 'none';
+            offersContainer.style.display = isHidden ? 'block' : 'none';
+            toggleOffersBtn.textContent = isHidden ? 'Hide' : 'Show All';
         });
     }
 
