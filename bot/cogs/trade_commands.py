@@ -43,7 +43,7 @@ class ConfirmationView(discord.ui.View):
         payload = {"trade_hash": self.trade_hash, "account_name": self.account_name}
         try:
             response = requests.post(
-                "http://120.0.0.1:5001/release_trade", json=payload, timeout=15)
+                "http://127.0.0.1:5001/release_trade", json=payload, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
