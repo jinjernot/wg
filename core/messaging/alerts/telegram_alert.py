@@ -98,7 +98,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
         return
 
     if bank_name:
-        template = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
+        template = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)').replace('.', '\\.')
         caption = template.format(
             bank_name=escape_markdown(bank_name),
             trade_hash=escape_markdown(trade_hash), 
@@ -106,7 +106,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             author=escape_markdown(author)
         )
     else:
-        template = NEW_ATTACHMENT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
+        template = NEW_ATTACHMENT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)').replace('.', '\\.')
         caption = template.format(
             trade_hash=escape_markdown(trade_hash), 
             owner_username=escape_markdown(owner_username),
@@ -231,7 +231,8 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
     
     details_str = "\n".join(balance_details_formatted)
     
-    message = LOW_BALANCE_ALERT_MESSAGE.format(
+    template = LOW_BALANCE_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)').replace('.', '\\.')
+    message = template.format(
         account_name=escape_markdown(account_name),
         total_balance_usd=escape_markdown(f"{total_balance_usd:,.2f}"),
         threshold=escape_markdown(f"{threshold:,.2f}"),
@@ -255,8 +256,7 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     previous_trade_hash = previous_trade_info['trade_hash']
     previous_owner = previous_trade_info['owner_username']
     
-    template = DUPLICATE_RECEIPT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
-
+    template = DUPLICATE_RECEIPT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)').replace('.', '\\.')
     caption = template.format(
         trade_hash=escape_markdown(trade_hash),
         owner_username=escape_markdown(owner_username),
