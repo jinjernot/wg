@@ -2,7 +2,7 @@ import requests
 import logging
 import json
 import os
-from config import DISCORD_WEBHOOKS
+from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID
 from config_messages.discord_messages import (
     AMOUNT_VALIDATION_EMBEDS,
     EMAIL_VALIDATION_EMBEDS,
@@ -11,8 +11,33 @@ from config_messages.discord_messages import (
     COLORS
 )
 from .discord_thread_manager import get_thread_id
+from config_messages.chat_messages import (
+    TRADE_COMPLETION_MESSAGE,
+    PAYMENT_RECEIVED_MESSAGE,
+    PAYMENT_REMINDER_MESSAGE,
+    AFK_MESSAGE,
+    EXTENDED_AFK_MESSAGE,
+    NO_ATTACHMENT_MESSAGE,
+    ATTACHMENT_MESSAGE,
+    ONLINE_REPLY_MESSAGE,
+    OXXO_IN_BANK_TRANSFER_MESSAGE,
+    THIRD_PARTY_ALLOWED_MESSAGE
+)
 
 logger = logging.getLogger(__name__)
+
+AUTOMATED_MESSAGES = set(
+    TRADE_COMPLETION_MESSAGE +
+    PAYMENT_RECEIVED_MESSAGE +
+    PAYMENT_REMINDER_MESSAGE +
+    AFK_MESSAGE +
+    EXTENDED_AFK_MESSAGE +
+    NO_ATTACHMENT_MESSAGE +
+    ATTACHMENT_MESSAGE +
+    ONLINE_REPLY_MESSAGE +
+    OXXO_IN_BANK_TRANSFER_MESSAGE +
+    THIRD_PARTY_ALLOWED_MESSAGE
+)
 
 def _send_discord_request(webhook_url, payload=None, files=None):
     """Helper function to send HTTP requests to Discord."""
@@ -39,35 +64,71 @@ def _send_discord_request(webhook_url, payload=None, files=None):
 
 def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """
-    Sends a formatted embed message to the appropriate Discord webhook.
-    Routes to the chat_log webhook if a trade_hash is provided.
-    Retries in the main channel if the thread is archived.
+    Sends a formatted embed message.
+    For chat_log, it sends as the bot and adds a reaction.
+    For others, it uses the webhook.
     """
-    if trade_hash:
-        webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
-    else:
-        webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
-
-    webhook_url = webhook_url_base
-    thread_id = None
-
-    if trade_hash:
+    if alert_type == "chat_log" and trade_hash:
         thread_id = get_thread_id(trade_hash)
-        if thread_id:
-            webhook_url += f"?thread_id={thread_id}"
+        channel_id = thread_id if thread_id else DISCORD_CHAT_LOG_CHANNEL_ID
+        if not channel_id:
+            logger.error("No channel ID found for chat log alert.")
+            return
 
-    payload = {"embeds": [embed_data]}
+        headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        payload = {"embeds": [embed_data]}
+        
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=15)
+            if response.status_code == 200:
+                message_id = response.json()["id"]
+                logger.info(f"Successfully sent chat message {message_id} as bot.")
+                
+                # If the message was an automated one, add a robot reaction
+                if embed_data.get("title") == "🤖 Automated Message Sent":
+                    emoji = "🤖" 
+                    reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
+                    # Use a new requests session for the reaction to avoid timeout issues
+                    with requests.Session() as session:
+                        session.headers.update(headers)
+                        reaction_response = session.put(reaction_url, timeout=10)
+                        if reaction_response.status_code == 204:
+                            logger.info(f"Successfully added reaction to message {message_id}.")
+                        else:
+                            logger.error(f"Failed to add reaction to message {message_id}: {reaction_response.status_code} - {reaction_response.text}")
+            else:
+                logger.error(f"Failed to send chat message as bot: {response.status_code} - {response.text}")
 
-    success, message, error_code = _send_discord_request(webhook_url, payload)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"An error occurred while sending message as bot: {e}")
 
-    if not success and error_code == 10003 and thread_id:
-        logger.warning(f"Failed to send to thread {thread_id} (likely archived). Retrying in main channel.")
-        success, message, _ = _send_discord_request(webhook_url_base, payload)
-
-    if success:
-        logger.info(f"Discord alert ('{alert_type}') sent successfully to {'thread '+thread_id if thread_id else 'main channel'}.")
     else:
-        logger.error(f"Failed to send Discord alert ('{alert_type}'): {message}")
+        # Original webhook logic for other alert types
+        if trade_hash:
+            webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
+        else:
+            webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+
+        webhook_url = webhook_url_base
+        thread_id = None
+
+        if trade_hash:
+            thread_id = get_thread_id(trade_hash)
+            if thread_id:
+                webhook_url += f"?thread_id={thread_id}"
+
+        payload = {"embeds": [embed_data]}
+        success, message, error_code = _send_discord_request(webhook_url, payload)
+
+        if not success and error_code == 10003 and thread_id:
+            logger.warning(f"Failed to send to thread {thread_id} (likely archived). Retrying in main channel.")
+            success, message, _ = _send_discord_request(webhook_url_base, payload)
+
+        if success:
+            logger.info(f"Discord alert ('{alert_type}') sent successfully to {'thread '+thread_id if thread_id else 'main channel'}.")
+        else:
+            logger.error(f"Failed to send Discord alert ('{alert_type}'): {message}")
 
 
 def send_discord_embed_with_image(embed_data, image_path, alert_type="default", trade_hash=None):
@@ -232,10 +293,14 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
     """Creates and sends a Discord embed for a new chat message."""
     
     is_bot_owner = author in ["davidvs", "JoeWillgang"]
+    is_automated = message in AUTOMATED_MESSAGES
 
-    if is_bot_owner:
-        embed_color = COLORS.get("info", 0x5865F2)
+    if is_bot_owner and is_automated:
+        title = "🤖 Automated Message Sent"
+        embed_color = COLORS.get("info", 0x5865F2) 
+    elif is_bot_owner and not is_automated:
         title = "📤 Message Sent"
+        embed_color = COLORS.get("info", 0x5865F2)
     else:
         if platform == "Paxful":
             embed_color = COLORS["PAXFUL_GREEN"]
