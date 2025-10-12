@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 import requests
 import datetime
 import logging
+import re
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
@@ -27,6 +28,42 @@ def format_status_for_discord(status, has_attachment=True):
     elif 'active' in status_lower:
         return f"```ini\n[{status}]\n```"
     return f"`{status}`"
+
+
+class ConfirmationView(discord.ui.View):
+    def __init__(self, trade_hash: str, account_name: str, amount: str):
+        super().__init__(timeout=60)
+        self.trade_hash = trade_hash
+        self.account_name = account_name
+        self.amount = amount
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+        payload = {"trade_hash": self.trade_hash, "account_name": self.account_name}
+        try:
+            response = requests.post(
+                "http://120.0.0.1:5001/release_trade", json=payload, timeout=15)
+            data = response.json()
+            if response.status_code == 200 and data.get("success"):
+                embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
+                embed_data["description"] = embed_data["description"].format(
+                    trade_hash=self.trade_hash)
+                embed = discord.Embed.from_dict(embed_data)
+            else:
+                embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
+                embed_data["description"] = embed_data["description"].format(
+                    error=data.get("error", "An unknown error occurred."))
+                embed = discord.Embed.from_dict(embed_data)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except requests.exceptions.RequestException:
+            await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Release cancelled.", ephemeral=True)
+        self.stop()
 
 
 class TradeCommands(commands.Cog):
@@ -201,27 +238,58 @@ class TradeCommands(commands.Cog):
 
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="release", description="Release the crypto for a trade.")
-    @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)")
-    async def release_trade_command(self, interaction: discord.Interaction, trade_hash: str, account_name: str):
+    @app_commands.describe(trade_hash="The hash of the trade (optional, detected from thread)", account_name="The account name handling the trade (optional, detected from thread)")
+    async def release_trade_command(self, interaction: discord.Interaction, trade_hash: str = None, account_name: str = None):
         await interaction.response.defer(ephemeral=True)
-        payload = {"trade_hash": trade_hash, "account_name": account_name}
-        try:
-            response = requests.post(
-                "http://127.0.0.1:5001/release_trade", json=payload, timeout=15)
-            data = response.json()
-            if response.status_code == 200 and data.get("success"):
-                embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    trade_hash=trade_hash)
-                embed = discord.Embed.from_dict(embed_data)
+        trade_info = None
+
+        if not trade_hash or not account_name:
+            if isinstance(interaction.channel, discord.Thread):
+                match = re.match(r"Trade Log: ([\w-]+)", interaction.channel.name)
+                if match:
+                    inferred_trade_hash = match.group(1)
+                    if not trade_hash:
+                        trade_hash = inferred_trade_hash
+                    
+                    try:
+                        response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
+                        if response.status_code == 200:
+                            trades = response.json()
+                            trade_info = next((t for t in trades if t.get('trade_hash') == trade_hash), None)
+                            if trade_info:
+                                if not account_name:
+                                    account_name = trade_info.get('account_name_source')
+                            else:
+                                await interaction.followup.send("Could not find an active trade with this hash.", ephemeral=True)
+                                return
+                        else:
+                            await interaction.followup.send("Could not fetch active trades to determine the account name.", ephemeral=True)
+                            return
+                    except requests.exceptions.RequestException:
+                        await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+                        return
+                else:
+                    await interaction.followup.send("This does not appear to be a trade log thread.", ephemeral=True)
+                    return
             else:
-                embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    error=data.get("error", "An unknown error occurred."))
-                embed = discord.Embed.from_dict(embed_data)
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        except requests.exceptions.RequestException:
-            await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+                await interaction.followup.send("Please run this command in a trade log thread or provide the trade_hash and account_name.", ephemeral=True)
+                return
+
+        if not trade_hash or not account_name:
+            await interaction.followup.send("Could not determine the trade_hash and/or account_name.", ephemeral=True)
+            return
+
+        amount = "N/A"
+        if trade_info:
+            amount = f"{trade_info.get('fiat_amount_requested', 'N/A')} {trade_info.get('fiat_currency_code', '')}"
+
+        confirmation_embed = discord.Embed(
+            title="Confirm Trade Release",
+            description=f"Please confirm you want to release the trade `{trade_hash}` for the amount of **{amount}**.",
+            color=discord.Color.orange()
+        )
+        view = ConfirmationView(trade_hash, account_name, amount)
+        await interaction.followup.send(embed=confirmation_embed, view=view, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
