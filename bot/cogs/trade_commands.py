@@ -100,7 +100,6 @@ class TradeCommands(commands.Cog):
 
         logger.info("Change detected in active trades. Refreshing channel.")
 
-        # If we've reached here, it means there's a change. Proceed with the update.
         if not trades:
             embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
         else:
@@ -109,12 +108,13 @@ class TradeCommands(commands.Cog):
             embed = discord.Embed.from_dict(embed_data)
             for trade in trades[:20]:
                 buyer = trade.get('responder_username', 'N/A')
+                account = trade.get('account_name_source', 'N/A')
                 amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
                 status = trade.get('trade_status', 'N/A')
                 has_attachment = trade.get('has_attachment', True)
                 embed.add_field(
                     name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                    value=f"**Amount**: {amount}\n**Status**:{format_status_for_discord(status, has_attachment)}",
+                    value=f"**Account**: {account}\n**Amount**: {amount}\n**Status**:{format_status_for_discord(status, has_attachment)}",
                     inline=False
                 )
         
