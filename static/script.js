@@ -184,6 +184,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     button.disabled = false;
                     button.textContent = 'Send';
                 }
+            } else if (event.target.classList.contains('release-trade-btn')) {
+                const button = event.target;
+                const tradeHash = button.dataset.tradeHash;
+                const accountName = button.dataset.accountName;
+
+                if (!confirm(`Are you sure you want to release the trade ${tradeHash}?`)) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent = '...';
+
+                try {
+                    const response = await fetch('/release_trade', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            trade_hash: tradeHash,
+                            account_name: accountName
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(result.message);
+                        fetchActiveTrades(); // Refresh the trades table
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                } catch (error) {
+                    console.error('Failed to release trade:', error);
+                    alert('An unexpected error occurred.');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Release';
+                }
             }
         });
     }
@@ -277,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th>Amount</th>
                     <th>Payment Method</th>
                     <th>Status</th>
-                    <th>Send Message</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -302,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="message-cell">
                     <input type="text" class="manual-message-input" placeholder="Type a message...">
                     <button class="send-manual-message-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Send</button>
+                    <button class="release-trade-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Release</button>
                 </td>
             `;
             tbody.appendChild(row);

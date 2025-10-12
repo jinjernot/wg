@@ -12,6 +12,7 @@ from config import (
 from core.messaging.alerts.telegram_alert import send_chat_message_alert
 from core.messaging.alerts.discord_alert import create_chat_message_embed
 from core.state.persistent_state import load_last_message_ids, save_last_message_id
+from core.api.auth import fetch_token_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -138,3 +139,38 @@ def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):
             time.sleep(2 ** attempt)
 
     return []
+
+def release_trade(trade_hash, account):
+    """
+    Releases the crypto for a given trade.
+    """
+    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
+    release_url = f"https://api.{platform.lower()}.com/{platform.lower()}/v1/trade/release"
+    
+    token = fetch_token_with_retry(account)
+    if not token:
+        return {"success": False, "error": "Authentication failed."}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {"trade_hash": trade_hash}
+
+    try:
+        response = requests.post(release_url, data=data, headers=headers, timeout=15)
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get("status") == "success":
+                logger.info(f"Successfully released trade {trade_hash}")
+                return {"success": True, "message": "Trade released successfully."}
+            else:
+                error_message = response_data.get("error_description", "Unknown API error")
+                logger.error(f"Failed to release trade {trade_hash}: {error_message}")
+                return {"success": False, "error": error_message}
+        else:
+            logger.error(f"Failed to release trade {trade_hash}: {response.status_code} - {response.text}")
+            return {"success": False, "error": f"API Error: {response.status_code}"}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request failed for trade release {trade_hash}: {e}")
+        return {"success": False, "error": "Request failed"}

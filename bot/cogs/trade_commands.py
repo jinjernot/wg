@@ -7,7 +7,8 @@ import logging
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
-    USER_PROFILE_EMBED, USER_NOT_FOUND_EMBED, SERVER_UNREACHABLE
+    USER_PROFILE_EMBED, USER_NOT_FOUND_EMBED, SERVER_UNREACHABLE,
+    RELEASE_TRADE_EMBEDS
 )
 
 logger = logging.getLogger(__name__)
@@ -195,6 +196,30 @@ class TradeCommands(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
             else:
                 await interaction.followup.send(f"Error: Server responded with {response.status_code}.", ephemeral=True)
+        except requests.exceptions.RequestException:
+            await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+
+    @app_commands.guilds(MY_GUILD)
+    @app_commands.command(name="release", description="Release the crypto for a trade.")
+    @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)")
+    async def release_trade_command(self, interaction: discord.Interaction, trade_hash: str, account_name: str):
+        await interaction.response.defer(ephemeral=True)
+        payload = {"trade_hash": trade_hash, "account_name": account_name}
+        try:
+            response = requests.post(
+                "http://127.0.0.1:5001/release_trade", json=payload, timeout=15)
+            data = response.json()
+            if response.status_code == 200 and data.get("success"):
+                embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
+                embed_data["description"] = embed_data["description"].format(
+                    trade_hash=trade_hash)
+                embed = discord.Embed.from_dict(embed_data)
+            else:
+                embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
+                embed_data["description"] = embed_data["description"].format(
+                    error=data.get("error", "An unknown error occurred."))
+                embed = discord.Embed.from_dict(embed_data)
+            await interaction.followup.send(embed=embed, ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 

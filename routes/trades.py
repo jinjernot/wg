@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
-from core.api.trade_chat import get_all_messages_from_chat
+from core.api.trade_chat import get_all_messages_from_chat, release_trade
 
 trades_bp = Blueprint('trades', __name__)
 logger = logging.getLogger(__name__)
@@ -82,3 +82,21 @@ def send_manual_message():
         return jsonify({"success": True, "message": "Message sent successfully!"})
     else:
         return jsonify({"success": False, "error": "Failed to send message via API."}), 500
+
+@trades_bp.route("/release_trade", methods=["POST"])
+def release_trade_route():
+    data = request.json
+    trade_hash = data.get("trade_hash")
+    account_name = data.get("account_name")
+
+    if not all([trade_hash, account_name]):
+        return jsonify({"success": False, "error": "Missing trade hash or account name."}), 400
+
+    formatted_account_name = account_name.replace(" ", "_")
+    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
+
+    if not target_account:
+        return jsonify({"success": False, "error": f"Account '{account_name}' not found."}), 404
+
+    result = release_trade(trade_hash, target_account)
+    return jsonify(result)
