@@ -98,14 +98,16 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
         return
 
     if bank_name:
-        caption = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE.format(
+        template = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
+        caption = template.format(
             bank_name=escape_markdown(bank_name),
             trade_hash=escape_markdown(trade_hash), 
             owner_username=escape_markdown(owner_username),
             author=escape_markdown(author)
         )
     else:
-        caption = NEW_ATTACHMENT_ALERT_MESSAGE.format(
+        template = NEW_ATTACHMENT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
+        caption = template.format(
             trade_hash=escape_markdown(trade_hash), 
             owner_username=escape_markdown(owner_username),
             author=escape_markdown(author)
@@ -253,7 +255,9 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     previous_trade_hash = previous_trade_info['trade_hash']
     previous_owner = previous_trade_info['owner_username']
     
-    caption = DUPLICATE_RECEIPT_ALERT_MESSAGE.format(
+    template = DUPLICATE_RECEIPT_ALERT_MESSAGE.replace('(', '\\(').replace(')', '\\)')
+
+    caption = template.format(
         trade_hash=escape_markdown(trade_hash),
         owner_username=escape_markdown(owner_username),
         previous_trade_hash=escape_markdown(previous_trade_hash),
