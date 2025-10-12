@@ -85,11 +85,9 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                 message_id = response.json()["id"]
                 logger.info(f"Successfully sent chat message {message_id} as bot.")
                 
-                # If the message was an automated one, add a robot reaction
                 if embed_data.get("title") == "🤖 Automated Message Sent":
                     emoji = "🤖" 
                     reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
-                    # Use a new requests session for the reaction to avoid timeout issues
                     with requests.Session() as session:
                         session.headers.update(headers)
                         reaction_response = session.put(reaction_url, timeout=10)

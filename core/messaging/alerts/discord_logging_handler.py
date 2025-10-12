@@ -1,5 +1,7 @@
 import logging
 import requests
+import os
+from datetime import datetime
 
 class DiscordHandler(logging.Handler):
     """
@@ -10,19 +12,43 @@ class DiscordHandler(logging.Handler):
         self.webhook_url = webhook_url
 
     def emit(self, record):
-        if not self.webhook_url or "YOUR_WEBHOOK_URL_HERE" in self.webhook_url:
+        if not self.webhook_url:
             return
 
-        log_entry = self.format(record)
+        # Get the raw error message from the log record.
+        log_message = record.getMessage()
         
-        # Discord embed description limit is 4096
-        if len(log_entry) > 4000:
-            log_entry = log_entry[:4000] + "\n... [truncated]"
+        # Discord embed field value limit is 1024 characters.
+        if len(log_message) > 1000:
+            log_message = log_message[:1000] + "\n... [truncated]"
 
+        # Create a more structured and readable embed using fields.
         embed = {
-            "title": f"❌ {record.levelname}: An Error Occurred",
-            "description": f"```python\n{log_entry}\n```",
-            "color": 15158332  # Red color
+            "title": f"❌ An Error Occurred",
+            "color": 15158332,  # Red color
+            "timestamp": datetime.utcnow().isoformat(),
+            "fields": [
+                {
+                    "name": "Level",
+                    "value": record.levelname,
+                    "inline": True
+                },
+                {
+                    "name": "Module",
+                    "value": f"`{record.name}`",
+                    "inline": True
+                },
+                {
+                    "name": "Location",
+                    "value": f"`{os.path.basename(record.pathname)}:{record.lineno}`",
+                    "inline": False
+                },
+                {
+                    "name": "Message",
+                    "value": f"```\n{log_message}\n```",
+                    "inline": False
+                }
+            ]
         }
 
         payload = {"embeds": [embed]}
