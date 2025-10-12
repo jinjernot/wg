@@ -116,31 +116,21 @@ def preprocess_image_for_ocr(image_path):
         img = cv2.imread(image_path)
         if img is None: return None
 
-        # Convert to LAB color space and work with the lightness channel
-        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        
-        # Apply CLAHE to the lightness channel
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-        cl = clahe.apply(l)
-        limg = cv2.merge((cl,a,b))
-        
-        # Convert back to BGR color space
-        final_img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(final_img, cv2.COLOR_BGR2GRAY)
-        
-        # Denoising
-        denoised = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        # --- 1. Resize for Consistency ---
+        # Resizing can help standardize the input and improve performance.
+        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-        # Sharpening
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        sharpened = cv2.filter2D(denoised, -1, kernel)
+        # --- 2. Convert to Grayscale ---
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # --- 3. Noise Reduction ---
+        # Applying a bilateral filter can reduce noise while keeping edges sharp.
+        denoised = cv2.bilateralFilter(gray, 9, 75, 75)
         
-        # Adaptive Thresholding
-        binary = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        
+        # --- 4. Binarization (Thresholding) ---
+        # Using OTSU's method to automatically find the optimal threshold value.
+        _, binary = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
         return binary
     except Exception as e:
         logger.error(f"An error occurred during image pre-processing for {image_path}: {e}")
@@ -151,7 +141,11 @@ def extract_text_from_image(image_path):
     try:
         preprocessed_image = preprocess_image_for_ocr(image_path)
         img_to_process = preprocessed_image if preprocessed_image is not None else Image.open(image_path)
-        text = pytesseract.image_to_string(img_to_process, config=r'--oem 3 --psm 6')
+        # --- IMPROVED TESSERACT CONFIG ---
+        # 'psm 6' assumes a single uniform block of text.
+        # 'oem 3' is the default and most accurate engine.
+        custom_config = r'--oem 3 --psm 6'
+        text = pytesseract.image_to_string(img_to_process, config=custom_config)
         logger.info(f"Successfully extracted text from {image_path}")
         return text
     except Exception as e:
@@ -222,7 +216,10 @@ def find_details_with_parsers(text, identified_bank):
         match = re.search(amount_pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
             try:
+                # --- Handle amounts with or without decimals ---
                 amount_str = match.group(1).replace(',', '').strip()
+                if '.' not in amount_str:
+                    amount_str += '.00'
                 found_details["amount"] = float(amount_str)
                 logger.info(f"[{identified_bank} Parser] Found amount using pattern: {found_details['amount']}")
             except (ValueError, IndexError):
@@ -261,7 +258,8 @@ def find_amount_in_text(text, trade_amount):
         kw = bank_template.get("parsers", {}).get("amount", {}).get("line_keyword")
         if kw: priority_keywords.insert(0, kw.lower())
 
-    money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*\.\d{2})\b'
+    # --- UPDATED REGEX: More flexible for amounts with or without decimals ---
+    money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*(?:\.\d{2})?)\b'
     all_amounts, priority_amounts = [], []
 
     for line in text.lower().split('\n'):

@@ -5,6 +5,7 @@ import requests
 import logging
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import STATUS_EMBED, BOT_CONTROL_EMBEDS, SETTINGS_EMBEDS, SERVER_UNREACHABLE, COLORS
+from ..checks import is_admin
 
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
@@ -16,6 +17,7 @@ class BotManagement(commands.Cog):
 
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="status", description="Check the status of the trading bot.")
+    @is_admin() # <-- APPLY THE CHECK
     async def status_command(self, interaction: discord.Interaction):
         """Handles the /status slash command."""
         await interaction.response.defer(ephemeral=True)
@@ -41,6 +43,7 @@ class BotManagement(commands.Cog):
         app_commands.Choice(name="Start", value="start"),
         app_commands.Choice(name="Stop", value="stop"),
     ])
+    @is_admin() # <-- APPLY THE CHECK
     async def control_bot_command(self, interaction: discord.Interaction, action: app_commands.Choice[str]):
         """Handles starting and stopping the bot."""
         await interaction.response.defer(ephemeral=True)
@@ -76,6 +79,7 @@ class BotManagement(commands.Cog):
         app_commands.Choice(name="On", value="true"),
         app_commands.Choice(name="Off", value="false"),
     ])
+    @is_admin() # <-- APPLY THE CHECK
     async def settings_command(self, interaction: discord.Interaction, setting: app_commands.Choice[str], status: app_commands.Choice[str]):
         """Handles changing application settings."""
         await interaction.response.defer(ephemeral=True)
@@ -98,6 +102,7 @@ class BotManagement(commands.Cog):
             
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="balance", description="Check the wallet balances of all accounts.")
+    @is_admin() # <-- APPLY THE CHECK
     async def balance_command(self, interaction: discord.Interaction):
         """Fetches and displays wallet balances."""
         await interaction.response.defer(ephemeral=True)
