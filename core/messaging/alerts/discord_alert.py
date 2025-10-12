@@ -230,15 +230,24 @@ def create_email_validation_embed(trade_hash, success, account_name):
 
 def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a Discord embed for a new chat message."""
-    if platform == "Paxful":
-        embed_color = COLORS["PAXFUL_GREEN"]
-    elif platform == "Noones":
-        embed_color = COLORS["NOONES_GREEN"]
+    
+    is_bot_owner = author in ["davidvs", "JoeWillgang"]
+
+    if is_bot_owner:
+        embed_color = COLORS.get("info", 0x5865F2)
+        title = "📤 Message Sent"
     else:
-        embed_color = COLORS["chat"]
+        if platform == "Paxful":
+            embed_color = COLORS["PAXFUL_GREEN"]
+        elif platform == "Noones":
+            embed_color = COLORS["NOONES_GREEN"]
+        else:
+            embed_color = COLORS["chat"]
+        title = "💬 New Chat Message"
+
 
     embed = {
-        "title": "💬 New Chat Message",
+        "title": title,
         "color": embed_color,
         "description": message,
         "fields": [
@@ -249,6 +258,7 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
         "footer": {"text": "WillGang Bot"}
     }
     send_discord_embed(embed, alert_type="chat_log", trade_hash=trade_hash)
+
 
 def create_name_validation_embed(trade_hash, success, account_name):
     """Builds and sends a name validation embed using templates."""

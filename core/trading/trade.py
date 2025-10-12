@@ -283,7 +283,7 @@ class Trade:
         # Process new text messages
         for msg in new_messages:
             # Check if the message is NOT an attachment upload notification before processing as a text message
-            if msg.get("type") != "trade_attach_uploaded" and msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            if msg.get("type") != "trade_attach_uploaded" and msg.get("author") is not None:
                 message_text = msg.get("text")
                 # Ensure that the message is a string before sending
                 if isinstance(message_text, str) and message_text:
