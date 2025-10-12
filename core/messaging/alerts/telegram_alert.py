@@ -43,13 +43,12 @@ def send_telegram_alert(trade, platform):
         return
 
     message_template = PAXFUL_ALERT_MESSAGE if platform == "Paxful" else NOONES_ALERT_MESSAGE
-    # Format first, then escape the entire result.
-    unformatted_data = {key: trade.get(key, "N/A") for key in extract_placeholders(message_template)}
-    message = message_template.format(**unformatted_data)
-    escaped_message = escape_markdown(message)
+    # Escape each value before formatting
+    formatted_data = {key: escape_markdown(trade.get(key, "N/A")) for key in extract_placeholders(message_template)}
+    message = message_template.format(**formatted_data)
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
+    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info("Telegram alert sent successfully.")
@@ -63,17 +62,15 @@ def extract_placeholders(message_template):
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     """Sends a Telegram alert for a new chat message."""
     chat_data = {
-        "chat_message": chat_message,
-        "author": author,
-        "trade_hash": trade_hash,
-        "owner_username": owner_username
+        "chat_message": escape_markdown(chat_message),
+        "author": escape_markdown(author),
+        "trade_hash": escape_markdown(trade_hash),
+        "owner_username": escape_markdown(owner_username)
     }
-    # Format first, then escape the entire result.
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
-    escaped_message = escape_markdown(message)
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
+    payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info("New chat message alert sent successfully.")
@@ -88,25 +85,23 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
     if bank_name:
         template = NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE
         caption_text = template.format(
-            bank_name=bank_name,
-            trade_hash=trade_hash,
-            owner_username=owner_username,
-            author=author
+            bank_name=escape_markdown(bank_name),
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
+            author=escape_markdown(author)
         )
     else:
         template = NEW_ATTACHMENT_ALERT_MESSAGE
         caption_text = template.format(
-            trade_hash=trade_hash,
-            owner_username=owner_username,
-            author=author
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
+            author=escape_markdown(author)
         )
-
-    escaped_caption = escape_markdown(caption_text)
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     data = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "caption": escaped_caption,
+        "caption": caption_text,
         "parse_mode": "MarkdownV2"
     }
 
@@ -128,29 +123,27 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     if found_amount is None:
         message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(
-            trade_hash=trade_hash,
-            owner_username=owner_username
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username)
         )
     elif float(expected_amount) == float(found_amount):
         message = AMOUNT_VALIDATION_MATCH_ALERT.format(
-            trade_hash=trade_hash,
-            owner_username=owner_username,
-            found_amount=f"{found_amount:.2f}",
-            currency=currency
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
+            found_amount=escape_markdown(f"{found_amount:.2f}"),
+            currency=escape_markdown(currency)
         )
     else:
         message = AMOUNT_VALIDATION_MISMATCH_ALERT.format(
-            trade_hash=trade_hash,
-            owner_username=owner_username,
-            expected_amount=f"{float(expected_amount):.2f}",
-            found_amount=f"{float(found_amount):.2f}",
-            currency=currency
+            trade_hash=escape_markdown(trade_hash),
+            owner_username=escape_markdown(owner_username),
+            expected_amount=escape_markdown(f"{float(expected_amount):.2f}"),
+            found_amount=escape_markdown(f"{float(found_amount):.2f}"),
+            currency=escape_markdown(currency)
         )
 
-    escaped_message = escape_markdown(message)
-
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info("Amount validation alert sent successfully.")
@@ -160,14 +153,12 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
 def send_email_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the email validation result."""
     if success:
-        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=trade_hash, account_name=account_name)
+        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
     else:
-        message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=trade_hash, account_name=account_name)
-
-    escaped_message = escape_markdown(message)
+        message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info("Email validation alert sent successfully.")
@@ -177,14 +168,12 @@ def send_email_validation_alert(trade_hash, success, account_name):
 def send_name_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the OCR name validation result."""
     if success:
-        message = NAME_VALIDATION_SUCCESS_ALERT.format(trade_hash=trade_hash, account_name=account_name)
+        message = NAME_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
     else:
-        message = NAME_VALIDATION_FAILURE_ALERT.format(trade_hash=trade_hash, account_name=account_name)
-
-    escaped_message = escape_markdown(message)
+        message = NAME_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info("Name validation alert sent successfully.")
@@ -202,16 +191,14 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
     details_str = "\n".join(balance_details_formatted)
     
     message = LOW_BALANCE_ALERT_MESSAGE.format(
-        account_name=account_name,
-        total_balance_usd=f"{total_balance_usd:,.2f}",
-        threshold=f"{threshold:,.2f}",
-        balance_details=details_str
+        account_name=escape_markdown(account_name),
+        total_balance_usd=escape_markdown(f"{total_balance_usd:,.2f}"),
+        threshold=escape_markdown(f"{threshold:,.2f}"),
+        balance_details=details_str # This is already formatted with markdown, so we don't escape it.
     )
     
-    escaped_message = escape_markdown(message)
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": escaped_message, "parse_mode": "MarkdownV2"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
     if response.status_code == 200:
         logger.info(f"Low balance alert for {account_name} sent successfully.")
@@ -224,16 +211,14 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     previous_owner = previous_trade_info['owner_username']
     
     caption_text = DUPLICATE_RECEIPT_ALERT_MESSAGE.format(
-        trade_hash=trade_hash,
-        owner_username=owner_username,
-        previous_trade_hash=previous_trade_hash,
-        previous_owner=previous_owner
+        trade_hash=escape_markdown(trade_hash),
+        owner_username=escape_markdown(owner_username),
+        previous_trade_hash=escape_markdown(previous_trade_hash),
+        previous_owner=escape_markdown(previous_owner)
     )
     
-    escaped_caption = escape_markdown(caption_text)
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-    data = {"chat_id": TELEGRAM_CHAT_ID, "caption": escaped_caption, "parse_mode": "MarkdownV2"}
+    data = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption_text, "parse_mode": "MarkdownV2"}
 
     try:
         with open(image_path, 'rb') as photo_file:
