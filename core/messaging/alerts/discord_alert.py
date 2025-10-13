@@ -205,10 +205,8 @@ def create_new_trade_embed(trade_data, platform, send=True):
         "color": embed_color,
         "fields": [
             {"name": "👤 Buyer", "value": str(trade_data.get('responder_username', 'N/A')), "inline": False},
-            {"name": "\u200b", "value": "\u200b", "inline": False}, # Blank field for spacing
             {"name": "💰 Amount", "value": f"{trade_data.get('fiat_amount_requested')} {trade_data.get('fiat_currency_code')}", "inline": True},
             {"name": "💳 Payment Method", "value": str(trade_data.get('payment_method_name', 'N/A')), "inline": True},
-            {"name": "\u200b", "value": "\u200b", "inline": False}, # Blank field for spacing
             {"name": "💼 Account", "value": str(trade_data.get('owner_username', 'N/A')), "inline": True},
             {"name": "🆔 Trade Hash", "value": f"[`{trade_hash}`]({trade_url})", "inline": True},
         ],
