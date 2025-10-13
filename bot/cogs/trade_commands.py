@@ -17,39 +17,48 @@ from config_messages.discord_messages import (
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
-# --- NEW: Helper function to format the trade fields for consistency ---
+def format_status_for_discord_code_block(status, has_attachment=True):
+    """Formats the trade status with color coding for Discord embeds using code blocks."""
+    if 'Paid' in status and not has_attachment:
+        return f"```diff\n- {status} (No Proof)\n```"
+    if 'Paid' in status:
+        return f"```diff\n+ {status}\n```"
+    if 'Dispute' in status:
+        return f"```fix\n{status}\n```"
+    if 'Active' in status:
+        return f"```ini\n[{status}]\n```"
+    return f"`{status}`"
+
 def create_trade_field(trade):
     """Creates a formatted dictionary for an embed field representing a single trade."""
     trade_hash = trade.get('trade_hash', 'N/A')
     account_name = trade.get('account_name_source', 'N/A')
-    platform = "Paxful" if "Paxful" in account_name else "Noones"
-    trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
-
-    # Status formatting with emojis
+    
+    # Determine the status emoji
     status = trade.get('trade_status', 'N/A')
     has_attachment = trade.get('has_attachment', True)
     if 'Paid' in status and not has_attachment:
         status_emoji = "⚠️"
-        status_text = f"**{status} (No Proof)**"
     elif 'Paid' in status:
         status_emoji = "💰"
-        status_text = f"**{status}**"
     elif 'Dispute' in status:
         status_emoji = "⚔️"
-        status_text = f"_{status}_"
     else:
         status_emoji = "⏳"
-        status_text = status
+
+    # Use the function to get the colored code block for the status
+    status_text_block = format_status_for_discord_code_block(status, has_attachment)
 
     field_value = (
         f"**Buyer:** {trade.get('responder_username', 'N/A')}\n"
         f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
         f"**Account:** {account_name}\n"
-        f"**Status:** {status_text}"
+        f"{status_text_block}" # Display the status code block
     )
 
     return {
-        "name": f"{status_emoji} Trade [`{trade_hash}`]({trade_url})",
+        # Removed the URL from the name for a cleaner look
+        "name": f"{status_emoji} Trade `{trade_hash}`",
         "value": field_value,
         "inline": True
     }
