@@ -1,3 +1,5 @@
+# jinjernot/wg/wg-5555b41145cc7bfa30bd3d9892d519e559f77fce/bot/cogs/trade_commands.py
+
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -9,25 +11,48 @@ from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
     USER_PROFILE_EMBED, USER_NOT_FOUND_EMBED, SERVER_UNREACHABLE,
-    RELEASE_TRADE_EMBEDS
+    RELEASE_TRADE_EMBEDS, COLORS
 )
 
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
+# --- NEW: Helper function to format the trade fields for consistency ---
+def create_trade_field(trade):
+    """Creates a formatted dictionary for an embed field representing a single trade."""
+    trade_hash = trade.get('trade_hash', 'N/A')
+    account_name = trade.get('account_name_source', 'N/A')
+    platform = "Paxful" if "Paxful" in account_name else "Noones"
+    trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
 
-def format_status_for_discord(status, has_attachment=True):
-    """Formats the trade status with color coding for Discord embeds."""
-    status_lower = status.lower()
-    if 'paid' in status_lower:
-        if not has_attachment:
-            return f"```diff\n- {status} (No Attachment)\n```"
-        return f"```diff\n+ {status}\n```"
-    elif 'dispute' in status_lower:
-        return f"```fix\n{status}\n```"
-    elif 'active' in status_lower:
-        return f"```ini\n[{status}]\n```"
-    return f"`{status}`"
+    # Status formatting with emojis
+    status = trade.get('trade_status', 'N/A')
+    has_attachment = trade.get('has_attachment', True)
+    if 'Paid' in status and not has_attachment:
+        status_emoji = "⚠️"
+        status_text = f"**{status} (No Proof)**"
+    elif 'Paid' in status:
+        status_emoji = "💰"
+        status_text = f"**{status}**"
+    elif 'Dispute' in status:
+        status_emoji = "⚔️"
+        status_text = f"_{status}_"
+    else:
+        status_emoji = "⏳"
+        status_text = status
+
+    field_value = (
+        f"**Buyer:** {trade.get('responder_username', 'N/A')}\n"
+        f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
+        f"**Account:** {account_name}\n"
+        f"**Status:** {status_text}"
+    )
+
+    return {
+        "name": f"{status_emoji} Trade [`{trade_hash}`]({trade_url})",
+        "value": field_value,
+        "inline": True
+    }
 
 
 class ConfirmationView(discord.ui.View):
@@ -90,41 +115,33 @@ class TradeCommands(commands.Cog):
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
             return
 
-        # Create a simple representation of the current trades' state (hash, status, attachment status)
         current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status'), trade.get('has_attachment')) for trade in trades}
 
-        # If the state hasn't changed, do nothing
         if current_trades_state == self.last_known_trades_state:
-            logger.info("No changes in active trades. Skipping Discord channel update.")
             return
 
         logger.info("Change detected in active trades. Refreshing channel.")
 
+        await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
+
         if not trades:
             embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
         else:
-            embed_data = ACTIVE_TRADES_EMBED.copy()
-            embed_data["title"] = embed_data["title"].format(trade_count=len(trades))
-            embed = discord.Embed.from_dict(embed_data)
-            for trade in trades[:20]:
-                buyer = trade.get('responder_username', 'N/A')
-                account = trade.get('account_name_source', 'N/A')
-                amount = f"{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}"
-                status = trade.get('trade_status', 'N/A')
-                has_attachment = trade.get('has_attachment', True)
-                embed.add_field(
-                    name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {buyer}",
-                    value=f"**Account**: {account}\n**Amount**: {amount}\n**Status**:{format_status_for_discord(status, has_attachment)}",
-                    inline=False
-                )
+            embed = discord.Embed(
+                title=f"📊 Active Trades ({len(trades)})",
+                color=COLORS.get("info", 0x5865F2),
+                description="A summary of all ongoing trades."
+            )
+            # Add trades as fields, max 25 fields per embed
+            for trade in trades[:25]:
+                field = create_trade_field(trade)
+                embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
         
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         embed.set_footer(text="Last updated")
-
-        await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
+        
         await channel.send(embed=embed)
         
-        # Update the state to the new one
         self.last_known_trades_state = current_trades_state
         logger.info("Successfully refreshed the active trades channel with new data.")
 
@@ -138,29 +155,23 @@ class TradeCommands(commands.Cog):
     async def active_trades_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get(
-                "http://127.0.0.1:5001/get_active_trades", timeout=10)
+            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
             trades = response.json() if response.status_code == 200 else []
             if not trades:
                 await interaction.followup.send(embed=discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED), ephemeral=True)
                 return
 
-            embed_data = ACTIVE_TRADES_EMBED.copy()
-            embed_data["title"] = embed_data["title"].format(
-                trade_count=len(trades))
-            embed = discord.Embed.from_dict(embed_data)
+            embed = discord.Embed(
+                title=f"📊 Active Trades ({len(trades)})",
+                color=COLORS.get("info", 0x5865F2),
+                description="A summary of your ongoing trades."
+            )
 
+            # Add trades as fields, max 10 for ephemeral messages for readability
             for trade in trades[:10]:
-                status = trade.get('trade_status', 'N/A')
-                has_attachment = trade.get('has_attachment', True)
-                embed.add_field(
-                    name=f"Trade `{trade.get('trade_hash', 'N/A')}` with {trade.get('responder_username', 'N/A')}",
-                    value=f"**Amount**: {trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}\n"
-                          f"**Method**: {trade.get('payment_method_name', 'N/A')}\n"
-                          f"**Account**: {trade.get('account_name_source', 'N/A')}\n"
-                          f"**Status**:{format_status_for_discord(status, has_attachment)}",
-                    inline=False
-                )
+                field = create_trade_field(trade)
+                embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
+
             await interaction.followup.send(embed=embed, ephemeral=True)
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
@@ -170,23 +181,18 @@ class TradeCommands(commands.Cog):
     @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)", message="The message you want to send")
     async def send_message_command(self, interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
         await interaction.response.defer(ephemeral=True)
-        payload = {"trade_hash": trade_hash,
-                   "account_name": account_name, "message": message}
+        payload = {"trade_hash": trade_hash, "account_name": account_name, "message": message}
         try:
-            response = requests.post(
-                "http://127.0.0.1:5001/send_manual_message", json=payload, timeout=15)
+            response = requests.post("http://127.0.0.1:5001/send_manual_message", json=payload, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = SEND_MESSAGE_EMBEDS["success"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    trade_hash=trade_hash)
+                embed_data["description"] = embed_data["description"].format(trade_hash=trade_hash)
                 embed = discord.Embed.from_dict(embed_data)
-                embed.add_field(
-                    name=SEND_MESSAGE_EMBEDS["success"]["field_name"], value=message)
+                embed.add_field(name=SEND_MESSAGE_EMBEDS["success"]["field_name"], value=message)
             else:
                 embed_data = SEND_MESSAGE_EMBEDS["error"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    error=data.get("error", "An unknown error occurred."))
+                embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown error occurred."))
                 embed = discord.Embed.from_dict(embed_data)
             await interaction.followup.send(embed=embed, ephemeral=True)
         except requests.exceptions.RequestException:
@@ -198,21 +204,17 @@ class TradeCommands(commands.Cog):
     async def user_profile_command(self, interaction: discord.Interaction, username: str):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get(
-                f"http://127.0.0.1:5001/user_profile/{username}", timeout=10)
+            response = requests.get(f"http://127.0.0.1:5001/user_profile/{username}", timeout=10)
             if response.status_code == 200:
                 stats = response.json()
                 embed_data = USER_PROFILE_EMBED.copy()
-                embed_data["title"] = embed_data["title"].format(
-                    username=stats.get('username', 'N/A'))
-                issues = stats.get('canceled_trades', 0) + \
-                    stats.get('disputed_trades', 0)
+                embed_data["title"] = embed_data["title"].format(username=stats.get('username', 'N/A'))
+                issues = stats.get('canceled_trades', 0) + stats.get('disputed_trades', 0)
                 successful_trades = stats.get('successful_trades', 0)
                 total_trades = stats.get('total_trades', 0)
                 total_volume = stats.get('total_volume', 0)
                 avg_trade_size = total_volume / successful_trades if successful_trades > 0 else 0
-                success_rate = (successful_trades / total_trades) * \
-                    100 if total_trades > 0 else 0
+                success_rate = (successful_trades / total_trades) * 100 if total_trades > 0 else 0
                 embed_data["description"] = embed_data["description"].format(
                     first_trade_date=stats.get('first_trade_date', 'N/A'),
                     last_trade_date=stats.get('last_trade_date', 'N/A')
