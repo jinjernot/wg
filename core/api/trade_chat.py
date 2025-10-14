@@ -6,8 +6,7 @@ import os
 import re
 from config import (
     GET_CHAT_URL_NOONES, GET_CHAT_URL_PAXFUL,
-    CHAT_LOG_PATH, ATTACHMENT_PATH,
-    IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES
+    CHAT_LOG_PATH, ATTACHMENT_PATH
 )
 from core.messaging.alerts.telegram_alert import send_chat_message_alert
 from core.messaging.alerts.discord_alert import create_chat_message_embed

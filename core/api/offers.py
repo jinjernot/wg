@@ -2,6 +2,7 @@ import requests
 import logging
 from core.api.auth import fetch_token_with_retry
 from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from core.messaging.alerts.telegram_alert import escape_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +109,10 @@ def set_offer_status(turn_on):
         }
         
         platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
-        
-        # --- CORRECTED ENDPOINTS ---
         endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
         url = f"{platform_url}{endpoint}"
 
         try:
-            # This endpoint does not require a body/data
             response = requests.post(url, headers=headers)
             
             if response.status_code == 200 and response.json().get("status") == "success":
@@ -134,7 +132,7 @@ def send_scheduled_task_alert(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
+        "text": escape_markdown(message),
         "parse_mode": "MarkdownV2"
     }
     try:

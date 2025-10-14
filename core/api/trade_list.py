@@ -48,7 +48,6 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     trades = trades_data["data"]["trades"]
                     if include_completed:
-                        # Add logic to check for recently completed trades
                         recently_completed_trades = []
                         fifteen_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
                         for trade in trades:

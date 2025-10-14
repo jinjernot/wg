@@ -60,8 +60,7 @@ def get_wallet_balances():
                     if data and 'crypto_currency_code' in data and 'balance' in data:
                         currency_code = data['crypto_currency_code']
                         balance_value = data['balance']
-                        
-                        # Convert from satoshis to BTC if the currency is BTC
+                    
                         if currency_code == 'BTC':
                             try:
                                 satoshi_balance = int(balance_value)
