@@ -147,6 +147,45 @@ def extract_scotiabank_details(html_body):
         logger.error(f"Error parsing Scotiabank email: {e}")
         return None, None
 
+def extract_banco_azteca_details(html_body):
+    """Parses the Banco Azteca HTML email to extract payment amount and recipient name."""
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+        
+        # --- Find Amount ---
+        amount_tag = soup.find('b', string=re.compile(r'\$\s*[\d,]+\.?\d*'))
+        found_amount = None
+        if amount_tag:
+            amount_text = amount_tag.get_text(strip=True)
+            amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*\.\d{2})', amount_text)
+            if not amount_match:
+                 amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*)', amount_text)
+
+            if amount_match:
+                amount_str = amount_match.group(1).replace(',', '')
+                found_amount = float(amount_str)
+                logger.info(f"Successfully parsed Banco Azteca amount: {found_amount}")
+
+        # --- Find Name ---
+        beneficiario_td = soup.find('td', string=re.compile(r'Beneficiario:'))
+        found_name = None
+        if beneficiario_td:
+            name_tag = beneficiario_td.find_next('font')
+            if name_tag:
+                found_name = name_tag.get_text(strip=True).upper()
+                logger.info(f"Successfully parsed Banco Azteca recipient name: {found_name}")
+        elif "Beneficiario:" in soup.get_text():
+             match = re.search(r'Beneficiario:\s*([\w\s]+)', soup.get_text(), re.IGNORECASE)
+             if match:
+                 found_name = match.group(1).strip().upper()
+                 logger.info(f"Successfully parsed Banco Azteca recipient name (fallback): {found_name}")
+
+
+        return found_amount, found_name
+    except Exception as e:
+        logger.error(f"An error occurred while parsing the Banco Azteca email: {e}")
+        return None, None
+
 def check_for_payment_email(service, trade_details, platform, credential_identifier):
     """Searches for, saves, and validates a payment confirmation email."""
     if not service:
@@ -167,6 +206,10 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
         query = 'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI")'
         log_folder, validator = "bank-transfer", "scotiabank"
         expected_name = account_config.get("name_scotiabank")
+    elif payment_method_slug == "banco-azteca":
+        query = 'from:notificaciones@bazdigital.com subject:("Notificación Banco Azteca")'
+        log_folder, validator = "banco-azteca", "banco_azteca"
+        expected_name = account_config.get("name_banco_azteca")
     else:
         return False
 
@@ -198,6 +241,9 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                 found_amount, found_name = extract_scotiabank_details(email_body)
             elif validator == "oxxo":
                 found_amount, found_name = extract_oxxo_details(email_body)
+            elif validator == "banco_azteca":
+                found_amount, found_name = extract_banco_azteca_details(email_body)
+
 
             # --- Save Email Log ---
             account_folder_name = f"{owner_username}_{platform}"
