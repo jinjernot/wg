@@ -281,8 +281,17 @@ def find_amount_in_text(text, trade_amount):
             logger.info(f"SUCCESS (Fallback): Found matching amount: {amount}")
             return amount
             
-    logger.warning(f"Amount mismatch (Fallback). Expected: {expected_amount}, Found: {all_amounts}")
-    return max(all_amounts) if all_amounts else None
+    if all_amounts:
+        closest_amount = min(all_amounts, key=lambda x: abs(x - expected_amount))
+        logger.warning(
+            f"Amount mismatch (Fallback). Expected: {expected_amount}, Found: {all_amounts}. "
+            f"Returning closest value: {closest_amount}"
+        )
+        return closest_amount
+
+    logger.warning(f"Could not find any amount in the text for trade amount {expected_amount}.")
+    return None
+
 
 def find_name_in_text(text, name_keywords):
     """Finds name, prioritizing bank-specific parsers then falling back to keyword search."""
