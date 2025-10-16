@@ -288,7 +288,7 @@ class Trade:
                 # Ensure that the message is a string before sending
                 if isinstance(message_text, str) and message_text:
                     msg_author = msg.get("author", "Unknown")
-                    send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
+                    # send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
                     create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
 
         if new_messages:
