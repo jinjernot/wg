@@ -2,6 +2,7 @@ import requests
 import logging
 import json
 import os
+import time
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
 from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID
@@ -96,6 +97,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                     emoji = "💬"
                 
                 if emoji:
+                    time.sleep(0.5)
                     reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
                     with requests.Session() as session:
                         session.headers.update(headers)

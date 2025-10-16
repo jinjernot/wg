@@ -16,7 +16,7 @@ def fetch_token_with_retry(account, max_retries=3):
     for attempt in range(max_retries):
         try:
             logger.debug(f"Attempt {attempt + 1} of {max_retries} to fetch token for {account['name']} using {token_url}")
-            response = requests.post(token_url, data=token_data, timeout=10)
+            response = requests.post(token_url, data=token_data, timeout=20)
 
             if response.status_code == 200:
                 return response.json().get("access_token")

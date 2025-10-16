@@ -38,10 +38,15 @@ def get_new_messages(trade_hash, account, headers, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            response = requests.post(chat_url, data=data, headers=headers, timeout=10)
+            response = requests.post(chat_url, data=data, headers=headers, timeout=20) # Increased timeout
             if response.status_code != 200:
                 logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
-                continue
+                if attempt < max_retries -1:
+                    time.sleep(2 ** attempt)
+                    continue
+                else:
+                    return None, None
+
 
             chat_data = response.json()
             if chat_data.get("status") != "success":
@@ -119,10 +124,15 @@ def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            response = requests.post(chat_url, data=data, headers=headers, timeout=10)
+            response = requests.post(chat_url, data=data, headers=headers, timeout=20)
             if response.status_code != 200:
                 logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
-                continue
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                else:
+                    return []
+
 
             chat_data = response.json()
             if chat_data.get("status") != "success":
