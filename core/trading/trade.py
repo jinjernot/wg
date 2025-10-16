@@ -209,7 +209,7 @@ class Trade:
         return None
 
     def check_for_email_confirmation(self):
-        """Checks for payment confirmation emails if the trade is marked as Paid."""
+        """Checks for payment confirmation emails if the trade is marked as Paid and has an attachment."""
         logger.info(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
         is_paid = self.trade_state.get("trade_status") == 'Paid'
         is_relevant = self.trade_state.get("payment_method_slug", "").lower() in [
@@ -218,6 +218,14 @@ class Trade:
             'email_verified') and not self.trade_state.get('email_check_timed_out')
 
         if not (is_paid and is_relevant and is_pending):
+            return
+
+        # Check for attachment
+        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+
+        if not has_attachment:
+            logger.info(f"Skipping email check for trade {self.trade_hash} because there is no attachment yet.")
             return
 
         credential_identifier = self.get_credential_identifier_for_trade()
