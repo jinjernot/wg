@@ -46,6 +46,10 @@ def send_telegram_alert(trade, platform):
     # Escape each value before formatting
     formatted_data = {key: escape_markdown(trade.get(key, "N/A")) for key in extract_placeholders(message_template)}
     message = message_template.format(**formatted_data)
+    
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
@@ -68,6 +72,10 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
         "owner_username": escape_markdown(owner_username)
     }
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
+    
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = { "chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2", "disable_web_page_preview": True }
@@ -90,6 +98,9 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             owner_username=escape_markdown(owner_username),
             author=escape_markdown(author)
         )
+        # --- FIX: Escape any unescaped dots in the final template string ---
+        caption_text = re.sub(r'(?<!\\)\.', r'\.', caption_text)
+        # --- END FIX ---
     else:
         template = NEW_ATTACHMENT_ALERT_MESSAGE
         caption_text = template.format(
@@ -97,6 +108,9 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             owner_username=escape_markdown(owner_username),
             author=escape_markdown(author)
         )
+        # --- FIX: Escape any unescaped dots in the final template string ---
+        caption_text = re.sub(r'(?<!\\)\.', r'\.', caption_text)
+        # --- END FIX ---
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     data = {
@@ -142,6 +156,10 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
             currency=escape_markdown(currency)
         )
 
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
@@ -157,6 +175,10 @@ def send_email_validation_alert(trade_hash, success, account_name):
     else:
         message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
 
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
@@ -171,6 +193,10 @@ def send_name_validation_alert(trade_hash, success, account_name):
         message = NAME_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
     else:
         message = NAME_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
@@ -197,6 +223,11 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
         balance_details=details_str # This is already formatted with markdown, so we don't escape it.
     )
     
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    # This should be safe for the code blocks (`...`) as dots inside them are not parsed by Telegram.
+    message = re.sub(r'(?<!\\)\.', r'\.', message)
+    # --- END FIX ---
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "MarkdownV2"}
     response = requests.post(url, json=payload)
@@ -216,6 +247,10 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
         previous_trade_hash=escape_markdown(previous_trade_hash),
         previous_owner=escape_markdown(previous_owner)
     )
+    
+    # --- FIX: Escape any unescaped dots in the final template string ---
+    caption_text = re.sub(r'(?<!\\)\.', r'\.', caption_text)
+    # --- END FIX ---
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
     data = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption_text, "parse_mode": "MarkdownV2"}
