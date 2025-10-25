@@ -1,3 +1,5 @@
+# jinjernot/wg/wg-89c3d83219d0d8811cde10eb2ef6004ace783b14/core/trading/trade.py
+
 import logging
 import json
 import os
@@ -108,8 +110,13 @@ class Trade:
 
         new_trade_embed_data = create_new_trade_embed(
             self.trade_state, self.platform, send=False)
+        
+        # TEMPORARY: Skip Paxful Discord thread creation
         if new_trade_embed_data:
-            create_trade_thread(self.trade_hash, new_trade_embed_data)
+            if self.platform == "Paxful":
+                logger.info(f"Skipping Paxful Discord thread creation for {self.trade_hash}")
+            else:
+                create_trade_thread(self.trade_hash, new_trade_embed_data)
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
@@ -131,9 +138,13 @@ class Trade:
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
 
-            create_trade_status_update_embed(
-                self.trade_hash, self.owner_username, current_status, self.platform
-            )
+            # TEMPORARY: Skip Paxful Discord alerts
+            if self.platform == "Paxful":
+                logger.info(f"Skipping Paxful Discord status update alert for {self.trade_hash}")
+            else:
+                create_trade_status_update_embed(
+                    self.trade_hash, self.owner_username, current_status, self.platform
+                )
 
             if current_status == 'Successful' and not self.trade_state.get('completion_message_sent'):
                 send_trade_completion_message(
@@ -250,8 +261,14 @@ class Trade:
                 if not self.trade_state.get('email_validation_alert_sent'):
                     send_email_validation_alert(
                         self.trade_hash, success=True, account_name=credential_identifier)
-                    create_email_validation_embed(
-                        self.trade_hash, success=True, account_name=credential_identifier)
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
+                    else:
+                        create_email_validation_embed(
+                            self.trade_hash, success=True, account_name=credential_identifier)
+                    
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
                 self.trade_state['email_verified'] = True
@@ -261,8 +278,14 @@ class Trade:
             if not self.trade_state.get('email_validation_alert_sent'):
                 send_email_validation_alert(
                     self.trade_hash, success=False, account_name=credential_identifier)
-                create_email_validation_embed(
-                    self.trade_hash, success=False, account_name=credential_identifier)
+                
+                # TEMPORARY: Skip Paxful Discord alerts
+                if self.platform == "Paxful":
+                    logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
+                else:
+                    create_email_validation_embed(
+                        self.trade_hash, success=False, account_name=credential_identifier)
+                
                 self.trade_state['email_validation_alert_sent'] = True
                 self.save()
             self.trade_state['email_check_timed_out'] = True
@@ -297,7 +320,12 @@ class Trade:
                 if isinstance(message_text, str) and message_text:
                     msg_author = msg.get("author", "Unknown")
                     # send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
-                    create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord chat message alert for {self.trade_hash}")
+                    else:
+                        create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
 
         if new_messages:
             self.handle_online_query(new_messages)
@@ -353,13 +381,23 @@ class Trade:
                 is_duplicate, previous_trade_info = is_duplicate_receipt(image_hash, self.trade_hash, self.owner_username)
                 if is_duplicate:
                     send_duplicate_receipt_alert(self.trade_hash, self.owner_username, path, previous_trade_info)
-                    create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord duplicate receipt alert for {self.trade_hash}")
+                    else:
+                        create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
 
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
                 save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)
                 send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
-                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
+                
+                # TEMPORARY: Skip Paxful Discord alerts
+                if self.platform == "Paxful":
+                    logger.info(f"Skipping Paxful Discord attachment alert for {self.trade_hash}")
+                else:
+                    create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
 
                 if identified_bank:
                     self.trade_state['ocr_identified_bank'] = identified_bank
@@ -371,7 +409,13 @@ class Trade:
                     expected = self.trade_state.get("fiat_amount_requested")
                     currency = self.trade_state.get("fiat_currency_code")
                     send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
-                    create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord amount validation alert for {self.trade_hash}")
+                    else:
+                        create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    
                     self.trade_state['amount_validation_alert_sent'] = True
 
                 if expected_names:
@@ -379,7 +423,13 @@ class Trade:
                     is_name_found = find_name_in_text(text, expected_names)
                     if not self.trade_state.get('name_validation_alert_sent'):
                         send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
-                        create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
+                        
+                        # TEMPORARY: Skip Paxful Discord alerts
+                        if self.platform == "Paxful":
+                            logger.info(f"Skipping Paxful Discord name validation alert for {self.trade_hash}")
+                        else:
+                            create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
+                        
                         self.trade_state['name_validation_alert_sent'] = True
                 self.save()
 
