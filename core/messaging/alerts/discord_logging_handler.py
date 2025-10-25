@@ -1,3 +1,5 @@
+# jinjernot/wg/wg-89c3d83219d0d8811cde10eb2ef6004ace783b14/core/messaging/alerts/discord_logging_handler.py
+
 import logging
 import requests
 import os
@@ -17,6 +19,10 @@ class DiscordHandler(logging.Handler):
 
         # Get the raw error message from the log record.
         log_message = record.getMessage()
+
+        # TEMPORARY: Skip all Paxful-related error alerts
+        if "Paxful" in log_message:
+            return
         
         # Discord embed field value limit is 1024 characters.
         if len(log_message) > 1000:
