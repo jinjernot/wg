@@ -35,7 +35,7 @@ def turn_on_offers_job():
 
 def turn_off_offers_job():
     """Job to be run by the scheduler to turn off offers."""
-    logger.info("SCHEDULER: Running scheduled job to turn off offers.")
+    logger.info("SCHEDULLER: Running scheduled job to turn off offers.")
     send_scheduled_task_alert("Automatically turning off all offers.")
 
     results = set_offer_status(turn_on=False)
@@ -74,6 +74,12 @@ def main():
 
     threads = []
     for account in ACCOUNTS:
+        # --- ADDED TEMPORARY CHECK ---
+        if "_Paxful" in account.get("name", ""):
+            logger.warning(f"Temporarily skipping all processing for Paxful account: {account.get('name')}")
+            continue
+        # --- END OF CHECK ---
+            
         thread = threading.Thread(target=process_trades, args=(account,))
         thread.start()
         threads.append(thread)
@@ -83,4 +89,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
