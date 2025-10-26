@@ -1,7 +1,7 @@
 import logging
 import json
 import os
-from logging.handlers import RotatingFileHandler
+# Remove the RotatingFileHandler import, we'll use the basic FileHandler
 from config import SETTINGS_FILE, DISCORD_WEBHOOKS
 from core.messaging.alerts.discord_logging_handler import DiscordHandler
 
@@ -26,9 +26,12 @@ def setup_logging():
     os.makedirs(log_dir, exist_ok=True)
     error_log_path = os.path.join(log_dir, "error.log")
 
-    file_handler = RotatingFileHandler(
-        error_log_path, maxBytes=5*1024*1024, backupCount=5
-    )
+    # --- MODIFICATION HERE ---
+    # Use the standard FileHandler which does not rotate logs.
+    # This avoids the multi-process PermissionError.
+    file_handler = logging.FileHandler(error_log_path, mode='a')
+    # --- END MODIFICATION ---
+    
     file_handler.setLevel(logging.ERROR)
     file_handler.setFormatter(logging.Formatter(log_format))
     
