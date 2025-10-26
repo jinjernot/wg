@@ -62,6 +62,12 @@ def send_manual_message():
     if not all([trade_hash, account_name, message]):
         return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
 
+    # --- ADDED TEMPORARY CHECK ---
+    if "_Paxful" in account_name:
+        logger.warning(f"Temporarily skipping manual message for Paxful account: {account_name}")
+        return jsonify({"success": False, "error": "Paxful actions are temporarily disabled."}), 400
+    # --- END OF CHECK ---
+
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in ACCOUNTS if acc["name"].lower(
     ) == formatted_account_name.lower()), None)
@@ -91,6 +97,12 @@ def release_trade_route():
 
     if not all([trade_hash, account_name]):
         return jsonify({"success": False, "error": "Missing trade hash or account name."}), 400
+
+    # --- ADDED TEMPORARY CHECK ---
+    if "_Paxful" in account_name:
+        logger.warning(f"Temporarily skipping trade release for Paxful account: {account_name}")
+        return jsonify({"success": False, "error": "Paxful actions are temporarily disabled."}), 400
+    # --- END OF CHECK ---
 
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)

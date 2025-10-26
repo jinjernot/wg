@@ -10,6 +10,12 @@ def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
     all_offers_data = []
     for account in ACCOUNTS:
+        # --- ADDED TEMPORARY CHECK ---
+        if "_Paxful" in account.get("name", ""):
+            logger.warning(f"Temporarily skipping offer fetching for Paxful account: {account.get('name')}")
+            continue
+        # --- END OF CHECK ---
+
         token = fetch_token_with_retry(account)
         if not token:
             logger.error(f"Could not authenticate for {account['name']} to fetch offers.")
@@ -61,6 +67,12 @@ def get_all_offers():
 
 def toggle_single_offer(account_name, offer_hash, turn_on):
     """Activates or deactivates a single offer."""
+    # --- ADDED TEMPORARY CHECK ---
+    if "_Paxful" in account_name:
+         logger.warning(f"Temporarily skipping single offer toggle for Paxful account: {account_name}")
+         return {"success": False, "error": "Paxful actions are temporarily disabled."}
+    # --- END OF CHECK ---
+
     target_account = next((acc for acc in ACCOUNTS if acc["name"] == account_name), None)
     if not target_account:
         return {"success": False, "error": f"Account '{account_name}' not found."}
@@ -98,6 +110,12 @@ def set_offer_status(turn_on):
     """
     results = []
     for account in ACCOUNTS:
+        # --- ADDED TEMPORARY CHECK ---
+        if "_Paxful" in account.get("name", ""):
+            logger.warning(f"Temporarily skipping offer status change for Paxful account: {account.get('name')}")
+            continue
+        # --- END OF CHECK ---
+
         token = fetch_token_with_retry(account)
         if not token:
             results.append({"account": account["name"], "success": False, "error": "Could not authenticate."})

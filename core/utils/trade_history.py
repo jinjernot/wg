@@ -27,6 +27,12 @@ ALL_TRADES = []
 LOCK = Lock()
 
 def fetch_completed_trades(account, limit=1000):
+    # --- ADDED TEMPORARY CHECK ---
+    if "_Paxful" in account.get("name", ""):
+        logging.warning(f"Temporarily skipping trade history fetching for Paxful account: {account['name']}")
+        return
+    # --- END OF CHECK ---
+
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
     base_url = TRADE_COMPLETED_URL_PAXFUL if platform == "Paxful" else TRADE_COMPLETED_URL_NOONES
 

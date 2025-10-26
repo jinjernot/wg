@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_completed=False):
+    # --- ADDED TEMPORARY CHECK ---
+    if "_Paxful" in account.get("name", ""):
+        logger.warning(f"Temporarily skipping trade list fetching for Paxful account: {account['name']}")
+        return []
+    # --- END OF CHECK ---
+
     if "_Paxful" in account["name"]:
         trade_list_url = TRADE_LIST_URL_PAXFUL
     else:
