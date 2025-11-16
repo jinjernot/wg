@@ -13,7 +13,7 @@ MARKET_SEARCH_LOG_DIR = os.path.join('data', 'logs', 'market_search')
 os.makedirs(MARKET_SEARCH_LOG_DIR, exist_ok=True)
 
 # --- MODIFIED FUNCTION SIGNATURE ---
-def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", country_code: str = None):
+def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", payment_method_country_iso: str = None):
     """
     Fetches public offers from the Noones /offer/all endpoint.
     This REQUIRES authentication, so it uses the first account in config.
@@ -39,10 +39,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "limit": 50
     }
     
-    # --- NEW FILTER ---
-    if country_code:
-        payload["country_code"] = country_code.upper()
-    # --- END NEW FILTER ---
+    # --- CORRECTED FILTER ---
+    # Replaced 'country_code' with 'payment_method_country_iso'
+    if payment_method_country_iso:
+        payload["payment_method_country_iso"] = payment_method_country_iso.upper()
+    # --- END CORRECTED FILTER ---
     
     headers = {
         "Authorization": f"Bearer {token}",
@@ -72,7 +73,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
             data = response.json()
             if data.get("status") == "success":
                 offers = data.get("data", {}).get("offers", [])
-                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug} in {country_code}")
+                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug} in {payment_method_country_iso}")
                 return offers
             else:
                 logger.error(f"Error in public offer search response: {response.text}")

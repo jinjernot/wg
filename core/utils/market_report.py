@@ -24,9 +24,9 @@ MXN_PAYMENT_METHODS = [
 
 CRYPTOS = ["BTC", "USDT"]
 FIAT = "MXN"
-# --- ADD COUNTRY ---
-COUNTRY = "MX"
-# --- END ADD ---
+# --- USE THE CORRECT COUNTRY ISO ---
+COUNTRY_ISO = "MX"
+# --- END ---
 
 def generate_mxn_market_report():
     """
@@ -45,8 +45,8 @@ def generate_mxn_market_report():
                 logger.info(f"Scanning market: {market_key}")
                 
                 try:
-                    # --- ADD COUNTRY_CODE TO THE CALL ---
-                    offers = search_public_offers(crypto, FIAT, pm_slug, trade_direction, country_code=COUNTRY)
+                    # --- ADD CORRECT COUNTRY_ISO FILTER ---
+                    offers = search_public_offers(crypto, FIAT, pm_slug, trade_direction, payment_method_country_iso=COUNTRY_ISO)
 
                     if not offers:
                         logger.warning(f"No offers found for market {market_key}.")

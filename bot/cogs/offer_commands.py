@@ -22,18 +22,16 @@ class OfferCommands(commands.Cog):
     async def search_offers_command(self, interaction: discord.Interaction, payment_method: str, crypto: str, fiat: str):
         await interaction.response.defer(ephemeral=True)
         
-        # --- NEW LOGIC ---
-        # Since you only care about MXN, we can derive the country code
         fiat_to_country = {"MXN": "MX"}
-        country = fiat_to_country.get(fiat.upper(), fiat.upper()[:2]) # Default to first 2 letters if not MXN
-        # --- END NEW LOGIC ---
+        country = fiat_to_country.get(fiat.upper(), fiat.upper()[:2])
 
         payload = {
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            "trade_direction": "sell", # Corrected to "sell"
-            "country_code": country # <-- Add the new code
+            "trade_direction": "sell",
+            # --- Send the new filter key ---
+            "payment_method_country_iso": country 
         }
         
         try:

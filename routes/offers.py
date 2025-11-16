@@ -12,13 +12,14 @@ def search_public_offers_route():
     fiat_code = data.get("fiat_code")
     payment_method = data.get("payment_method")
     trade_direction = data.get("trade_direction", "buy")
-    country_code = data.get("country_code") # <-- Read the new code
+    # --- Read the new filter key ---
+    payment_method_country_iso = data.get("payment_method_country_iso") 
 
     if not all([crypto_code, fiat_code, payment_method]):
         return jsonify({"success": False, "error": "Missing required parameters (crypto_code, fiat_code, payment_method)."}), 400
 
-    # --- Pass the new code to the function ---
-    offers = search_public_offers(crypto_code, fiat_code, payment_method, trade_direction, country_code)
+    # --- Pass the new filter ---
+    offers = search_public_offers(crypto_code, fiat_code, payment_method, trade_direction, payment_method_country_iso)
     
     return jsonify({"success": True, "offers": offers})
 
