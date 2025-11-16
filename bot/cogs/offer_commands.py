@@ -13,13 +13,18 @@ class OfferCommands(commands.Cog):
         self.bot = bot
         
     @app_commands.guilds(MY_GUILD)
-    @app_commands.command(name="search_offers", description="Search public offers on Noones to see competitor data.")
+    @app_commands.command(name="search_offers", description="Search public offers on Noones for buyers or sellers.")
     @app_commands.describe(
         payment_method="The payment method slug (e.g., bank-transfer)",
         crypto="The crypto code (e.g., BTC)",
-        fiat="The fiat code (e.g., MXN)"
+        fiat="The fiat code (e.g., MXN)",
+        trade_direction="Whether to search for 'buy' or 'sell' offers"
     )
-    async def search_offers_command(self, interaction: discord.Interaction, payment_method: str, crypto: str, fiat: str):
+    @app_commands.choices(trade_direction=[
+        app_commands.Choice(name="Sellers (Competitors)", value="sell"),
+        app_commands.Choice(name="Buyers (Customers)", value="buy")
+    ])
+    async def search_offers_command(self, interaction: discord.Interaction, payment_method: str, crypto: str, fiat: str, trade_direction: app_commands.Choice[str]):
         await interaction.response.defer(ephemeral=True)
         
         fiat_to_country = {"MXN": "MX"}
@@ -29,7 +34,7 @@ class OfferCommands(commands.Cog):
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            "trade_direction": "sell",
+            "trade_direction": trade_direction.value, # <-- Changed from "sell"
             # --- Send the new filter key ---
             "payment_method_country_iso": country 
         }
@@ -47,8 +52,9 @@ class OfferCommands(commands.Cog):
                 await interaction.followup.send("No public offers found for this market.", ephemeral=True)
                 return
 
+            embed_title_prefix = "Top 5 Competitors" if trade_direction.value == "sell" else "Top 5 Buyers"
             embed = discord.Embed(
-                title=f"Top 5 Competitors for {crypto.upper()}/{fiat.upper()} ({payment_method})",
+                title=f"{embed_title_prefix} for {crypto.upper()}/{fiat.upper()} ({payment_method})",
                 color=COLORS["info"]
             )
             
