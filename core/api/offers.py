@@ -9,12 +9,11 @@ from core.messaging.alerts.telegram_alert import escape_markdown
 
 logger = logging.getLogger(__name__)
 
-# --- NEW ---
 MARKET_SEARCH_LOG_DIR = os.path.join('data', 'logs', 'market_search')
 os.makedirs(MARKET_SEARCH_LOG_DIR, exist_ok=True)
-# --- END NEW ---
 
-def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy"):
+# --- MODIFIED FUNCTION SIGNATURE ---
+def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", country_code: str = None):
     """
     Fetches public offers from the Noones /offer/all endpoint.
     This REQUIRES authentication, so it uses the first account in config.
@@ -23,7 +22,6 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         logger.error("Cannot search public offers, no accounts configured in ACCOUNTS.")
         return []
 
-    # Use the first account to authenticate the request
     auth_account = ACCOUNTS[0]
     token = fetch_token_with_retry(auth_account)
     if not token:
@@ -41,6 +39,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "limit": 50
     }
     
+    # --- NEW FILTER ---
+    if country_code:
+        payload["country_code"] = country_code.upper()
+    # --- END NEW FILTER ---
+    
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -50,7 +53,6 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         
-        # --- NEW LOGGING BLOCK ---
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             log_filename = f"{crypto_code}_{fiat_code}_{payment_method_slug}_{timestamp}.json"
@@ -58,22 +60,19 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
             
             with open(log_filepath, 'w', encoding='utf-8') as f:
                 try:
-                    # Try to save pretty-printed JSON
                     json.dump(response.json(), f, indent=4)
                     logger.info(f"Saved market search JSON response to {log_filepath}")
                 except json.JSONDecodeError:
-                    # If it's not JSON (e.g., an HTML error page), save as text
                     f.write(response.text)
                     logger.info(f"Saved market search TEXT response to {log_filepath}")
         except Exception as e:
             logger.error(f"Failed to save market search log: {e}")
-        # --- END LOGGING BLOCK ---
 
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
                 offers = data.get("data", {}).get("offers", [])
-                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug}")
+                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug} in {country_code}")
                 return offers
             else:
                 logger.error(f"Error in public offer search response: {response.text}")

@@ -2,13 +2,11 @@ import logging
 import csv
 import os
 from datetime import datetime, timezone
-from config import TRADE_HISTORY # Use TRADE_HISTORY to match the download route
+from config import TRADE_HISTORY 
 from core.api.offers import search_public_offers
 
 logger = logging.getLogger(__name__)
 
-# --- UPDATED LIST ---
-# Corrected Amazon slug based on your feedback and removed -mxn from Google Play.
 MXN_PAYMENT_METHODS = [
     "bank-transfer",
     "oxxo",
@@ -23,10 +21,12 @@ MXN_PAYMENT_METHODS = [
     "uber-eats",
     "google-play-gift-card"
 ]
-# --- END UPDATED LIST ---
 
 CRYPTOS = ["BTC", "USDT"]
 FIAT = "MXN"
+# --- ADD COUNTRY ---
+COUNTRY = "MX"
+# --- END ADD ---
 
 def generate_mxn_market_report():
     """
@@ -40,13 +40,13 @@ def generate_mxn_market_report():
     
     for crypto in CRYPTOS:
         for pm_slug in MXN_PAYMENT_METHODS:
-            # We scan both 'buy' (your competitors) and 'sell' (your customers' other option)
             for trade_direction in ["buy", "sell"]:
                 market_key = f"{crypto}_{FIAT}_{pm_slug} ({trade_direction})"
                 logger.info(f"Scanning market: {market_key}")
                 
                 try:
-                    offers = search_public_offers(crypto, FIAT, pm_slug, trade_direction)
+                    # --- ADD COUNTRY_CODE TO THE CALL ---
+                    offers = search_public_offers(crypto, FIAT, pm_slug, trade_direction, country_code=COUNTRY)
 
                     if not offers:
                         logger.warning(f"No offers found for market {market_key}.")
@@ -54,7 +54,6 @@ def generate_mxn_market_report():
                     
                     logger.info(f"Found {len(offers)} offers for {market_key}.")
                     
-                    # Process and flatten the data for the CSV
                     for offer in offers:
                         flat_offer = {
                             "market_crypto": crypto,
@@ -84,7 +83,6 @@ def generate_mxn_market_report():
         logger.warning("No data collected for the report. Aborting.")
         return None, None
 
-    # Define CSV headers in a logical order
     fieldnames = [
         "market_crypto", "market_fiat", "market_payment_method", "offer_type",
         "username", "margin", "min_amount", "max_amount", 
@@ -93,7 +91,6 @@ def generate_mxn_market_report():
         "require_verified_id", "require_min_past_trades"
     ]
     
-    # Create the file in the TRADE_HISTORY directory
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"mxn_market_report_all_{date_str}.csv"
     filepath = os.path.join(TRADE_HISTORY, filename)

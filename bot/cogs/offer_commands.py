@@ -22,15 +22,18 @@ class OfferCommands(commands.Cog):
     async def search_offers_command(self, interaction: discord.Interaction, payment_method: str, crypto: str, fiat: str):
         await interaction.response.defer(ephemeral=True)
         
+        # --- NEW LOGIC ---
+        # Since you only care about MXN, we can derive the country code
+        fiat_to_country = {"MXN": "MX"}
+        country = fiat_to_country.get(fiat.upper(), fiat.upper()[:2]) # Default to first 2 letters if not MXN
+        # --- END NEW LOGIC ---
+
         payload = {
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            # --- CRITICAL FIX ---
-            # Your bot is SELLING crypto. To see your competitors (the list
-            # from your screenshot), we must search for "sell" offers.
-            "trade_direction": "sell"
-            # --- END FIX ---
+            "trade_direction": "sell", # Corrected to "sell"
+            "country_code": country # <-- Add the new code
         }
         
         try:
