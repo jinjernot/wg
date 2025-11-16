@@ -26,6 +26,8 @@ from config_messages.chat_messages import (
     OXXO_IN_BANK_TRANSFER_MESSAGE,
     THIRD_PARTY_ALLOWED_MESSAGE
 )
+# --- ADDED IMPORT ---
+from core.utils.profile import generate_user_profile
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +186,20 @@ def create_new_trade_embed(trade_data, platform, send=True):
     platform_name = "Paxful" if platform == "Paxful" else "Noones"
     trade_hash = trade_data.get('trade_hash')
 
+    # --- NEW: Get buyer stats ---
+    buyer_username = trade_data.get('responder_username')
+    buyer_stats_line = ""
+    if buyer_username:
+        profile_data = generate_user_profile(buyer_username)
+        if profile_data:
+            successful_trades = profile_data.get('successful_trades', 0)
+            total_volume = profile_data.get('total_volume', 0.0)
+            currency = trade_data.get('fiat_currency_code', '')
+            buyer_stats_line = f"\n**Stats:** {successful_trades} trades (${total_volume:,.2f} {currency})"
+    
+    buyer_value = f"{str(trade_data.get('responder_username', 'N/A'))}{buyer_stats_line}"
+    # --- END NEW ---
+
     # Platform-specific details
     if platform == "Paxful":
         embed_color = COLORS["PAXFUL_GREEN"]
@@ -206,7 +222,9 @@ def create_new_trade_embed(trade_data, platform, send=True):
         "url": trade_url,
         "color": embed_color,
         "fields": [
-            {"name": "👤 Buyer", "value": str(trade_data.get('responder_username', 'N/A')), "inline": False},
+            # --- MODIFIED FIELD ---
+            {"name": "👤 Buyer", "value": buyer_value, "inline": False},
+            # --- END MODIFIED ---
             {"name": "💰 Amount", "value": f"{trade_data.get('fiat_amount_requested')} {trade_data.get('fiat_currency_code')}", "inline": True},
             {"name": "💳 Payment Method", "value": str(trade_data.get('payment_method_name', 'N/A')), "inline": True},
             {"name": "💼 Account", "value": str(trade_data.get('owner_username', 'N/A')), "inline": True},
