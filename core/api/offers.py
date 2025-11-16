@@ -1,33 +1,50 @@
 import requests
 import logging
 from core.api.auth import fetch_token_with_retry
+# --- MODIFIED: Added ACCOUNTS import ---
 from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from core.messaging.alerts.telegram_alert import escape_markdown
 
 logger = logging.getLogger(__name__)
 
+# --- MODIFIED FUNCTION ---
 def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy"):
     """
-    Fetches public offers from the Noones search endpoint.
-    This does NOT require authentication.
+    Fetches public offers from the Noones /offer/all endpoint.
+    This REQUIRES authentication, so it uses the first account in config.
     """
-    url = "https://api.noones.com/noones/v1/offer/search"
+    if not ACCOUNTS:
+        logger.error("Cannot search public offers, no accounts configured in ACCOUNTS.")
+        return []
+
+    # Use the first account to authenticate the request
+    auth_account = ACCOUNTS[0]
+    token = fetch_token_with_retry(auth_account)
+    if not token:
+        logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
+        return []
+
+    # --- CORRECTED URL ---
+    url = "https://api.noones.com/noones/v1/offer/all"
     
+    # Parameters for the /offer/all endpoint
     payload = {
         "crypto_currency_code": crypto_code.upper(),
         "fiat_currency_code": fiat_code.upper(),
         "payment_method_slug": payment_method_slug,
-        "trade_direction": trade_direction,
-        "sort_by": "best_price", # Sort by best margin first
-        "limit": 50 # Fetch up to 50 offers
+        "offer_type": trade_direction, # "buy" or "sell"
+        "sort_by": "best_price",
+        "limit": 50
     }
     
     headers = {
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json", # Use JSON for the POST body
         "Accept": "application/json"
     }
 
     try:
+        # --- Use POST method ---
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         
         if response.status_code == 200:
@@ -40,14 +57,15 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
                 logger.error(f"Error in public offer search response: {response.text}")
                 return []
         else:
+            # This is where your 404 error was coming from.
             logger.error(f"Failed to fetch public offers (Status: {response.status_code}): {response.text}")
             return []
             
     except requests.exceptions.RequestException as e:
         logger.error(f"An exception occurred fetching public offers: {e}")
         return []
+# --- END MODIFIED FUNCTION ---
 
-# --- EXISTING FUNCTIONS ---
 
 def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
