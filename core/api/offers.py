@@ -20,13 +20,13 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     """
     if not ACCOUNTS:
         logger.error("Cannot search public offers, no accounts configured in ACCOUNTS.")
-        return []
+        return None # <-- MODIFIED: Return None on failure
 
     auth_account = ACCOUNTS[0]
     token = fetch_token_with_retry(auth_account)
     if not token:
         logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
-        return []
+        return None # <-- MODIFIED: Return None on failure
 
     url = "https://api.noones.com/noones/v1/offer/all"
     
@@ -39,15 +39,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "limit": 50
     }
     
-    # --- CORRECTED FILTER ---
-    # Replaced 'country_code' with 'payment_method_country_iso'
     if payment_method_country_iso:
         payload["payment_method_country_iso"] = payment_method_country_iso.upper()
     
-    # --- ADDED FIAT COUNTRY FILTER ---
     if country_code:
         payload["country_code"] = country_code.upper()
-    # --- END ADDED FILTER ---
     
     headers = {
         "Authorization": f"Bearer {token}",
@@ -55,9 +51,12 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "Accept": "application/json"
     }
 
+    logger.info(f"Sending public offer search payload: {json.dumps(payload, indent=2)}")
+
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         
+        # --- Save log regardless of API success (for debugging) ---
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             log_filename = f"{crypto_code}_{fiat_code}_{payment_method_slug}_{timestamp}.json"
@@ -76,19 +75,50 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
-                offers = data.get("data", {}).get("offers", [])
-                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug} in {payment_method_country_iso}")
-                return offers
+                # --- START OF NEW FILTER LOGIC ---
+                
+                # 1. Get the 'data' payload, which can be a dict or a list
+                payload_data = data.get("data", {})
+                
+                # 2. Extract the list of offers, handling both API response types
+                all_offers = []
+                if isinstance(payload_data, dict):
+                    all_offers = payload_data.get("offers", [])
+                elif isinstance(payload_data, list):
+                    all_offers = payload_data
+                
+                if not all_offers:
+                     logger.warning("API search returned success but no offers.")
+                     return [] # Return an empty list
+
+                logger.info(f"Received {len(all_offers)} offers from API. Filtering for fiat_currency_code='{fiat_code.upper()}'...")
+
+                # 3. Manually filter the list for the correct fiat currency
+                filtered_offers = [
+                    offer for offer in all_offers 
+                    if offer.get("fiat_currency_code") == fiat_code.upper()
+                ]
+                
+                logger.info(f"Found {len(filtered_offers)} matching offers after filtering.")
+
+                # 4. Put the filtered list back into the original structure
+                if isinstance(payload_data, dict):
+                    payload_data["offers"] = filtered_offers
+                    return payload_data # Return the modified data object
+                elif isinstance(payload_data, list):
+                    return filtered_offers # Return the modified list
+                # --- END OF NEW FILTER LOGIC ---
+
             else:
                 logger.error(f"Error in public offer search response: {response.text}")
-                return []
+                return None # <-- MODIFIED: Return None on failure
         else:
             logger.error(f"Failed to fetch public offers (Status: {response.status_code}): {response.text}")
-            return []
+            return None # <-- MODIFIED: Return None on failure
             
     except requests.exceptions.RequestException as e:
         logger.error(f"An exception occurred fetching public offers: {e}")
-        return []
+        return None # <-- MODIFIED: Return None on failure
 
 
 def get_all_offers():
@@ -225,7 +255,7 @@ def send_scheduled_task_alert(message):
     """
     Sends a simple text alert to Telegram.
     """
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = f"httpsC://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": escape_markdown(message),
