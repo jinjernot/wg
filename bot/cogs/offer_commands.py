@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import requests
+import json
+import os
 from config import DISCORD_GUILD_ID
 from config_messages.discord_messages import TOGGLE_OFFERS_EMBED, COLORS, SERVER_UNREACHABLE
 
@@ -49,14 +51,29 @@ class OfferCommands(commands.Cog):
                 await interaction.followup.send(f"Error: {data.get('error', 'Unknown server error.')}", ephemeral=True)
                 return
 
-            offers = data.get("offers", [])
+            # --- MODIFIED: Get full data and attach as file ---
+            full_data = data.get("data", {})
+            offers = full_data.get("offers", [])
+            
+            json_filename = f"{crypto.lower()}_{fiat.lower()}_{payment_method}_search.json"
+            try:
+                with open(json_filename, "w", encoding="utf-8") as f:
+                    json.dump(full_data, f, indent=4)
+                json_file = discord.File(json_filename, filename=f"full_response_{json_filename}")
+            except Exception as e:
+                await interaction.followup.send(f"Could not create results file: {e}", ephemeral=True)
+                return
+            # --- END MODIFICATION ---
+
             if not offers:
-                await interaction.followup.send("No public offers found for this market.", ephemeral=True)
+                await interaction.followup.send("No public offers found for this market. See attached file for full API response.", file=json_file, ephemeral=True)
+                os.remove(json_filename)
                 return
 
             embed_title_prefix = "Top 5 Competitors" if trade_direction.value == "sell" else "Top 5 Buyers"
             embed = discord.Embed(
                 title=f"{embed_title_prefix} for {crypto.upper()}/{fiat.upper()} ({payment_method})",
+                description="See attached file for the full, raw API response.",
                 color=COLORS["info"]
             )
             
@@ -83,10 +100,17 @@ class OfferCommands(commands.Cog):
                     inline=False
                 )
             
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            # --- MODIFIED: Send embed and file ---
+            await interaction.followup.send(embed=embed, file=json_file, ephemeral=True)
+            os.remove(json_filename)
 
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
+            if 'json_filename' in locals() and os.path.exists(json_filename):
+                os.remove(json_filename)
+
 
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="offers", description="Turn all trading offers on or off.")

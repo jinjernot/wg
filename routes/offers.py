@@ -21,9 +21,13 @@ def search_public_offers_route():
         return jsonify({"success": False, "error": "Missing required parameters (crypto_code, fiat_code, payment_method)."}), 400
 
     # --- Pass the new filter ---
-    offers = search_public_offers(crypto_code, fiat_code, payment_method, trade_direction, payment_method_country_iso, country_code)
+    response_data = search_public_offers(crypto_code, fiat_code, payment_method, trade_direction, payment_method_country_iso, country_code)
     
-    return jsonify({"success": True, "offers": offers})
+    # --- MODIFIED: Return the whole 'data' object ---
+    if response_data is not None:
+        return jsonify({"success": True, "data": response_data})
+    else:
+        return jsonify({"success": False, "error": "API search failed or returned no data.", "data": {}})
 
 
 @offers_bp.route("/offer/toggle", methods=["POST"])
