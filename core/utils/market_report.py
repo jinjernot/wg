@@ -45,8 +45,15 @@ def generate_mxn_market_report():
                 logger.info(f"Scanning market: {market_key}")
                 
                 try:
-                    # --- ADD CORRECT COUNTRY_ISO FILTER ---
-                    offers = search_public_offers(crypto, FIAT, pm_slug, trade_direction, payment_method_country_iso=COUNTRY_ISO)
+                    # --- ADD CORRECT COUNTRY_ISO FILTERS ---
+                    offers = search_public_offers(
+                        crypto, 
+                        FIAT, 
+                        pm_slug, 
+                        trade_direction, 
+                        payment_method_country_iso=COUNTRY_ISO, 
+                        country_code=COUNTRY_ISO
+                    )
 
                     if not offers:
                         logger.warning(f"No offers found for market {market_key}.")

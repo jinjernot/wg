@@ -34,9 +34,11 @@ class OfferCommands(commands.Cog):
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            "trade_direction": trade_direction.value, # <-- Changed from "sell"
-            # --- Send the new filter key ---
-            "payment_method_country_iso": country 
+            "trade_direction": trade_direction.value,
+            # --- Send the payment method country filter ---
+            "payment_method_country_iso": country,
+            # --- ADDED FIAT COUNTRY FILTER ---
+            "country_code": country
         }
         
         try:

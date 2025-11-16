@@ -13,7 +13,7 @@ MARKET_SEARCH_LOG_DIR = os.path.join('data', 'logs', 'market_search')
 os.makedirs(MARKET_SEARCH_LOG_DIR, exist_ok=True)
 
 # --- MODIFIED FUNCTION SIGNATURE ---
-def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", payment_method_country_iso: str = None):
+def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", payment_method_country_iso: str = None, country_code: str = None):
     """
     Fetches public offers from the Noones /offer/all endpoint.
     This REQUIRES authentication, so it uses the first account in config.
@@ -43,7 +43,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     # Replaced 'country_code' with 'payment_method_country_iso'
     if payment_method_country_iso:
         payload["payment_method_country_iso"] = payment_method_country_iso.upper()
-    # --- END CORRECTED FILTER ---
+    
+    # --- ADDED FIAT COUNTRY FILTER ---
+    if country_code:
+        payload["country_code"] = country_code.upper()
+    # --- END ADDED FILTER ---
     
     headers = {
         "Authorization": f"Bearer {token}",
