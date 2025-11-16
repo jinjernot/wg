@@ -6,6 +6,49 @@ from core.messaging.alerts.telegram_alert import escape_markdown
 
 logger = logging.getLogger(__name__)
 
+def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy"):
+    """
+    Fetches public offers from the Noones search endpoint.
+    This does NOT require authentication.
+    """
+    url = "https://api.noones.com/noones/v1/offer/search"
+    
+    payload = {
+        "crypto_currency_code": crypto_code.upper(),
+        "fiat_currency_code": fiat_code.upper(),
+        "payment_method_slug": payment_method_slug,
+        "trade_direction": trade_direction,
+        "sort_by": "best_price", # Sort by best margin first
+        "limit": 50 # Fetch up to 50 offers
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "success":
+                offers = data.get("data", {}).get("offers", [])
+                logger.info(f"Successfully fetched {len(offers)} public offers for {payment_method_slug}")
+                return offers
+            else:
+                logger.error(f"Error in public offer search response: {response.text}")
+                return []
+        else:
+            logger.error(f"Failed to fetch public offers (Status: {response.status_code}): {response.text}")
+            return []
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"An exception occurred fetching public offers: {e}")
+        return []
+
+# --- EXISTING FUNCTIONS ---
+
 def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
     all_offers_data = []

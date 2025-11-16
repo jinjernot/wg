@@ -1,8 +1,23 @@
 from flask import Blueprint, request, jsonify
-from core.api.offers import set_offer_status, get_all_offers, toggle_single_offer
+from core.api.offers import set_offer_status, get_all_offers, toggle_single_offer, search_public_offers
 import core.utils.web_utils as web_utils
 
 offers_bp = Blueprint('offers', __name__)
+
+
+@offers_bp.route("/offer/search", methods=["POST"])
+def search_public_offers_route():
+    data = request.json
+    crypto_code = data.get("crypto_code")
+    fiat_code = data.get("fiat_code")
+    payment_method = data.get("payment_method")
+    trade_direction = data.get("trade_direction", "buy") # Default to 'buy' (users are buying crypto)
+
+    if not all([crypto_code, fiat_code, payment_method]):
+        return jsonify({"success": False, "error": "Missing required parameters (crypto_code, fiat_code, payment_method)."}), 400
+
+    offers = search_public_offers(crypto_code, fiat_code, payment_method, trade_direction)
+    return jsonify({"success": True, "offers": offers})
 
 
 @offers_bp.route("/offer/toggle", methods=["POST"])

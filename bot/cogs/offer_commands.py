@@ -11,6 +11,69 @@ MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 class OfferCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @app_commands.guilds(MY_GUILD)
+    @app_commands.command(name="search_offers", description="Search public offers on Noones to see competitor data.")
+    @app_commands.describe(
+        payment_method="The payment method slug (e.g., bank-transfer)",
+        crypto="The crypto code (e.g., BTC)",
+        fiat="The fiat code (e.g., MXN)"
+    )
+    async def search_offers_command(self, interaction: discord.Interaction, payment_method: str, crypto: str, fiat: str):
+        await interaction.response.defer(ephemeral=True)
+        
+        payload = {
+            "crypto_code": crypto,
+            "fiat_code": fiat,
+            "payment_method": payment_method,
+            "trade_direction": "buy" # 'buy' = you are searching for users SELLING crypto
+        }
+        
+        try:
+            response = requests.post("http://127.0.0.1:5001/offer/search", json=payload, timeout=20)
+            data = response.json()
+
+            if not data.get("success"):
+                await interaction.followup.send(f"Error: {data.get('error', 'Unknown server error.')}", ephemeral=True)
+                return
+
+            offers = data.get("offers", [])
+            if not offers:
+                await interaction.followup.send("No public offers found for this market.", ephemeral=True)
+                return
+
+            embed = discord.Embed(
+                title=f"Top 5 Competitors for {crypto.upper()}/{fiat.upper()} ({payment_method})",
+                color=COLORS["info"]
+            )
+            
+            for offer in offers[:5]: # Show the top 5
+                user_data = offer.get("user", {})
+                
+                # This is the info you wanted
+                username = user_data.get('username', 'N/A')
+                total_trades = user_data.get('total_trades', 0)
+                reputation = f"+{user_data.get('positive_reputation', 0)} / -{user_data.get('negative_reputation', 0)}"
+                last_seen = user_data.get('last_seen_formatted', 'N/A')
+
+                field_value = (
+                    f"**User:** {username} ({reputation})\n"
+                    f"**Trades:** {total_trades}\n"
+                    f"**Status:** {last_seen}\n"
+                    f"**Range:** {offer.get('fiat_amount_range_min')} - {offer.get('fiat_amount_range_max')} {fiat.upper()}\n"
+                    f"**Margin:** `{offer.get('margin')}%`"
+                )
+                
+                embed.add_field(
+                    name=f"@{username}",
+                    value=field_value,
+                    inline=False
+                )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except requests.exceptions.RequestException:
+            await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="offers", description="Turn all trading offers on or off.")
@@ -24,7 +87,7 @@ class OfferCommands(commands.Cog):
         is_enabled = status.value == "on"
         try:
             response = requests.post(
-                "http://127.0.0.1:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
+                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = TOGGLE_OFFERS_EMBED["success"].copy()
@@ -48,7 +111,7 @@ class OfferCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             response = requests.get(
-                "http://127.0.0.1:5001/get_offers", timeout=15)
+                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/get_offers", timeout=15)
             offers = response.json() if response.status_code == 200 else []
             if not offers:
                 await interaction.followup.send("You have no active offers.", ephemeral=True)
@@ -81,7 +144,7 @@ class OfferCommands(commands.Cog):
                    "account_name": account_name, "enabled": is_enabled}
         try:
             response = requests.post(
-                "http://127.0.0.1:5001/offer/toggle_single", json=payload, timeout=15)
+                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/offer/toggle_single", json=payload, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed = discord.Embed(title=f"✅ Offer Status Updated",
