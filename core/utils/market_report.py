@@ -8,7 +8,7 @@ from core.api.offers import search_public_offers
 logger = logging.getLogger(__name__)
 
 # --- UPDATED LIST ---
-# Added all relevant gift card slugs for MXN
+# Corrected Amazon slug based on your feedback and removed -mxn from Google Play.
 MXN_PAYMENT_METHODS = [
     "bank-transfer",
     "oxxo",
@@ -18,11 +18,10 @@ MXN_PAYMENT_METHODS = [
     "bbva-bancomer",
     "banorte",
     "citibanamex",
-    "amazon-gift-card-mx",
+    "amazon-gift-card",
     "uber-gift-card",
     "uber-eats",
-    "google-play-gift-card",
-    "google-play-gift-card-mxn"
+    "google-play-gift-card"
 ]
 # --- END UPDATED LIST ---
 
