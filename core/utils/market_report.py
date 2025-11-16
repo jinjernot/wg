@@ -7,8 +7,8 @@ from core.api.offers import search_public_offers
 
 logger = logging.getLogger(__name__)
 
-# --- Define the scope of your report ---
-# You can add or remove any payment method slugs here
+# --- UPDATED LIST ---
+# Added all relevant gift card slugs for MXN
 MXN_PAYMENT_METHODS = [
     "bank-transfer",
     "oxxo",
@@ -17,8 +17,15 @@ MXN_PAYMENT_METHODS = [
     "banco-azteca",
     "bbva-bancomer",
     "banorte",
-    "citibanamex"
+    "citibanamex",
+    "amazon-gift-card-mx",
+    "uber-gift-card",
+    "uber-eats",
+    "google-play-gift-card",
+    "google-play-gift-card-mxn"
 ]
+# --- END UPDATED LIST ---
+
 CRYPTOS = ["BTC", "USDT"]
 FIAT = "MXN"
 

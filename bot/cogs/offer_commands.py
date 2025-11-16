@@ -26,10 +26,10 @@ class OfferCommands(commands.Cog):
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            # --- LOGIC FIX ---
-            # Your bot is BUYING crypto. To see competitors, you must
-            # search for other "buy" offers.
-            "trade_direction": "buy"
+            # --- CRITICAL FIX ---
+            # Your bot is SELLING crypto. To see your competitors (the list
+            # from your screenshot), we must search for "sell" offers.
+            "trade_direction": "sell"
             # --- END FIX ---
         }
         
