@@ -13,6 +13,8 @@ from config_messages.discord_messages import (
     USER_PROFILE_EMBED, USER_NOT_FOUND_EMBED, SERVER_UNREACHABLE,
     RELEASE_TRADE_EMBEDS, COLORS
 )
+# --- ADDED IMPORT ---
+from core.utils.profile import generate_user_profile
 
 logger = logging.getLogger(__name__)
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
@@ -49,8 +51,20 @@ def create_trade_field(trade):
     # Use the function to get the colored code block for the status
     status_text_block = format_status_for_discord_code_block(status, has_attachment)
 
+    # --- MODIFIED SECTION: Add buyer stats ---
+    profile_data = trade.get('buyer_profile')
+    buyer_stats_line = ""
+    if profile_data:
+        successful_trades = profile_data.get('successful_trades', 0)
+        total_volume = profile_data.get('total_volume', 0.0)
+        currency_code = trade.get('fiat_currency_code', '')
+        # Format as one line
+        buyer_stats_line = f"**Buyer Stats:** {successful_trades} trades (${total_volume:,.2f} {currency_code})\n"
+    # --- END MODIFICATION ---
+
     field_value = (
         f"**Buyer:** {trade.get('responder_username', 'N/A')}\n"
+        f"{buyer_stats_line}"  # <-- Add the new line here
         f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
         f"**Account:** {account_name}\n"
         f"{status_text_block}" # Display the status code block
@@ -131,6 +145,20 @@ class TradeCommands(commands.Cog):
 
         logger.info("Change detected in active trades. Refreshing channel.")
 
+        # --- MODIFIED SECTION: Fetch profile data ---
+        # Fetch profile data for all unique buyers in the trade list
+        profile_cache = {}
+        if trades:
+            for trade in trades:
+                username = trade.get('responder_username')
+                if username and username not in profile_cache:
+                    # This function reads from disk, so we cache it for this loop
+                    profile_cache[username] = generate_user_profile(username)
+                
+                # Attach the profile (or None) to the trade object
+                trade['buyer_profile'] = profile_cache.get(username)
+        # --- END MODIFICATION ---
+
         await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
 
         if not trades:
@@ -143,7 +171,7 @@ class TradeCommands(commands.Cog):
             )
             # Add trades as fields, max 25 fields per embed
             for trade in trades[:25]:
-                field = create_trade_field(trade)
+                field = create_trade_field(trade) # trade object now contains 'buyer_profile'
                 embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
         
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
@@ -170,6 +198,16 @@ class TradeCommands(commands.Cog):
                 await interaction.followup.send(embed=discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED), ephemeral=True)
                 return
 
+            # --- MODIFIED SECTION: Fetch profile data ---
+            profile_cache = {}
+            if trades:
+                for trade in trades:
+                    username = trade.get('responder_username')
+                    if username and username not in profile_cache:
+                        profile_cache[username] = generate_user_profile(username)
+                    trade['buyer_profile'] = profile_cache.get(username)
+            # --- END MODIFICATION ---
+
             embed = discord.Embed(
                 title=f"📊 Active Trades ({len(trades)})",
                 color=COLORS.get("info", 0x5865F2),
@@ -178,7 +216,7 @@ class TradeCommands(commands.Cog):
 
             # Add trades as fields, max 10 for ephemeral messages for readability
             for trade in trades[:10]:
-                field = create_trade_field(trade)
+                field = create_trade_field(trade) # trade object now contains 'buyer_profile'
                 embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
 
             await interaction.followup.send(embed=embed, ephemeral=True)
