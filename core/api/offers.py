@@ -1,13 +1,19 @@
 import requests
 import logging
+import json
+import os
+from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-# --- MODIFIED: Added ACCOUNTS import ---
 from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from core.messaging.alerts.telegram_alert import escape_markdown
 
 logger = logging.getLogger(__name__)
 
-# --- MODIFIED FUNCTION ---
+# --- NEW ---
+MARKET_SEARCH_LOG_DIR = os.path.join('data', 'logs', 'market_search')
+os.makedirs(MARKET_SEARCH_LOG_DIR, exist_ok=True)
+# --- END NEW ---
+
 def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy"):
     """
     Fetches public offers from the Noones /offer/all endpoint.
@@ -24,29 +30,45 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
         return []
 
-    # --- CORRECTED URL ---
     url = "https://api.noones.com/noones/v1/offer/all"
     
-    # Parameters for the /offer/all endpoint
     payload = {
         "crypto_currency_code": crypto_code.upper(),
         "fiat_currency_code": fiat_code.upper(),
         "payment_method_slug": payment_method_slug,
-        "offer_type": trade_direction, # "buy" or "sell"
+        "offer_type": trade_direction,
         "sort_by": "best_price",
         "limit": 50
     }
     
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json", # Use JSON for the POST body
+        "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
     try:
-        # --- Use POST method ---
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         
+        # --- NEW LOGGING BLOCK ---
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            log_filename = f"{crypto_code}_{fiat_code}_{payment_method_slug}_{timestamp}.json"
+            log_filepath = os.path.join(MARKET_SEARCH_LOG_DIR, log_filename)
+            
+            with open(log_filepath, 'w', encoding='utf-8') as f:
+                try:
+                    # Try to save pretty-printed JSON
+                    json.dump(response.json(), f, indent=4)
+                    logger.info(f"Saved market search JSON response to {log_filepath}")
+                except json.JSONDecodeError:
+                    # If it's not JSON (e.g., an HTML error page), save as text
+                    f.write(response.text)
+                    logger.info(f"Saved market search TEXT response to {log_filepath}")
+        except Exception as e:
+            logger.error(f"Failed to save market search log: {e}")
+        # --- END LOGGING BLOCK ---
+
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
@@ -57,25 +79,21 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
                 logger.error(f"Error in public offer search response: {response.text}")
                 return []
         else:
-            # This is where your 404 error was coming from.
             logger.error(f"Failed to fetch public offers (Status: {response.status_code}): {response.text}")
             return []
             
     except requests.exceptions.RequestException as e:
         logger.error(f"An exception occurred fetching public offers: {e}")
         return []
-# --- END MODIFIED FUNCTION ---
 
 
 def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
     all_offers_data = []
     for account in ACCOUNTS:
-        # --- ADDED TEMPORARY CHECK ---
         if "_Paxful" in account.get("name", ""):
             logger.warning(f"Temporarily skipping offer fetching for Paxful account: {account.get('name')}")
             continue
-        # --- END OF CHECK ---
 
         token = fetch_token_with_retry(account)
         if not token:
@@ -128,11 +146,9 @@ def get_all_offers():
 
 def toggle_single_offer(account_name, offer_hash, turn_on):
     """Activates or deactivates a single offer."""
-    # --- ADDED TEMPORARY CHECK ---
     if "_Paxful" in account_name:
          logger.warning(f"Temporarily skipping single offer toggle for Paxful account: {account_name}")
          return {"success": False, "error": "Paxful actions are temporarily disabled."}
-    # --- END OF CHECK ---
 
     target_account = next((acc for acc in ACCOUNTS if acc["name"] == account_name), None)
     if not target_account:
@@ -149,10 +165,9 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
     
     platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in target_account["name"] else "https://api.noones.com/noones/v1"
     
-    # --- CORRECTED ENDPOINT AND DATA ---
     endpoint = "/offer/activate" if turn_on else "/offer/deactivate"
     url = f"{platform_url}{endpoint}"
-    data = {"offer_hash": offer_hash} # Pass hash in the body
+    data = {"offer_hash": offer_hash}
     
     try:
         response = requests.post(url, headers=headers, data=data, timeout=15)
@@ -171,11 +186,9 @@ def set_offer_status(turn_on):
     """
     results = []
     for account in ACCOUNTS:
-        # --- ADDED TEMPORARY CHECK ---
         if "_Paxful" in account.get("name", ""):
             logger.warning(f"Temporarily skipping offer status change for Paxful account: {account.get('name')}")
             continue
-        # --- END OF CHECK ---
 
         token = fetch_token_with_retry(account)
         if not token:
