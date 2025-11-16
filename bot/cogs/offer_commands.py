@@ -11,8 +11,7 @@ MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 class OfferCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    # --- MODIFIED COMMAND ---
+        
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="search_offers", description="Search public offers on Noones to see competitor data.")
     @app_commands.describe(
@@ -27,7 +26,11 @@ class OfferCommands(commands.Cog):
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            "trade_direction": "sell" # 'sell' = you are searching for users SELLING crypto to you (your 'buy' offers)
+            # --- LOGIC FIX ---
+            # Your bot is BUYING crypto. To see competitors, you must
+            # search for other "buy" offers.
+            "trade_direction": "buy"
+            # --- END FIX ---
         }
         
         try:
@@ -48,19 +51,14 @@ class OfferCommands(commands.Cog):
                 color=COLORS["info"]
             )
             
-            # Show the top 5
             for offer in offers[:5]:
-                # --- START OF FIX ---
-                # The data is not in a nested 'user' object, it's flat in the 'offer' object.
-                
                 username = offer.get('offer_owner_username', 'N/A')
-                total_trades = offer.get('total_successful_trades', 0) # Corrected field
+                total_trades = offer.get('total_successful_trades', 0)
                 reputation = (
                     f"+{offer.get('offer_owner_feedback_positive', 0)} / "
                     f"-{offer.get('offer_owner_feedback_negative', 0)}"
-                ) # Corrected fields
-                last_seen = offer.get('last_seen_string', 'N/A') # Corrected field
-                # --- END OF FIX ---
+                )
+                last_seen = offer.get('last_seen_string', 'N/A')
 
                 field_value = (
                     f"**User:** {username} ({reputation})\n"
@@ -80,8 +78,6 @@ class OfferCommands(commands.Cog):
 
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-
-    # --- END MODIFIED COMMAND ---
 
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="offers", description="Turn all trading offers on or off.")

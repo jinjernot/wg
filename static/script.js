@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingToggles = document.querySelectorAll('.setting-toggle');
     const offersContainer = document.getElementById('offers-container');
     const generateChartsBtn = document.getElementById('generate-charts-btn'); 
+    // --- NEW ---
+    const generateMarketReportBtn = document.getElementById('generate-market-report-btn');
+    // --- END NEW ---
     const balancesContainer = document.getElementById('wallet-balances-container');
     const toggleOffersBtn = document.getElementById('toggle-offers-visibility-btn');
 
@@ -59,6 +62,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // --- NEW LISTENER ---
+    if (generateMarketReportBtn) {
+        generateMarketReportBtn.addEventListener('click', async () => {
+            generateMarketReportBtn.disabled = true;
+            generateMarketReportBtn.textContent = 'Generating Report... (this may take a minute)';
+
+            try {
+                // Set a long timeout, as this request can take a while
+                const response = await fetch('/generate_market_report', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Report generated! Your download will begin.');
+                    // Create a temporary link to trigger the download
+                    const downloadUrl = `/charts/${result.filename}`;
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.setAttribute('download', result.filename); // This forces download
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert(`Error generating report: ${result.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to generate market report:', error);
+                alert('An unexpected error occurred while generating the report.');
+            } finally {
+                generateMarketReportBtn.disabled = false;
+                generateMarketReportBtn.textContent = 'Download MXN Market Report';
+            }
+        });
+    }
+    // --- END NEW LISTENER ---
 
     if (toggleOffersBtn) {
         toggleOffersBtn.addEventListener('click', () => {
