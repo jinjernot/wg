@@ -12,6 +12,7 @@ class OfferCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    # --- MODIFIED COMMAND ---
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="search_offers", description="Search public offers on Noones to see competitor data.")
     @app_commands.describe(
@@ -26,7 +27,7 @@ class OfferCommands(commands.Cog):
             "crypto_code": crypto,
             "fiat_code": fiat,
             "payment_method": payment_method,
-            "trade_direction": "buy" # 'buy' = you are searching for users SELLING crypto
+            "trade_direction": "sell" # 'sell' = you are searching for users SELLING crypto to you (your 'buy' offers)
         }
         
         try:
@@ -47,14 +48,19 @@ class OfferCommands(commands.Cog):
                 color=COLORS["info"]
             )
             
-            for offer in offers[:5]: # Show the top 5
-                user_data = offer.get("user", {})
+            # Show the top 5
+            for offer in offers[:5]:
+                # --- START OF FIX ---
+                # The data is not in a nested 'user' object, it's flat in the 'offer' object.
                 
-                # This is the info you wanted
-                username = user_data.get('username', 'N/A')
-                total_trades = user_data.get('total_trades', 0)
-                reputation = f"+{user_data.get('positive_reputation', 0)} / -{user_data.get('negative_reputation', 0)}"
-                last_seen = user_data.get('last_seen_formatted', 'N/A')
+                username = offer.get('offer_owner_username', 'N/A')
+                total_trades = offer.get('total_successful_trades', 0) # Corrected field
+                reputation = (
+                    f"+{offer.get('offer_owner_feedback_positive', 0)} / "
+                    f"-{offer.get('offer_owner_feedback_negative', 0)}"
+                ) # Corrected fields
+                last_seen = offer.get('last_seen_string', 'N/A') # Corrected field
+                # --- END OF FIX ---
 
                 field_value = (
                     f"**User:** {username} ({reputation})\n"
@@ -74,7 +80,9 @@ class OfferCommands(commands.Cog):
 
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-        
+
+    # --- END MODIFIED COMMAND ---
+
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="offers", description="Turn all trading offers on or off.")
     @app_commands.describe(status="The desired status for your offers")
@@ -87,7 +95,7 @@ class OfferCommands(commands.Cog):
         is_enabled = status.value == "on"
         try:
             response = requests.post(
-                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
+                "http://127.0.0.1:5001/offer/toggle", json={"enabled": is_enabled}, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed_data = TOGGLE_OFFERS_EMBED["success"].copy()
@@ -111,7 +119,7 @@ class OfferCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         try:
             response = requests.get(
-                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/get_offers", timeout=15)
+                "http://127.0.0.1:5001/get_offers", timeout=15)
             offers = response.json() if response.status_code == 200 else []
             if not offers:
                 await interaction.followup.send("You have no active offers.", ephemeral=True)
@@ -144,7 +152,7 @@ class OfferCommands(commands.Cog):
                    "account_name": account_name, "enabled": is_enabled}
         try:
             response = requests.post(
-                "http://1.bp.blogspot.com/-RjTz-v-0f6E/UY20N0_iL4I/AAAAAAAAAYU/_xo9S5-1hI8/s1600/z-todos.jpg:5001/offer/toggle_single", json=payload, timeout=15)
+                "http://127.0.0.1:5001/offer/toggle_single", json=payload, timeout=15)
             data = response.json()
             if response.status_code == 200 and data.get("success"):
                 embed = discord.Embed(title=f"✅ Offer Status Updated",
