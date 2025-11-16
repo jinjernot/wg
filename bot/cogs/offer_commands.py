@@ -43,6 +43,8 @@ class OfferCommands(commands.Cog):
             "country_code": country
         }
         
+        json_filename = f"{crypto.lower()}_{fiat.lower()}_{payment_method}_search.json"
+        
         try:
             response = requests.post("http://127.0.0.1:5001/offer/search", json=payload, timeout=20)
             data = response.json()
@@ -53,12 +55,19 @@ class OfferCommands(commands.Cog):
 
             # --- MODIFIED: Get full data and attach as file ---
             full_data = data.get("data", {})
-            offers = full_data.get("offers", [])
             
-            json_filename = f"{crypto.lower()}_{fiat.lower()}_{payment_method}_search.json"
+            # --- FIX FOR INCONSISTENT API RESPONSE ---
+            offers = []
+            if isinstance(full_data, dict):
+                offers = full_data.get("offers", [])
+            elif isinstance(full_data, list):
+                offers = full_data  # The data *is* the list of offers
+            # --- END FIX ---
+            
             try:
                 with open(json_filename, "w", encoding="utf-8") as f:
-                    json.dump(full_data, f, indent=4)
+                    # Dump full_data, which will be either the list or dict
+                    json.dump(full_data, f, indent=4) 
                 json_file = discord.File(json_filename, filename=f"full_response_{json_filename}")
             except Exception as e:
                 await interaction.followup.send(f"Could not create results file: {e}", ephemeral=True)
@@ -106,9 +115,9 @@ class OfferCommands(commands.Cog):
 
         except requests.exceptions.RequestException:
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
-            if 'json_filename' in locals() and os.path.exists(json_filename):
+        except Exception as e: # <--- THIS IS THE CATCH BLOCK
+            await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True) # <--- THIS IS THE ERROR MESSAGE
+            if os.path.exists(json_filename):
                 os.remove(json_filename)
 
 
