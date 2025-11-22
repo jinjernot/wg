@@ -2,6 +2,8 @@ import logging
 import requests
 import threading
 import time
+import os
+import json
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,10 @@ class HeartbeatMonitor:
         self.start_time = time.time()
         self.running = False
         self.thread = None
+        self.state_file = os.path.join('data', 'heartbeat_state.json')
+        
+        # Load previous message ID if exists
+        self._load_state()
     
     def start(self):
         """Start the heartbeat monitor in background thread"""
@@ -73,6 +79,7 @@ class HeartbeatMonitor:
             if response.status_code == 200:
                 data = response.json()
                 self.message_id = data.get("id")
+                self._save_state()  # Save message ID
                 logger.info(f"Heartbeat message created: {self.message_id}")
             else:
                 logger.error(f"Failed to create heartbeat message: {response.status_code}")
@@ -132,3 +139,24 @@ class HeartbeatMonitor:
             f"**Uptime:** {uptime_str}\n"
             f"**Last Update:** <t:{int(time.time())}:R>"
         )
+    
+    def _load_state(self):
+        """Load previous message ID from file"""
+        try:
+            if os.path.exists(self.state_file):
+                with open(self.state_file, 'r') as f:
+                    state = json.load(f)
+                    self.message_id = state.get('message_id')
+                    if self.message_id:
+                        logger.info(f"Loaded previous heartbeat message ID: {self.message_id}")
+        except Exception as e:
+            logger.error(f"Failed to load heartbeat state: {e}")
+    
+    def _save_state(self):
+        """Save message ID to file"""
+        try:
+            os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
+            with open(self.state_file, 'w') as f:
+                json.dump({'message_id': self.message_id}, f)
+        except Exception as e:
+            logger.error(f"Failed to save heartbeat state: {e}")
