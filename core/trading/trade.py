@@ -81,6 +81,12 @@ class Trade:
     def process(self):
         """Main entry point to process a trade's lifecycle."""
         logger.info(f"--- Starting to process trade: {self.trade_hash} ---")
+        
+        # SKIP ALL PAXFUL TRADES
+        if "Paxful" in self.platform:
+            logger.info(f"Skipping Paxful trade: {self.trade_hash}")
+            return
+        
         if self.trade_state.get("trade_status") == "Dispute open":
             logger.info(
                 f"Trade {self.trade_hash} is in dispute. Halting all automated messages.")
