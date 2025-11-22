@@ -33,7 +33,8 @@ from core.messaging.trade_lifecycle_messages import (
     send_payment_confirmed_no_attachment_message,
     send_online_reply_message,
     send_oxxo_redirect_message,
-    send_third_party_allowed_message
+    send_third_party_allowed_message,
+    send_release_message
 )
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
@@ -331,6 +332,7 @@ class Trade:
             self.handle_online_query(new_messages)
             self.handle_oxxo_query(new_messages)
             self.handle_third_party_query(new_messages)
+            self.handle_release_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
@@ -494,6 +496,22 @@ class Trade:
                         self.trade_state['third_party_reply_sent'] = True
                         self.save()
                         break
+
+    def handle_release_query(self, new_messages):
+        """Checks if a user asks about release."""
+        logger.info(f"--- Checking for Release Query: {self.trade_hash} ---")
+        if self.trade_state.get('release_reply_sent'):
+            return
+
+        for msg in new_messages:
+            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                message_text = msg.get("text", "")
+                if isinstance(message_text, str) and "release" in message_text.lower():
+                    logger.info(f"Release query detected for trade {self.trade_hash}. Sending reply.")
+                    send_release_message(self.trade_hash, self.account, self.headers)
+                    self.trade_state['release_reply_sent'] = True
+                    self.save()
+                    break
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""

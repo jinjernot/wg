@@ -60,3 +60,7 @@ def send_oxxo_redirect_message(trade_hash, account, headers, max_retries=3):
 def send_third_party_allowed_message(trade_hash, account, headers, max_retries=3):
     """Sends a message to the user to inform them that third party is allowed."""
     _send_lifecycle_message(trade_hash, account, headers, THIRD_PARTY_ALLOWED_MESSAGE, "Third Party Allowed", max_retries)
+
+def send_release_message(trade_hash, account, headers, max_retries=3):
+    """Sends a message to reply when user asks about release."""
+    _send_lifecycle_message(trade_hash, account, headers, RELEASE_MESSAGE, "Release reply", max_retries)
