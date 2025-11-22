@@ -320,7 +320,7 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     }
     send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
 
-def create_email_validation_embed(trade_hash, success, account_name):
+def create_email_validation_embed(trade_hash, success, account_name, details=None):
     """Builds and sends an email validation embed using templates."""
     template = EMAIL_VALIDATION_EMBEDS["success"] if success else EMAIL_VALIDATION_EMBEDS["failure"]
 
@@ -328,6 +328,11 @@ def create_email_validation_embed(trade_hash, success, account_name):
         {"name": field["name"], "value": field["value"].format(account_name=account_name)}
         for field in template["fields"]
     ]
+
+    if success and details:
+        formatted_fields.append({"name": "🏦 Bank Found", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
+        formatted_fields.append({"name": "💰 Amount Found", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
+        formatted_fields.append({"name": "👤 Name Found", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
 
     embed = {
         "title": template["title"],
@@ -392,6 +397,11 @@ def create_name_validation_embed(trade_hash, success, account_name):
         {"name": field["name"], "value": field["value"].format(account_name=account_name)}
         for field in template["fields"]
     ]
+
+    if success and details:
+        formatted_fields.append({"name": "🏦 Bank Found", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
+        formatted_fields.append({"name": "💰 Amount Found", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
+        formatted_fields.append({"name": "👤 Name Found", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
 
     embed = {
         "title": template["title"],

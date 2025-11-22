@@ -203,107 +203,149 @@ def extract_banco_azteca_details(html_body):
 def check_for_payment_email(service, trade_details, platform, credential_identifier):
     """Searches for, saves, and validates a payment confirmation email."""
     if not service:
-        return False
+        return False, None
 
     payment_method_slug = trade_details.get("payment_method_slug", "").lower()
     account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)
     if not account_config:
         logger.warning(f"No email validation config found for '{credential_identifier}'. Skipping.")
-        return False
+        return False, None
 
-    query, log_folder, validator, expected_name = None, None, None, None
+    # Define candidates to check: (validator_type, query_template, name_key)
+    candidates = []
+    
     if payment_method_slug == "oxxo":
-        query = 'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo; (OXXO)")'
-        log_folder, validator = "oxxo", "oxxo"
-        expected_name = account_config.get("name_oxxo")
+        candidates.append((
+            "oxxo", 
+            'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo; (OXXO)")', 
+            "name_oxxo"
+        ))
     elif payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
-        query = 'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI")'
-        log_folder, validator = "bank-transfer", "scotiabank"
-        expected_name = account_config.get("name_scotiabank")
+        # Generic Bank Transfer - Check BOTH Scotiabank and Banco Azteca
+        # Priority 1: Scotiabank
+        candidates.append((
+            "scotiabank", 
+            'from:avisosScotiabank@scotiabank.mx subject:("Aviso Scotiabank - Envio de Transferencia SPEI")', 
+            "name_scotiabank"
+        ))
+        # Priority 2: Banco Azteca
+        candidates.append((
+            "banco_azteca", 
+            'from:notificaciones@bazdigital.com subject:("Notificación Banco Azteca")', 
+            "name_banco_azteca"
+        ))
     elif payment_method_slug == "banco-azteca":
-        query = 'from:notificaciones@bazdigital.com subject:("Notificación Banco Azteca")'
-        log_folder, validator = "banco-azteca", "banco_azteca"
-        expected_name = account_config.get("name_banco_azteca")
+        candidates.append((
+            "banco_azteca", 
+            'from:notificaciones@bazdigital.com subject:("Notificación Banco Azteca")', 
+            "name_banco_azteca"
+        ))
     else:
-        return False
+        return False, None
 
-    if not expected_name:
-        logger.warning(f"Missing expected name in config for '{credential_identifier}' and method '{payment_method_slug}'.")
-        return False
-
-    try:
-        # Add a time constraint to the query to limit results
-        # Search last 3 hours instead of 1 hour for better coverage of delayed emails
-        after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
-        query += f" after:{after_time}"
+    # Iterate through candidates until a match is found
+    for validator, query_base, name_key in candidates:
+        expected_name = account_config.get(name_key)
         
-        logger.info(f"Searching for payment email with query: {query}")
-        logger.info(f"Expected amount: {trade_details.get('fiat_amount_requested')}, Expected name: {expected_name}")
+        if not expected_name:
+            logger.debug(f"Skipping validator {validator} for {credential_identifier}: Missing {name_key}")
+            continue
 
-        result = service.users().messages().list(userId="me", q=query, maxResults=10).execute()
-        message_ids = result.get("messages", [])
-        if not message_ids:
-            logger.warning(f"No emails found matching query for trade {trade_details.get('trade_hash')}")
-            return False
-        
-        logger.info(f"Found {len(message_ids)} potential emails to check")
+        try:
+            # Add time constraint
+            # Search last 3 hours instead of 1 hour for better coverage of delayed emails
+            after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
+            query = f"{query_base} after:{after_time}"
+            
+            logger.info(f"Searching ({validator}) with query: {query}")
+            logger.info(f"Expected amount: {trade_details.get('fiat_amount_requested')}, Expected name: {expected_name}")
 
-        full_messages = batch_get_messages(service, message_ids)
-        expected_amount = float(trade_details.get('fiat_amount_requested', '0.00'))
-        owner_username = trade_details.get("owner_username", "unknown_user")
+            result = service.users().messages().list(userId="me", q=query, maxResults=10).execute()
+            message_ids = result.get("messages", [])
+            
+            if not message_ids:
+                logger.warning(f"No emails found for {validator} matching query for trade {trade_details.get('trade_hash')}")
+                continue # Try next candidate
+            
+            logger.info(f"Found {len(message_ids)} potential emails for {validator}")
 
-        for full_message in full_messages:
-            email_body = get_email_body(full_message['payload'])
-            if not email_body:
-                continue
+            full_messages = batch_get_messages(service, message_ids)
 
-            found_amount, found_name = None, None
-            if validator == "scotiabank":
-                found_amount, found_name = extract_scotiabank_details(email_body)
-            elif validator == "oxxo":
-                found_amount, found_name = extract_oxxo_details(email_body)
-            elif validator == "banco_azteca":
-                found_amount, found_name = extract_banco_azteca_details(email_body)
+            for msg in full_messages:
+                email_body = get_email_body(msg['payload'])
+                if not email_body:
+                    continue
 
-            # Enhanced logging for debugging
-            logger.info(f"Extracted from email - Amount: {found_amount}, Name: {found_name}")
-            logger.info(f"Expected values - Amount: {expected_amount}, Name: {expected_name}")
+                expected_amount = float(trade_details.get("fiat_amount_requested", 0))
+                
+                found_amount, found_name = None, None
+                if validator == "scotiabank":
+                    found_amount, found_name = extract_scotiabank_details(email_body)
+                elif validator == "oxxo":
+                    found_amount, found_name = extract_oxxo_details(email_body)
+                elif validator == "banco_azteca":
+                    found_amount, found_name = extract_banco_azteca_details(email_body)
 
-            # --- Save Email Log ---
-            account_folder_name = f"{owner_username}_{platform}"
-            log_directory = os.path.join("data", "logs", log_folder, account_folder_name)
-            os.makedirs(log_directory, exist_ok=True)
-            sanitized_hash = "".join(c for c in trade_details['trade_hash'] if c.isalnum())
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            amount_str = f"_{found_amount:.2f}_" if found_amount is not None else "_"
-            filename = os.path.join(log_directory, f"{sanitized_hash}{amount_str}{timestamp}.html")
-            try:
-                with open(filename, "w", encoding="utf-8") as f:
+                # Enhanced logging for debugging
+                logger.info(f"Extracted from email ({validator}) - Amount: {found_amount}, Name: {found_name}")
+                logger.info(f"Expected values - Amount: {expected_amount}, Name: {expected_name}")
+
+                # --- Save Email Log ---
+                log_dir = os.path.join("email_logs", validator)
+                if not os.path.exists(log_dir):
+                    os.makedirs(log_dir)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                log_filename = f"{timestamp}_{trade_details['trade_hash']}.html"
+                with open(os.path.join(log_dir, log_filename), "w", encoding="utf-8") as f:
                     f.write(email_body)
-                logger.info(f"Saved email body for trade {trade_details['trade_hash']} to {filename}")
-            except Exception as e:
-                logger.error(f"Could not save email body: {e}")
 
-            # --- Validation Check ---
-            is_amount_match = found_amount is not None and found_amount == expected_amount
-            is_name_match = found_name is not None and found_name == expected_name
+                # --- Validate ---
+                is_amount_match = False
+                if found_amount is not None:
+                    is_amount_match = abs(found_amount - expected_amount) < 1.0
 
-            if is_amount_match and is_name_match:
-                logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
-                return True
-            else:
-                # Detailed failure logging
-                if not is_amount_match:
-                    logger.warning(f"❌ Amount mismatch: Expected {expected_amount}, Found {found_amount}")
-                if not is_name_match:
-                    logger.warning(f"❌ Name mismatch: Expected '{expected_name}', Found '{found_name}'")
-                logger.warning(
-                    f"Validation failed for trade {trade_details['trade_hash']}: "
-                    f"Amount Match: {is_amount_match}, Name Match: {is_name_match}"
-                )
+                is_name_match = False
+                if found_name and expected_name:
+                    # Normalize names for comparison
+                    def normalize(s):
+                        return re.sub(r'[^A-Z]', '', str(s).upper())
+                    
+                    norm_found = normalize(found_name)
+                    norm_expected = normalize(expected_name)
+                    
+                    # Check for exact match or if one contains the other (to handle partial names)
+                    if norm_found == norm_expected or norm_expected in norm_found or norm_found in norm_expected:
+                        is_name_match = True
+                    
+                    # Special case for "EDUARDO RAMIREZ" vs "RAMIREZ LAUREANO EDUARDO"
+                    # Split into words and check if significant words match
+                    if not is_name_match:
+                        found_words = set(normalize(w) for w in found_name.split() if len(w) > 2)
+                        expected_words = set(normalize(w) for w in expected_name.split() if len(w) > 2)
+                        common_words = found_words.intersection(expected_words)
+                        # If at least 2 significant words match, consider it a match
+                        if len(common_words) >= 2:
+                            is_name_match = True
+                            logger.info(f"Fuzzy name match successful: {found_words} vs {expected_words}")
 
-        logger.info(f"Found emails for trade {trade_details['trade_hash']}, but none passed validation.")
-        return False
-    except HttpError as error:
-        logger.error(f"An error occurred while searching emails: {error}")
-        return False
+                if is_amount_match and is_name_match:
+                    logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
+                    return True, {"validator": validator, "found_amount": found_amount, "found_name": found_name, "expected_amount": expected_amount, "expected_name": expected_name}
+                else:
+                    # Detailed failure logging
+                    if not is_amount_match:
+                        logger.warning(f"❌ Amount mismatch: Expected {expected_amount}, Found {found_amount}")
+                    if not is_name_match:
+                        logger.warning(f"❌ Name mismatch: Expected '{expected_name}', Found '{found_name}'")
+                    logger.warning(
+                        f"Validation failed for trade {trade_details['trade_hash']}: "
+                        f"Amount Match: {is_amount_match}, Name Match: {is_name_match}"
+                    )
+
+        except Exception as e:
+            logger.error(f"Error checking {validator} email: {e}")
+            continue
+
+    # If we went through all candidates and found nothing
+    return False, None

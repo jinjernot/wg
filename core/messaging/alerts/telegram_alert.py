@@ -198,10 +198,18 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
 
     _send_text_alert(message)
 
-def send_email_validation_alert(trade_hash, success, account_name):
+def send_email_validation_alert(trade_hash, success, account_name, details=None):
     """Sends a Telegram alert about the email validation result."""
     if success:
         message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+        if details:
+            message += f"
+
+🏦 *Bank:* {escape_markdown(details.get('validator', 'Unknown').replace('_', ' ').title())}"
+            message += f"
+💰 *Amount:* ${escape_markdown(f"{details.get('found_amount', 0):,.2f}")}"
+            message += f"
+👤 *Name:* {escape_markdown(details.get('found_name', 'Unknown'))}"
     else:
         message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
     
