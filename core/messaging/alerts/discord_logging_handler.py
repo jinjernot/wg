@@ -1,5 +1,3 @@
-# jinjernot/wg/wg-89c3d83219d0d8811cde10eb2ef6004ace783b14/core/messaging/alerts/discord_logging_handler.py
-
 import logging
 import requests
 import os

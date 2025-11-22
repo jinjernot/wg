@@ -31,10 +31,7 @@ def fetch_token_with_retry(account, max_retries=3):
             logger.error(f"Request failed on attempt {attempt + 1}: {e}")
 
         if attempt == max_retries - 1:
-            # --- MODIFIED LINE ---
-            # Added account['name'] to the error message so the filter can catch it.
             logger.error(f"Max retries reached for {account['name']}. Giving up.")
-            # --- END MODIFICATION ---
             return None
 
     return None
