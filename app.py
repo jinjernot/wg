@@ -1,9 +1,11 @@
 import os
 import logging
+import atexit
 from flask import Flask
 from core.utils.log_config import setup_logging
-from config import JSON_PATH
+from config import JSON_PATH, DISCORD_WEBHOOKS
 from core.utils.bot_process_manager import start_trading
+from core.utils.heartbeat import HeartbeatMonitor
 
 # Import blueprints
 from routes.main import main_bp
@@ -23,6 +25,25 @@ logger = logging.getLogger(__name__)
 
 if not os.path.exists(JSON_PATH):
     os.makedirs(JSON_PATH)
+
+# Initialize heartbeat monitor
+heartbeat = None
+if DISCORD_WEBHOOKS.get("logs"):
+    heartbeat = HeartbeatMonitor(
+        webhook_url=DISCORD_WEBHOOKS["logs"],
+        interval_seconds=300  # Update every 5 minutes
+    )
+    heartbeat.start()
+    logger.info("Heartbeat monitoring enabled")
+else:
+    logger.warning("No logs webhook configured, heartbeat disabled")
+
+# Cleanup on shutdown
+def cleanup():
+    if heartbeat:
+        heartbeat.stop()
+
+atexit.register(cleanup)
 
 # Register blueprints
 app.register_blueprint(main_bp)
