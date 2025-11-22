@@ -157,29 +157,43 @@ def extract_banco_azteca_details(html_body):
         found_amount = None
         if amount_tag:
             amount_text = amount_tag.get_text(strip=True)
-            amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*\.\d{2})', amount_text)
-            if not amount_match:
-                 amount_match = re.search(r'(\d{1,3}(?:,?\d{3})*)', amount_text)
-
+            # Match numbers with commas (e.g., $6,300 or $6,300.00)
+            amount_match = re.search(r'\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', amount_text)
             if amount_match:
                 amount_str = amount_match.group(1).replace(',', '')
                 found_amount = float(amount_str)
                 logger.info(f"Successfully parsed Banco Azteca amount: {found_amount}")
 
         # --- Find Name ---
-        beneficiario_td = soup.find('td', string=re.compile(r'Beneficiario:'))
         found_name = None
-        if beneficiario_td:
-            name_tag = beneficiario_td.find_next('font')
-            if name_tag:
-                found_name = name_tag.get_text(strip=True).upper()
-                logger.info(f"Successfully parsed Banco Azteca recipient name: {found_name}")
-        elif "Beneficiario:" in soup.get_text():
-             match = re.search(r'Beneficiario:\s*([\w\s]+)', soup.get_text(), re.IGNORECASE)
-             if match:
-                 found_name = match.group(1).strip().upper()
-                 logger.info(f"Successfully parsed Banco Azteca recipient name (fallback): {found_name}")
-
+        
+        # Method 1: Search through all TDs for one containing "Beneficiario:"
+        all_tds = soup.find_all('td')
+        for td in all_tds:
+            td_text = td.get_text(strip=True)
+            if 'Beneficiario:' in td_text:
+                # Look for font tags with size="4" which typically contains the name
+                font_tags = td.find_all('font', size="4")
+                for font in font_tags:
+                    font_text = font.get_text(strip=True)
+                    # Remove common disclaimer patterns
+                    name_clean = re.sub(r'\(Dato no verificado.*?\)', '', font_text, flags=re.IGNORECASE)
+                    name_clean = name_clean.strip()
+                    # Check if this looks like a name (has letters and is not too short)
+                    if name_clean and len(name_clean) > 5 and re.search(r'[A-Z]', name_clean):
+                        found_name = name_clean.upper()
+                        logger.info(f"Successfully parsed Banco Azteca recipient name: {found_name}")
+                        break
+                if found_name:
+                    break
+        
+        # Method 2: Fallback - use regex on plain text
+        if not found_name:
+            full_text = soup.get_text()
+            match = re.search(r'Beneficiario:\s*([A-Z][A-Z\s]+?)(?:\(|Concepto:|$)', full_text, re.MULTILINE)
+            if match:
+                found_name = match.group(1).strip()
+                logger.info(f"Successfully parsed Banco Azteca recipient name (fallback): {found_name}")
 
         return found_amount, found_name
     except Exception as e:
