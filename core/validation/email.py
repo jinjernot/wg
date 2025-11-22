@@ -233,13 +233,20 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
 
     try:
         # Add a time constraint to the query to limit results
-        after_time = (datetime.utcnow() - timedelta(hours=1)).strftime('%Y/%m/%d %H:%M:%S')
+        # Search last 3 hours instead of 1 hour for better coverage of delayed emails
+        after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
         query += f" after:{after_time}"
+        
+        logger.info(f"Searching for payment email with query: {query}")
+        logger.info(f"Expected amount: {trade_details.get('fiat_amount_requested')}, Expected name: {expected_name}")
 
         result = service.users().messages().list(userId="me", q=query, maxResults=10).execute()
         message_ids = result.get("messages", [])
         if not message_ids:
+            logger.warning(f"No emails found matching query for trade {trade_details.get('trade_hash')}")
             return False
+        
+        logger.info(f"Found {len(message_ids)} potential emails to check")
 
         full_messages = batch_get_messages(service, message_ids)
         expected_amount = float(trade_details.get('fiat_amount_requested', '0.00'))
@@ -258,6 +265,9 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             elif validator == "banco_azteca":
                 found_amount, found_name = extract_banco_azteca_details(email_body)
 
+            # Enhanced logging for debugging
+            logger.info(f"Extracted from email - Amount: {found_amount}, Name: {found_name}")
+            logger.info(f"Expected values - Amount: {expected_amount}, Name: {expected_name}")
 
             # --- Save Email Log ---
             account_folder_name = f"{owner_username}_{platform}"
@@ -282,10 +292,14 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                 logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
                 return True
             else:
+                # Detailed failure logging
+                if not is_amount_match:
+                    logger.warning(f"❌ Amount mismatch: Expected {expected_amount}, Found {found_amount}")
+                if not is_name_match:
+                    logger.warning(f"❌ Name mismatch: Expected '{expected_name}', Found '{found_name}'")
                 logger.warning(
                     f"Validation failed for trade {trade_details['trade_hash']}: "
-                    f"Amount Match: {is_amount_match} (Expected: {expected_amount}, Found: {found_amount}), "
-                    f"Name Match: {is_name_match} (Expected: '{expected_name}', Found: '{found_name}')"
+                    f"Amount Match: {is_amount_match}, Name Match: {is_name_match}"
                 )
 
         logger.info(f"Found emails for trade {trade_details['trade_hash']}, but none passed validation.")
