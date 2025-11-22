@@ -22,6 +22,11 @@ def get_crypto_in_open_trades(account):
     """
     Calculates the total amount of cryptocurrency locked in open trades for a specific account.
     """
+    # SKIP ALL PAXFUL ACCOUNTS
+    if "paxful" in account.get("name", "").lower():
+        logger.info(f"Skipping get_crypto_in_open_trades for Paxful account: {account.get('name')}")
+        return {}
+    
     total_crypto_locked = {}
     access_token = fetch_token_with_retry(account)
     if not access_token:
