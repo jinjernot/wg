@@ -203,13 +203,13 @@ def send_email_validation_alert(trade_hash, success, account_name, details=None)
     if success:
         message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
         if details:
-            message += f"
-
-🏦 *Bank:* {escape_markdown(details.get('validator', 'Unknown').replace('_', ' ').title())}"
-            message += f"
-💰 *Amount:* ${escape_markdown(f"{details.get('found_amount', 0):,.2f}")}"
-            message += f"
-👤 *Name:* {escape_markdown(details.get('found_name', 'Unknown'))}"
+            validator = details.get('validator', 'Unknown').replace('_', ' ').title()
+            found_amount = details.get('found_amount', 0)
+            found_name = details.get('found_name', 'Unknown')
+            
+            message += f"\n\n🏦 *Bank:* {escape_markdown(validator)}"
+            message += f"\n💰 *Amount:* ${escape_markdown(f'{found_amount:,.2f}')}"
+            message += f"\n👤 *Name:* {escape_markdown(found_name)}"
     else:
         message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
     
