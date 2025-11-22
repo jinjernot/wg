@@ -31,6 +31,11 @@ def get_wallet_balances():
     """Fetches wallet balances for all configured accounts."""
     all_balances = {}
     for account in ACCOUNTS:
+        # SKIP ALL PAXFUL ACCOUNTS
+        if "paxful" in account.get("name", "").lower():
+            logger.info(f"Skipping Paxful account: {account.get('name')}")
+            continue
+        
         token = fetch_token_with_retry(account)
         if not token:
             logger.error(f"Could not authenticate for {account['name']} to fetch wallet balances.")
