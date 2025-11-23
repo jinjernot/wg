@@ -256,19 +256,33 @@ class Trade:
         if not self.gmail_service:
             return
 
-                    send_email_validation_alert(
+        paid_timestamp = self.trade_state.get('paid_timestamp')
+        if not paid_timestamp:
+            return
+
+        elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
+        success = False
+        details = None
+        if elapsed_time < EMAIL_CHECK_DURATION:
+            success, details = check_for_payment_email(self.gmail_service, self.trade_state, self.platform, credential_identifier)
+            
+        if success:
+            logger.info(
+                f"PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
+            if not self.trade_state.get('email_validation_alert_sent'):
+                send_email_validation_alert(
+                    self.trade_hash, success=True, account_name=credential_identifier, details=details)
+                
+                # TEMPORARY: Skip Paxful Discord alerts
+                if self.platform == "Paxful":
+                    logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
+                else:
+                    create_email_validation_embed(
                         self.trade_hash, success=True, account_name=credential_identifier, details=details)
-                    
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
-                    else:
-                        create_email_validation_embed(
-                            self.trade_hash, success=True, account_name=credential_identifier, details=details)
-                    
-                    self.trade_state['email_validation_alert_sent'] = True
-                    self.save()
-                self.trade_state['email_verified'] = True
+                
+                self.trade_state['email_validation_alert_sent'] = True
+                self.save()
+            self.trade_state['email_verified'] = True
         else:
             logger.warning(
                 f"Email check for trade {self.trade_hash} timed out.")
