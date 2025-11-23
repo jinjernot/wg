@@ -30,5 +30,17 @@ def save_processed_trade(trade_data, platform):
     all_trades[trade_hash] = trade_data
 
     # Write the entire updated dictionary back to the file.
-    with open(file_path, "w") as file:
-        json.dump(all_trades, file, indent=4)
+    # Write to a temporary file first to ensure atomicity
+    temp_file_path = file_path + ".tmp"
+    try:
+        with open(temp_file_path, "w") as file:
+            json.dump(all_trades, file, indent=4)
+            file.flush()
+            os.fsync(file.fileno())
+        
+        # Atomic replace
+        os.replace(temp_file_path, file_path)
+    except Exception as e:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        raise e
