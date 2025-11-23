@@ -256,17 +256,6 @@ class Trade:
         if not self.gmail_service:
             return
 
-        paid_timestamp = self.trade_state.get('paid_timestamp')
-        if not paid_timestamp:
-            return
-
-        elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
-        if elapsed_time < EMAIL_CHECK_DURATION:
-            success, details = check_for_payment_email(self.gmail_service, self.trade_state, self.platform, credential_identifier)
-        if success:
-                logger.info(
-                    f"PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
-                if not self.trade_state.get('email_validation_alert_sent'):
                     send_email_validation_alert(
                         self.trade_hash, success=True, account_name=credential_identifier, details=details)
                     
