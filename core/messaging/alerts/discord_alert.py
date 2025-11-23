@@ -398,11 +398,6 @@ def create_name_validation_embed(trade_hash, success, account_name):
         for field in template["fields"]
     ]
 
-    if success and details:
-        formatted_fields.append({"name": "🏦 Bank Found", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
-        formatted_fields.append({"name": "💰 Amount Found", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
-        formatted_fields.append({"name": "👤 Name Found", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
-
     embed = {
         "title": template["title"],
         "color": COLORS["success"] if success else COLORS["error"],
