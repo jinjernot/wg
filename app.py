@@ -6,6 +6,8 @@ from core.utils.log_config import setup_logging
 from config import JSON_PATH, DISCORD_WEBHOOKS
 from core.utils.bot_process_manager import start_trading
 from core.utils.heartbeat import HeartbeatMonitor
+from core.utils.http_client import get_http_client, close_http_client
+from core.utils.api_metrics import get_api_metrics
 
 # Import blueprints
 from routes.main import main_bp
@@ -22,6 +24,10 @@ from routes.bot import bot_bp
 app = Flask(__name__)
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Initialize HTTP client for connection pooling
+http_client = get_http_client()
+logger.info("HTTP client initialized with connection pooling")
 
 if not os.path.exists(JSON_PATH):
     os.makedirs(JSON_PATH)
@@ -40,8 +46,19 @@ else:
 
 # Cleanup on shutdown
 def cleanup():
+    logger.info("Application shutting down...")
+    
     if heartbeat:
         heartbeat.stop()
+    
+    # Save API metrics
+    api_metrics = get_api_metrics()
+    api_metrics.save_to_file('data/api_metrics.json')
+    api_metrics.log_summary()
+    
+    # Close HTTP client
+    close_http_client()
+    logger.info("Cleanup completed")
 
 atexit.register(cleanup)
 

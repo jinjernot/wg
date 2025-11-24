@@ -1,4 +1,3 @@
-import requests
 import certifi
 import logging
 import json
@@ -6,6 +5,7 @@ import time
 import os 
 from datetime import datetime, timedelta, timezone
 from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL, ACTIVE_TRADES_DIR
+from core.utils.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +29,15 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
     }
     
     headers_paxful = headers.copy()
-    if "_Paxful" in account["name"]:
+    if "_Paxful"in account["name"]:
         headers_paxful["Content-Type"] = "application/x-www-form-urlencoded"
+    
+    http_client = get_http_client()
     
     for attempt in range(max_retries):
         try:
             logger.debug(f"Attempt {attempt + 1} of {max_retries} for {account['name']}")
-            response = requests.post(
+            response = http_client.post(
                 trade_list_url,
                 headers=headers_paxful,
                 json=data if "_Paxful" not in account["name"] else data,  
@@ -75,19 +77,8 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 logger.error(f"Error fetching trade list for {account['name']}: {response.status_code} - {response.text}")
                 return []
         
-        except requests.exceptions.SSLError as e:
-            logger.error(f"SSL Error on attempt {attempt + 1} for {account['name']}: {e}")
-            if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
-                logger.debug(f"Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-                continue
-            else:
-                logger.error("Max retries reached. Giving up.")
-                return []
-        
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed on attempt {attempt + 1} for {account['name']}: {e}")
+        except Exception as e:
+            logger.error(f"SSL/Request Error on attempt {attempt + 1} for {account['name']}: {e}")
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
                 logger.debug(f"Retrying in {wait_time} seconds...")
