@@ -136,6 +136,21 @@ def preprocess_image_for_ocr(image_path):
         logger.error(f"An error occurred during image pre-processing for {image_path}: {e}")
         return None
 
+def normalize_text(text):
+    """Normalizes text by removing accents and converting to lowercase for better matching."""
+    if not text:
+        return ""
+    # Remove common Spanish accents
+    accent_map = {
+        'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+        'Á': 'a', 'É': 'e', 'Í': 'i', 'Ó': 'o', 'Ú': 'u',
+        'ñ': 'n', 'Ñ': 'n',
+        '¡': '', '¿': ''
+    }
+    for accented, plain in accent_map.items():
+        text = text.replace(accented, plain)
+    return text.lower()
+
 def extract_text_from_image(image_path):
     """Extracts text from an image using Tesseract OCR."""
     try:
@@ -156,6 +171,7 @@ def identify_bank_from_text(text):
     """Identifies the source bank using a detailed fingerprinting method."""
     if not text: return None
     text_lower = text.lower()
+    text_normalized = normalize_text(text)  # Accent-insensitive matching
     bank_templates = OCR_TEMPLATES.get("bank_templates", {})
     
     # --- Fingerprint Identification ---
@@ -169,7 +185,9 @@ def identify_bank_from_text(text):
 
         score = 0
         for phrase in fingerprint:
-            if phrase.lower() in text_lower:
+            phrase_normalized = normalize_text(phrase)
+            # Try both exact and normalized matching
+            if phrase.lower() in text_lower or phrase_normalized in text_normalized:
                 score += 1
         
         normalized_score = score / len(fingerprint) if len(fingerprint) > 0 else 0
@@ -178,7 +196,8 @@ def identify_bank_from_text(text):
             highest_score = normalized_score
             best_match_bank = bank_name
 
-    if highest_score > 0.5:
+    # IMPROVED: Lowered threshold from 0.5 to 0.4 for better matching
+    if highest_score > 0.4:
         logger.info(f"Identified bank via fingerprint: {best_match_bank} with score {highest_score:.2f}")
         return best_match_bank
 
