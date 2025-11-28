@@ -261,45 +261,53 @@ class Trade:
             return
 
         elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
-        success = False
-        details = None
+        
+        # Check if within the retry window (EMAIL_CHECK_DURATION = 900 seconds = 15 minutes)
         if elapsed_time < EMAIL_CHECK_DURATION:
+            logger.info(f"Email check for {self.trade_hash}: Elapsed {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
             success, details = check_for_payment_email(self.gmail_service, self.trade_state, self.platform, credential_identifier)
             
-        if success:
-            logger.info(
-                f"PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
-            if not self.trade_state.get('email_validation_alert_sent'):
-                send_email_validation_alert(
-                    self.trade_hash, success=True, account_name=credential_identifier, details=details)
-                
-                # TEMPORARY: Skip Paxful Discord alerts
-                if self.platform == "Paxful":
-                    logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
-                else:
-                    create_email_validation_embed(
+            if success:
+                # SUCCESS - Email found!
+                logger.info(
+                    f"✅ PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
+                if not self.trade_state.get('email_validation_alert_sent'):
+                    send_email_validation_alert(
                         self.trade_hash, success=True, account_name=credential_identifier, details=details)
-                
-                self.trade_state['email_validation_alert_sent'] = True
-                self.save()
-            self.trade_state['email_verified'] = True
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
+                    else:
+                        create_email_validation_embed(
+                            self.trade_hash, success=True, account_name=credential_identifier, details=details)
+                    
+                    self.trade_state['email_validation_alert_sent'] = True
+                    self.save()
+                self.trade_state['email_verified'] = True
+            else:
+                # Email not found YET - will retry on next cycle (don't send alert yet)
+                logger.info(
+                    f"Email not found yet for {self.trade_hash}. Will retry. Elapsed: {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
         else:
-            logger.warning(
-                f"Email check for trade {self.trade_hash} timed out.")
-            if not self.trade_state.get('email_validation_alert_sent'):
-                send_email_validation_alert(
-                    self.trade_hash, success=False, account_name=credential_identifier)
-                
-                # TEMPORARY: Skip Paxful Discord alerts
-                if self.platform == "Paxful":
-                    logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
-                else:
-                    create_email_validation_embed(
+            # TRUE TIMEOUT - Exceeded EMAIL_CHECK_DURATION, now send failure alert
+            if not self.trade_state.get('email_check_timed_out'):
+                logger.warning(
+                    f"❌ Email check TIMED OUT for trade {self.trade_hash} after {EMAIL_CHECK_DURATION}s ({EMAIL_CHECK_DURATION/60:.0f} minutes)")
+                if not self.trade_state.get('email_validation_alert_sent'):
+                    send_email_validation_alert(
                         self.trade_hash, success=False, account_name=credential_identifier)
-                
-                self.trade_state['email_validation_alert_sent'] = True
-                self.save()
-            self.trade_state['email_check_timed_out'] = True
+                    
+                    # TEMPORARY: Skip Paxful Discord alerts
+                    if self.platform == "Paxful":
+                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
+                    else:
+                        create_email_validation_embed(
+                            self.trade_hash, success=False, account_name=credential_identifier)
+                    
+                    self.trade_state['email_validation_alert_sent'] = True
+                    self.save()
+                self.trade_state['email_check_timed_out'] = True
 
     def check_chat_and_attachments(self):
         """Fetches the entire chat history and processes any unprocessed messages or attachments."""
