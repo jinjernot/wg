@@ -18,8 +18,14 @@ from config_messages.telegram_messages import (
     NAME_VALIDATION_SUCCESS_ALERT,
     NAME_VALIDATION_FAILURE_ALERT,
     LOW_BALANCE_ALERT_MESSAGE,
-    DUPLICATE_RECEIPT_ALERT_MESSAGE
+    DUPLICATE_RECEIPT_ALERT_MESSAGE,
+    format_currency,
+    STATUS_UPDATE_PAID,
+    STATUS_UPDATE_SUCCESSFUL,
+    STATUS_UPDATE_DISPUTED,
+    STATUS_UPDATE_OTHER
 )
+from core.utils.profile import generate_user_profile
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +38,7 @@ def escape_markdown(text):
     # Use re.sub with a function to handle already escaped characters
     def replace(match):
         char = match.group(1)
-        # Check if the character is already escaped (preceded by \)
+        # Check if the character is already escaped (preceded by \\)
         if match.start() > 0 and text[match.start()-1] == '\\':
             return char # Already escaped, return as is
         else:
@@ -104,6 +110,7 @@ def extract_placeholders(message_template):
     return re.findall(r"{(.*?)}", message_template)
 
 def send_telegram_alert(trade, platform):
+    """Sends a Telegram alert for a new trade with buyer stats and formatted amount."""
     if isinstance(trade, str):
         try:
             trade = json.loads(trade)
@@ -114,11 +121,36 @@ def send_telegram_alert(trade, platform):
         logger.error("Error: Trade data is not a dictionary.")
         return
 
-    message_template = PAXFUL_ALERT_MESSAGE if platform == "Paxful" else NOONES_ALERT_MESSAGE
-    # Escape each value before formatting
-    formatted_data = {key: escape_markdown(trade.get(key, "N/A")) for key in extract_placeholders(message_template)}
-    message = message_template.format(**formatted_data)
+    # Get buyer stats
+    buyer_username = trade.get('responder_username', 'N/A')
+    buyer_line = f"*{escape_markdown(buyer_username)}*"
     
+    if buyer_username != 'N/A':
+        profile_data = generate_user_profile(buyer_username)
+        if profile_data:
+            trades_count = profile_data.get('successful_trades', 0)
+            volume = profile_data.get('total_volume', 0.0)
+            currency = trade.get('fiat_currency_code', '')
+            volume_formatted = format_currency(volume, currency)
+            buyer_line = f"*{escape_markdown(buyer_username)}* • {trades_count} trades • ${escape_markdown(volume_formatted)} volume"
+    
+    # Format amount
+    amount = trade.get('fiat_amount_requested', '0')
+    currency = trade.get('fiat_currency_code', '')
+    amount_formatted = format_currency(amount, currency)
+
+    message_template = PAXFUL_ALERT_MESSAGE if platform == "Paxful" else NOONES_ALERT_MESSAGE
+    
+    # Build formatted data with escaped values
+    formatted_data = {
+        'buyer_line': buyer_line,
+        'amount_formatted': escape_markdown(amount_formatted),
+        'payment_method_name': escape_markdown(trade.get('payment_method_name', 'N/A')),
+        'owner_username': escape_markdown(trade.get('owner_username', 'N/A')),
+        'trade_hash': escape_markdown(trade.get('trade_hash', 'N/A'))
+    }
+    
+    message = message_template.format(**formatted_data)
     _send_text_alert(message, disable_web_page_preview=True)
 
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
@@ -164,7 +196,6 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
 
     if found_amount is None:
         message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(
-            trade_hash=escape_markdown(trade_hash),
             owner_username=escape_markdown(owner_username)
         )
     else:
@@ -172,23 +203,21 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
             found_amount_float = float(found_amount)
             if expected_amount_float == found_amount_float:
                 message = AMOUNT_VALIDATION_MATCH_ALERT.format(
-                    trade_hash=escape_markdown(trade_hash),
                     owner_username=escape_markdown(owner_username),
-                    found_amount=escape_markdown(f"{found_amount_float:.2f}"),
+                    expected_amount=escape_markdown(f"{expected_amount_float:,.2f}"),
+                    found_amount=escape_markdown(f"{found_amount_float:,.2f}"),
                     currency=escape_markdown(currency)
                 )
             else:
                 message = AMOUNT_VALIDATION_MISMATCH_ALERT.format(
-                    trade_hash=escape_markdown(trade_hash),
                     owner_username=escape_markdown(owner_username),
-                    expected_amount=escape_markdown(f"{expected_amount_float:.2f}"),
-                    found_amount=escape_markdown(f"{found_amount_float:.2f}"),
+                    expected_amount=escape_markdown(f"{expected_amount_float:,.2f}"),
+                    found_amount=escape_markdown(f"{found_amount_float:,.2f}"),
                     currency=escape_markdown(currency)
                 )
         except (ValueError, TypeError):
             logger.error(f"Invalid found amount type for trade {trade_hash}: {found_amount}")
             message = AMOUNT_VALIDATION_NOT_FOUND_ALERT.format(
-                trade_hash=escape_markdown(trade_hash),
                 owner_username=escape_markdown(owner_username)
             )
 
@@ -201,7 +230,7 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
 def send_email_validation_alert(trade_hash, success, account_name, details=None):
     """Sends a Telegram alert about the email validation result."""
     if success:
-        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(account_name=escape_markdown(account_name))
         if details:
             validator = details.get('validator', 'Unknown').replace('_', ' ').title()
             found_amount = details.get('found_amount', 0)
@@ -211,17 +240,36 @@ def send_email_validation_alert(trade_hash, success, account_name, details=None)
             message += f"\n💰 *Amount:* ${escape_markdown(f'{found_amount:,.2f}')}"
             message += f"\n👤 *Name:* {escape_markdown(found_name)}"
     else:
-        message = EMAIL_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+        message = EMAIL_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
     
     _send_text_alert(message)
 
 def send_name_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the OCR name validation result."""
     if success:
-        message = NAME_VALIDATION_SUCCESS_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+        message = NAME_VALIDATION_SUCCESS_ALERT.format(account_name=escape_markdown(account_name))
     else:
-        message = NAME_VALIDATION_FAILURE_ALERT.format(trade_hash=escape_markdown(trade_hash), account_name=escape_markdown(account_name))
+        message = NAME_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
 
+    _send_text_alert(message)
+
+def send_status_update_alert(trade_hash, owner_username, new_status):
+    """Sends a Telegram alert for trade status changes."""
+    if new_status == 'Paid':
+        template = STATUS_UPDATE_PAID
+    elif new_status == 'Successful':
+        template = STATUS_UPDATE_SUCCESSFUL
+    elif 'Dispute' in new_status:
+        template = STATUS_UPDATE_DISPUTED
+    else:
+        template = STATUS_UPDATE_OTHER
+    
+    message = template.format(
+        trade_hash=escape_markdown(trade_hash),
+        owner_username=escape_markdown(owner_username),
+        status=escape_markdown(new_status)
+    )
+    
     _send_text_alert(message)
 
 def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
