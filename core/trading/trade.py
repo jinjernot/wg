@@ -169,6 +169,10 @@ class Trade:
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
 
+            # IMMEDIATE EMAIL CHECK when marked as Paid
+            logger.info(f"Trade {self.trade_hash} marked as Paid. Triggering immediate email check.")
+            self.check_for_email_confirmation()
+
     def check_for_paid_without_attachment(self):
         """If a trade is paid, and some time has passed, check for an attachment and send a reminder if needed."""
         if self.trade_state.get("trade_status") == 'Paid' and not self.trade_state.get('no_attachment_reminder_sent'):
@@ -236,14 +240,6 @@ class Trade:
             'email_verified') and not self.trade_state.get('email_check_timed_out')
 
         if not (is_paid and is_relevant and is_pending):
-            return
-
-        # Check for attachment
-        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
-        has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
-
-        if not has_attachment:
-            logger.info(f"Skipping email check for trade {self.trade_hash} because there is no attachment yet.")
             return
 
         credential_identifier = self.get_credential_identifier_for_trade()
