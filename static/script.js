@@ -374,7 +374,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = table.querySelector('tbody');
         trades.forEach(trade => {
             const row = document.createElement('tr');
-            if (trade.trade_status === 'Paid' && !trade.has_attachment) {
+            
+            // Check if trade is newly created (within 30 minutes)
+            const isNewTrade = () => {
+                if (trade.created_at) {
+                    const createdTime = new Date(trade.created_at);
+                    const now = new Date();
+                    const diffMinutes = (now - createdTime) / (1000 * 60);
+                    return diffMinutes <= 30;
+                }
+                return false;
+            };
+            
+            // Apply color coding based on status (priority order)
+            if (isNewTrade() && trade.trade_status !== 'Paid' && trade.trade_status !== 'Dispute open') {
+                row.classList.add('status-new');
+            } else if (trade.trade_status === 'Paid' && !trade.has_attachment) {
                 row.classList.add('status-paid-no-attachment');
             } else if (trade.trade_status === 'Paid') {
                 row.classList.add('status-paid');
