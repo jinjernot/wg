@@ -11,7 +11,12 @@ from config_messages.discord_messages import (
     EMAIL_VALIDATION_EMBEDS,
     NAME_VALIDATION_EMBEDS,
     DUPLICATE_RECEIPT_EMBEDS,
-    COLORS
+    COLORS,
+    format_currency,
+    NEW_TRADE_EMBED,
+    CHAT_MESSAGE_EMBEDS,
+    ATTACHMENT_EMBED,
+    STATUS_UPDATE_EMBEDS
 )
 from .discord_thread_manager import get_thread_id
 from config_messages.chat_messages import (
@@ -26,7 +31,6 @@ from config_messages.chat_messages import (
     OXXO_IN_BANK_TRANSFER_MESSAGE,
     THIRD_PARTY_ALLOWED_MESSAGE
 )
-# --- ADDED IMPORT ---
 from core.utils.profile import generate_user_profile
 
 logger = logging.getLogger(__name__)
@@ -91,9 +95,10 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                 logger.info(f"Successfully sent chat message {message_id} as bot.")
                 
                 # Add reactions based on the message type
-                if embed_data.get("title") == "🤖 Automated Message Sent":
+                title = embed_data.get("title", "")
+                if "AUTOMATED MESSAGE" in title:
                     emoji = "🤖"
-                elif embed_data.get("title") == "📤 Message Sent":
+                elif "MESSAGE SENT" in title:
                     emoji = "📤"
                 else: # Default reaction for buyer messages
                     emoji = "💬"
@@ -183,23 +188,8 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default", 
 
 def create_new_trade_embed(trade_data, platform, send=True):
     """Creates and sends a visually improved Discord embed for a new trade notification."""
-    platform_name = "Paxful" if platform == "Paxful" else "Noones"
     trade_hash = trade_data.get('trade_hash')
-
-    # --- NEW: Get buyer stats ---
-    buyer_username = trade_data.get('responder_username')
-    buyer_stats_line = ""
-    if buyer_username:
-        profile_data = generate_user_profile(buyer_username)
-        if profile_data:
-            successful_trades = profile_data.get('successful_trades', 0)
-            total_volume = profile_data.get('total_volume', 0.0)
-            currency = trade_data.get('fiat_currency_code', '')
-            buyer_stats_line = f"\n**Stats:** {successful_trades} trades (${total_volume:,.2f} {currency})"
     
-    buyer_value = f"{str(trade_data.get('responder_username', 'N/A'))}{buyer_stats_line}"
-    # --- END NEW ---
-
     # Platform-specific details
     if platform == "Paxful":
         embed_color = COLORS["PAXFUL_GREEN"]
@@ -210,28 +200,50 @@ def create_new_trade_embed(trade_data, platform, send=True):
         platform_emoji = "💠"
         trade_url = f"https://noones.com/trade/{trade_hash}"
 
-    # Use started_at for the timestamp if available, otherwise use current time
+    # Get buyer info with stats
+    buyer_username = trade_data.get('responder_username', 'N/A')
+    buyer_line = f"**{buyer_username}**"
+    
+    if buyer_username != 'N/A':
+        profile_data = generate_user_profile(buyer_username)
+        if profile_data:
+            trades_count = profile_data.get('successful_trades', 0)
+            volume = profile_data.get('total_volume', 0.0)
+            currency = trade_data.get('fiat_currency_code', '')
+            volume_formatted = format_currency(volume, currency)
+            buyer_line = f"**{buyer_username}** • {trades_count} trades • ${volume_formatted} volume"
+
+    # Format amount using helper
+    amount = trade_data.get('fiat_amount_requested', '0')
+    currency = trade_data.get('fiat_currency_code', '')
+    amount_formatted = format_currency(amount, currency)
+
+    # Get timestamp
     try:
         start_time_str = trade_data.get('started_at')
         timestamp = isoparse(start_time_str) if start_time_str else datetime.now(timezone.utc)
     except (ValueError, TypeError):
         timestamp = datetime.now(timezone.utc)
 
+    # Build embed from template
+    template = NEW_TRADE_EMBED
     embed = {
-        "title": f"{platform_emoji} New {platform_name} Trade Started",
+        "title": template["title_format"].format(platform_emoji=platform_emoji),
         "url": trade_url,
         "color": embed_color,
+        "description": template["description_format"].format(buyer_line=buyer_line),
         "fields": [
-            # --- MODIFIED FIELD ---
-            {"name": "👤 Buyer", "value": buyer_value, "inline": False},
-            # --- END MODIFIED ---
-            {"name": "💰 Amount", "value": f"{trade_data.get('fiat_amount_requested')} {trade_data.get('fiat_currency_code')}", "inline": True},
-            {"name": "💳 Payment Method", "value": str(trade_data.get('payment_method_name', 'N/A')), "inline": True},
-            {"name": "💼 Account", "value": str(trade_data.get('owner_username', 'N/A')), "inline": True},
-            {"name": "🆔 Trade Hash", "value": f"[`{trade_hash}`]({trade_url})", "inline": True},
+            {"name": field["name"], "value": field.get("value") or field.get("value_format", "").format(
+                amount_formatted=amount_formatted,
+                payment_method=trade_data.get('payment_method_name', 'N/A'),
+                owner_username=trade_data.get('owner_username', 'N/A'),
+                trade_hash=trade_hash,
+                trade_url=trade_url
+            ), "inline": field["inline"]}
+            for field in template["fields"]
         ],
         "timestamp": timestamp.isoformat(),
-        "footer": {"text": "🤖 WillGang Bot"}
+        "footer": {"text": template["footer"]}
     }
 
     if send:
@@ -245,27 +257,30 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
     
     trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
 
+    # Determine template based on status
     if new_status == 'Paid':
-        title = "💰 Trade Paid"
-        color = COLORS.get("warning", 0xFFA500)
+        template = STATUS_UPDATE_EMBEDS["paid"]
     elif new_status == 'Successful':
-        title = "✅ Trade Completed"
-        color = COLORS.get("success", 0x00FF00)
+        template = STATUS_UPDATE_EMBEDS["successful"]
     elif 'Dispute' in new_status:
-        title = "⚠️ Trade Disputed"
-        color = COLORS.get("error", 0xFF0000)
+        template = STATUS_UPDATE_EMBEDS["disputed"]
     else:
-        title = f"🔄 Trade Status: {new_status}"
-        color = COLORS.get("info", 0x5865F2)
+        template = STATUS_UPDATE_EMBEDS["other"]
+
+    # Build embed
+    if "title_format" in template:
+        title = template["title_format"].format(status=new_status)
+    else:
+        title = template["title"]
 
     embed = {
         "title": title,
-        "color": color,
-        "description": f"The status for trade [`{trade_hash}`]({trade_url}) has been updated.",
-        "fields": [
-            {"name": "💼 Account", "value": str(owner_username), "inline": True},
-            {"name": "📊 New Status", "value": f"**{new_status}**", "inline": True}
-        ],
+        "color": COLORS[template["color"]],
+        "description": template["description_format"].format(
+            trade_hash=trade_hash,
+            owner_username=owner_username,
+            status=new_status
+        ),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {"text": "🤖 WillGang Bot"}
     }
@@ -274,26 +289,33 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
 
 def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
     """Creates and sends a Discord embed for a new attachment with improved formatting."""
-    trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
-
+    
     if platform == "Paxful":
         embed_color = COLORS["PAXFUL_GREEN"]
-    else: # Noones
+    else:  # Noones
         embed_color = COLORS["NOONES_GREEN"]
 
-    fields = [
-        {"name": "💼 Account", "value": str(owner_username), "inline": True},
-        {"name": "👤 Uploaded By", "value": str(author), "inline": True}
-    ]
-
+    template = ATTACHMENT_EMBED
+    
+    # Build fields
+    fields = []
     if bank_name:
-        fields.append({"name": "\u200b", "value": "\u200b", "inline": False})
-        fields.append({"name": "🏦 Identified Bank", "value": f"**{str(bank_name)}**", "inline": False})
+        fields.append({
+            "name": template["bank_field"]["name"],
+            "value": template["bank_field"]["value"].format(bank_name=bank_name),
+            "inline": template["bank_field"]["inline"]
+        })
+    
+    fields.append(template["image_field"])
 
     embed = {
-        "title": "📄 New Attachment Uploaded",
+        "title": template["title"],
         "color": embed_color,
-        "description": f"Review attachment for trade [`{trade_hash}`]({trade_url}).",
+        "description": template["description_format"].format(
+            trade_hash=trade_hash,
+            author=author,
+            owner_username=owner_username
+        ),
         "fields": fields,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {"text": "🤖 WillGang Bot"}
@@ -305,10 +327,10 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     """Builds and sends an amount validation embed using templates."""
     if found is None:
         template = AMOUNT_VALIDATION_EMBEDS["not_found"]
-        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
+        fields = [{" name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
     elif float(expected) == float(found):
         template = AMOUNT_VALIDATION_EMBEDS["matched"]
-        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, found=found, currency=currency)} for f in template["fields"]]
+        fields = [{" name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
     else:
         template = AMOUNT_VALIDATION_EMBEDS["mismatch"]
         fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
@@ -316,7 +338,9 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     embed = {
         "title": template["title"],
         "color": COLORS["success"] if "✅" in template["title"] else (COLORS["warning"] if "⚠️" in template["title"] else COLORS["error"]),
-        "fields": fields, "footer": {"text": f"Trade: {trade_hash}"}
+        "description": template.get("description", ""),
+        "fields": fields,
+        "footer": {"text": f"Trade: {trade_hash}"}
     }
     send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
 
@@ -337,6 +361,7 @@ def create_email_validation_embed(trade_hash, success, account_name, details=Non
     embed = {
         "title": template["title"],
         "color": COLORS["success"] if success else COLORS["error"],
+        "description": template.get("description", ""),
         "fields": formatted_fields,
         "footer": {"text": f"Trade: {trade_hash}"}
     }
@@ -350,41 +375,41 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
     is_bot_owner = author in ["davidvs", "JoeWillgang"]
     is_automated = message in AUTOMATED_MESSAGES
 
-    title = ""
+    # Determine message type and get template
     if is_bot_owner and is_automated:
-        title = "🤖 Automated Message Sent"
-        embed_color = COLORS.get("info", 0x5865F2) 
+        template = CHAT_MESSAGE_EMBEDS["automated"]
     elif is_bot_owner and not is_automated:
-        title = "📤 Message Sent"
-        embed_color = COLORS.get("info", 0x5865F2)
+        template = CHAT_MESSAGE_EMBEDS["manual"]
     else:
-        title = "💬 New Chat Message"
-        if platform == "Paxful":
-            embed_color = COLORS["PAXFUL_GREEN"]
-        elif platform == "Noones":
-            embed_color = COLORS["NOONES_GREEN"]
-        else:
-            embed_color = COLORS["chat"]
+        template = CHAT_MESSAGE_EMBEDS["buyer"]
+
+    # Get color
+    if template["color_type"] == "info":
+        embed_color = COLORS["info"]
+    elif template["color_type"] == "platform":
+        embed_color = COLORS["PAXFUL_GREEN"] if platform == "Paxful" else COLORS["NOONES_GREEN"]
+    else:
+        embed_color = COLORS["info"]
 
     # Truncate long messages
-    if len(message) > 1024:
-        message = message[:1021] + "..."
+    message_preview = message if len(message) <= 900 else message[:900] + "..."
 
     embed = {
-        "author": {"name": str(author)},
+        "author": {"name": template["author_format"].format(author=author)},
         "color": embed_color,
-        "description": f"> {message}",
-        "fields": [
-            {"name": "Trade", "value": f"[`{trade_hash}`]({trade_url})", "inline": True},
-            {"name": "Account", "value": str(owner_username), "inline": True}
-        ],
+        "description": template["description_format"].format(
+            trade_hash=trade_hash,
+            owner_username=owner_username,
+            message=message_preview
+        ),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "footer": {"text": "🤖 WillGang Bot"}
+        "footer": {"text": "🤖 WillGang Bot • View Trade"}
     }
     
-    # Only add a title for messages sent by the bot/owner for a cleaner look
+    # Add title and URL for bot owner messages
     if is_bot_owner:
-         embed['title'] = title
+        embed['title'] = template["title"]
+        embed['url'] = trade_url
          
     send_discord_embed(embed, alert_type="chat_log", trade_hash=trade_hash)
 
@@ -401,6 +426,7 @@ def create_name_validation_embed(trade_hash, success, account_name):
     embed = {
         "title": template["title"],
         "color": COLORS["success"] if success else COLORS["error"],
+        "description": template.get("description", ""),
         "fields": formatted_fields,
         "footer": {"text": f"Trade: {trade_hash}"}
     }
@@ -422,6 +448,15 @@ def create_duplicate_receipt_embed(trade_hash, owner_username, image_path, platf
             previous_trade_hash=previous_trade_hash,
             previous_owner=previous_owner
         ),
+        "fields": [
+            {"name": field["name"], "value": field["value"].format(
+                trade_hash=trade_hash,
+                owner_username=owner_username,
+                previous_trade_hash=previous_trade_hash,
+                previous_owner=previous_owner
+            ), "inline": field.get("inline", False)}
+            for field in template.get("fields", [])
+        ],
         "footer": {"text": "🤖 WillGang Bot"}
     }
     send_discord_embed_with_image(embed_data, image_path, alert_type="attachments", trade_hash=trade_hash)
