@@ -147,7 +147,8 @@
                 flex-direction: column;
             }
 
-            .nav-btn, .refresh-btn {
+            .nav-btn,
+            .refresh-btn {
                 width: 100%;
                 justify-content: center;
             }
@@ -236,10 +237,10 @@
         async function refreshTrades() {
             const refreshBtn = document.getElementById('manual-refresh-btn');
             const refreshIcon = document.getElementById('refresh-icon');
-            
+
             refreshBtn.disabled = true;
             refreshIcon.style.animation = 'spin 1s linear infinite';
-            
+
             try {
                 const response = await fetch('/get_active_trades');
                 const trades = await response.json();
@@ -255,7 +256,7 @@
 
         // Auto-refresh functionality
         const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
-        
+
         function startAutoRefresh() {
             if (autoRefreshInterval) {
                 clearInterval(autoRefreshInterval);
@@ -282,12 +283,7 @@
         document.getElementById('manual-refresh-btn').addEventListener('click', refreshTrades);
 
         // Initial load and start auto-refresh
-        fetchActiveTrades().then(async () => {
-            const response = await fetch('/get_active_trades');
-            const trades = await response.json();
-            updateQuickStats(trades);
-        });
-
+        refreshTrades(); // Load trades and stats immediately
         startAutoRefresh();
 
         // Add spin animation
