@@ -111,12 +111,8 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
                 
                 logger.info(f"Found {len(filtered_offers)} matching offers after filtering.")
 
-                # 4. Put the filtered list back into the original structure
-                if isinstance(payload_data, dict):
-                    payload_data["offers"] = filtered_offers
-                    return payload_data # Return the modified data object
-                elif isinstance(payload_data, list):
-                    return filtered_offers # Return the modified list
+                # 4. Always return the filtered list, regardless of payload structure
+                return filtered_offers
                 # --- END OF NEW FILTER LOGIC ---
 
             else:
