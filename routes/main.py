@@ -21,3 +21,9 @@ def index():
         user_grouped_data=user_grouped_data,
         app_settings=app_settings
     )
+
+
+@main_bp.route("/trades-view")
+def trades_view():
+    """Minimal dashboard showing only active trades for quick monitoring"""
+    return render_template("trades_view.html")

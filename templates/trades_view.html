@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Trades - WillGang</title>
+    <link rel="icon" href="{{ url_for('static', filename='ss.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Trades-only view specific styles */
+        .trades-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all var(--transition-base);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--card-hover-border);
+            transform: translateY(-2px);
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            border: none;
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .refresh-btn:hover {
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            transition: all var(--transition-base);
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--card-hover-border);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .stat-card.paid .stat-value {
+            background: linear-gradient(135deg, var(--success-color), var(--success-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-card.disputed .stat-value {
+            background: linear-gradient(135deg, var(--warning-color), var(--warning-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .trades-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .trades-only-card {
+            animation-delay: 0.1s;
+        }
+
+        @media (max-width: 768px) {
+            .trades-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .nav-btn, .refresh-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .quick-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="logo">
+            <img src="{{ url_for('static', filename='ss.png') }}" alt="Logo" class="logo-img">
+        </div>
+        <h1>Active Trades</h1>
+        <div style="margin-left: auto;">
+            <a href="/" class="nav-btn">← Full Dashboard</a>
+        </div>
+    </div>
+
+    <div class="trades-container">
+        <!-- Quick Stats -->
+        <div class="quick-stats" id="quick-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-count">-</div>
+                <div class="stat-label">Total Trades</div>
+            </div>
+            <div class="stat-card paid">
+                <div class="stat-value" id="paid-count">-</div>
+                <div class="stat-label">Paid</div>
+            </div>
+            <div class="stat-card disputed">
+                <div class="stat-value" id="disputed-count">-</div>
+                <div class="stat-label">Disputed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-count">-</div>
+                <div class="stat-label">Active</div>
+            </div>
+        </div>
+
+        <!-- Active Trades Card -->
+        <div class="card trades-only-card">
+            <div class="trades-header">
+                <h2>Active Trades</h2>
+                <div class="header-controls">
+                    <div class="auto-refresh-toggle">
+                        <span>Auto-refresh</span>
+                        <label class="switch">
+                            <input type="checkbox" id="auto-refresh-toggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <button class="refresh-btn" id="manual-refresh-btn">
+                        <span id="refresh-icon">🔄</span>
+                        <span id="refresh-text">Refresh</span>
+                    </button>
+                </div>
+            </div>
+            <div id="active-trades-container">
+                <p>Fetching trades...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Trades-only view specific functionality
+        let autoRefreshInterval = null;
+        const AUTO_REFRESH_DELAY = 30000; // 30 seconds
+
+        function updateQuickStats(trades) {
+            const total = trades.length;
+            const paid = trades.filter(t => t.trade_status === 'Paid').length;
+            const disputed = trades.filter(t => t.trade_status === 'Dispute open').length;
+            const active = total - paid - disputed;
+
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('paid-count').textContent = paid;
+            document.getElementById('disputed-count').textContent = disputed;
+            document.getElementById('active-count').textContent = active;
+        }
+
+        async function refreshTrades() {
+            const refreshBtn = document.getElementById('manual-refresh-btn');
+            const refreshIcon = document.getElementById('refresh-icon');
+            
+            refreshBtn.disabled = true;
+            refreshIcon.style.animation = 'spin 1s linear infinite';
+            
+            try {
+                const response = await fetch('/get_active_trades');
+                const trades = await response.json();
+                updateTradesTable(trades);
+                updateQuickStats(trades);
+            } catch (error) {
+                console.error('Failed to refresh trades:', error);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshIcon.style.animation = '';
+            }
+        }
+
+        // Auto-refresh functionality
+        const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+        
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(refreshTrades, AUTO_REFRESH_DELAY);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        autoRefreshToggle.addEventListener('change', () => {
+            if (autoRefreshToggle.checked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        });
+
+        // Manual refresh button
+        document.getElementById('manual-refresh-btn').addEventListener('click', refreshTrades);
+
+        // Initial load and start auto-refresh
+        fetchActiveTrades().then(async () => {
+            const response = await fetch('/get_active_trades');
+            const trades = await response.json();
+            updateQuickStats(trades);
+        });
+
+        startAutoRefresh();
+
+        // Add spin animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoRefresh();
+        });
+    </script>
+</body>
+
+</html>

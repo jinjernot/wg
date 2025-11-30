@@ -18,10 +18,16 @@
             <img src="{{ url_for('static', filename='ss.png') }}" alt="Logo" class="logo-img">
         </div>
         <h1>WillGang Command Center</h1>
+        <div style="margin-left: auto;">
+            <a href="/trades-view"
+                style="padding: 10px 20px; border: 1px solid var(--card-border); background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 500; transition: all 0.3s ease;">
+                📊 Trades View
+            </a>
+        </div>
     </div>
 
     <div class="dashboard-container">
-        
+
         <div class="card card-control">
             <h2>Bot Control</h2>
             <div class="control-buttons">
@@ -101,12 +107,16 @@
             </div>
             {% endif %}
         </div>
-        
+
         <div class="card card-balances">
             <h2>Wallet Balances</h2>
             <div id="wallet-balances-container" class="balance-columns">
-                <div id="david-balances-col"><p>Fetching...</p></div>
-                <div id="joe-balances-col"><p>Fetching...</p></div>
+                <div id="david-balances-col">
+                    <p>Fetching...</p>
+                </div>
+                <div id="joe-balances-col">
+                    <p>Fetching...</p>
+                </div>
             </div>
         </div>
 
@@ -116,7 +126,7 @@
                 <p>Fetching trades...</p>
             </div>
         </div>
-        
+
         <div class="card card-offers-table full-width">
             <div class="card-header">
                 <h2>Offer Management</h2>
