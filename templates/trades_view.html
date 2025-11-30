@@ -31,7 +31,7 @@
             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px;">
             <div
                 style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; text-align: center;">
-                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"
+                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
                     id="total-count">0</div>
                 <div
                     style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">
@@ -39,7 +39,7 @@
             </div>
             <div
                 style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; text-align: center;">
-                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--success-color), var(--success-hover)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"
+                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--success-color), var(--success-hover)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
                     id="paid-count">0</div>
                 <div
                     style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">
@@ -47,7 +47,7 @@
             </div>
             <div
                 style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; text-align: center;">
-                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--warning-color), var(--warning-hover)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"
+                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--warning-color), var(--warning-hover)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
                     id="disputed-count">0</div>
                 <div
                     style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">
@@ -55,7 +55,7 @@
             </div>
             <div
                 style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; text-align: center;">
-                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"
+                <div style="font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"
                     id="active-count">0</div>
                 <div
                     style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">
@@ -68,8 +68,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h2>Active Trades</h2>
                 <button onclick="loadTrades()"
-                    style="padding: 10px 20px; border: none; background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)); color: white; border-radius: 8px; cursor: pointer;">🔄
-                    Refresh</button>
+                    style="padding: 10px 20px; border: none; background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">Refresh</button>
             </div>
             <div id="active-trades-container">
                 <p>Loading...</p>
