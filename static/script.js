@@ -420,16 +420,6 @@ if (generateClientReportBtn) {
                 return false;
             };
             
-            // Apply color coding based on status (priority order)
-            if (isNewTrade() && trade.trade_status !== 'Paid' && trade.trade_status !== 'Dispute open') {
-                row.classList.add('status-new');
-            } else if (trade.trade_status === 'Paid' && !trade.has_attachment) {
-                row.classList.add('status-paid-no-attachment');
-            } else if (trade.trade_status === 'Paid') {
-                row.classList.add('status-paid');
-            } else if (trade.trade_status === 'Dispute open') {
-                row.classList.add('status-disputed');
-            }
             row.innerHTML = `
                 <td>${trade.account_name_source || 'N/A'}</td>
                 <td>${trade.trade_hash || 'N/A'}</td>
@@ -443,6 +433,16 @@ if (generateClientReportBtn) {
                     <button class="release-trade-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Release</button>
                 </td>
             `;
+            // Apply color coding based on status (priority order)
+            if (isNewTrade() && trade.trade_status !== 'Paid' && trade.trade_status !== 'Dispute open') {
+                row.classList.add('status-new');
+            } else if (trade.trade_status === 'Paid' && !trade.has_attachment) {
+                row.classList.add('status-paid-no-attachment');
+            } else if (trade.trade_status === 'Paid') {
+                row.classList.add('status-paid');
+            } else if (trade.trade_status === 'Dispute open') {
+                row.classList.add('status-disputed');
+            }
             tbody.appendChild(row);
         });
         tradesContainer.appendChild(table);
