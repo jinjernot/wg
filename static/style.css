@@ -1055,3 +1055,14 @@ tr.status-disputed:hover {
 .status-disputed:hover {
     background-color: rgba(239, 68, 68, 0.40) !important;
 }
+
+/* Hide any "NEW" badge/indicator on status-new rows */
+.status-new::before,
+.status-new::after,
+.status-new td::before,
+.status-new td::after,
+.status-new .release-trade-btn::before,
+.status-new .release-trade-btn::after {
+    content: none !important;
+    display: none !important;
+}
