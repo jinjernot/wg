@@ -357,6 +357,92 @@ def plot_trades_per_time_of_day(all_trades, output_path):
 
 
 
+
+
+def plot_client_profitability(trades, output_dir):
+    """Generate bar chart showing top 10 most profitable clients by volume for current month."""
+    from datetime import timezone as tz
+    from dateutil.parser import isoparse
+    import matplotlib.pyplot as plt
+    
+    if not trades:
+        return
+    
+    now = datetime.now(tz.utc)
+    current_month_start = datetime(now.year, now.month, 1, tzinfo=tz.utc)
+    
+    # Filter for current month
+    month_trades = []
+    for t in trades:
+        if t.get('completed_at'):
+            try:
+                completed_date = isoparse(t['completed_at'])
+                if completed_date.tzinfo is None:
+                    completed_date = completed_date.replace(tzinfo=tz.utc)
+                if completed_date >= current_month_start:
+                    month_trades.append(t)
+            except:
+                pass
+    
+    if not month_trades:
+        logging.info("No trades this month for profitability chart.")
+        return
+    
+    # Calculate client volumes
+    client_volumes = {}
+    for trade in month_trades:
+        buyer = trade.get('buyer')
+        if not buyer:
+            continue
+        
+        fiat_amount = trade.get('fiat_amount_requested')
+        try:
+            fiat_amount = float(fiat_amount) if fiat_amount else 0
+        except:
+            continue
+        
+        if buyer not in client_volumes:
+            client_volumes[buyer] = 0
+        client_volumes[buyer] += fiat_amount
+    
+    if not client_volumes:
+        logging.info("No client data for profitability chart.")
+        return
+    
+    # Get top 10
+    top_clients = sorted(client_volumes.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    clients = [c[0] for c in top_clients]
+    volumes = [c[1] for c in top_clients]
+    
+    # Create chart
+    plt.figure(figsize=(14, 8))
+    bars = plt.bar(clients, volumes, color='#4CAF50')
+    
+    # Add value labels on bars
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height,
+                f'${height:,.0f}',
+                ha='center', va='bottom', fontsize=10, fontweight='bold')
+    
+    month_name = now.strftime('%B %Y')
+    plt.title(f"Top 10 Most Profitable Clients - {month_name}", fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel("Client", fontsize=12, fontweight='bold')
+    plt.ylabel("Total Volume (MXN)", fontsize=12, fontweight='bold')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(True, axis='y', alpha=0.3)
+    plt.tight_layout()
+    
+    # Save
+    output_path = os.path.join(output_dir, "client_profitability.png")
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    logging.info(f"Generated client profitability chart: {output_path}")
+    logging.info(f"Top client: {clients[0]} with ${volumes[0]:,.2f} MXN")
+
+
 def generate_client_profitability_csv(trades, output_dir):
     """Generate client profitability CSVs for current month and previous month."""
     from datetime import timezone as tz
@@ -534,7 +620,8 @@ def main():
 
     save_all_trades_csv(filtered_trades, output_dir)
     
-    # Generate Client Profitability Report for current month
+    # Generate Client Profitability Chart and Reports
+    plot_client_profitability(filtered_trades, output_dir)
     generate_client_profitability_csv(filtered_trades, output_dir)
 
     return plot_paths
