@@ -1066,3 +1066,86 @@ tr.status-disputed:hover {
     content: none !important;
     display: none !important;
 }
+/* Mobile Responsive Fixes for Active Trades Table */
+
+@media (max-width: 768px) {
+    /* Make table scrollable horizontally */
+    .card-trades-table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Compact table cells for mobile */
+    .card-trades-table table {
+        font-size: 0.75rem;
+        min-width: 100%;
+    }
+    
+    .card-trades-table th,
+    .card-trades-table td {
+        padding: 8px 6px !important;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+    
+    /* Reduce button sizes on mobile */
+    .send-manual-message-btn,
+    .release-trade-btn {
+        padding: 6px 10px !important;
+        font-size: 0.7rem !important;
+        min-width: 50px !important;
+    }
+    
+    /* Make input smaller */
+    .manual-message-input {
+        padding: 6px !important;
+        font-size: 0.7rem !important;
+        max-width: 100px;
+    }
+    
+    /* Compact message cell */
+    .message-cell {
+        padding: 4px !important;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: auto !important;
+    }
+    
+    /* Stack buttons vertically on very small screens */
+    @media (max-width: 480px) {
+        .message-cell {
+            align-items: stretch;
+        }
+        
+        .send-manual-message-btn,
+        .release-trade-btn {
+            width: 100%;
+        }
+    }
+    
+    /* Reduce row height by limiting cell content */
+    .card-trades-table tr {
+        height: auto;
+        min-height: 50px;
+    }
+    
+    /* Make trade hash and other long text ellipsis */
+    .card-trades-table td:nth-child(2) {
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+/* Extra compact for very small screens */
+@media (max-width: 375px) {
+    .card-trades-table table {
+        font-size: 0.65rem;
+    }
+    
+    .card-trades-table th,
+    .card-trades-table td {
+        padding: 6px 4px !important;
+    }
+}
