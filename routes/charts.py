@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, send_from_directory
 from core.utils import trade_history
 # --- NEW IMPORTS ---
 from core.utils.market_report import generate_mxn_market_report
+from core.utils.client_profitability import generate_client_profitability_report
 from config import TRADE_HISTORY 
 # --- END NEW IMPORTS ---
 
@@ -24,6 +25,21 @@ def generate_market_report_route():
     except Exception as e:
         logger.error(f"Failed to generate market report: {e}", exc_info=True)
         return jsonify({"success": False, "error": "An unexpected server error occurred."}), 500
+
+@charts_bp.route("/generate_client_report", methods=["POST"])
+def generate_client_report_route():
+    try:
+        filepath, filename = generate_client_profitability_report()
+        if filepath and filename:
+            return jsonify({
+                "success": True, 
+                "filename": filename
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to generate report or no data found."}), 500
+    except Exception as e:
+        logger.error(f"Failed to generate client profitability report: {e}", exc_info=True)
+        return jsonify({"success": False, "error": "An unexpected server error occurred."}),500
 # --- END NEW ROUTE ---
 
 

@@ -63,6 +63,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+// Generate Client Profitability Report Button
+const generateClientReportBtn = document.getElementById('generate-client-report-btn');
+if (generateClientReportBtn) {
+    generateClientReportBtn.addEventListener('click', async () => {
+        generateClientReportBtn.disabled = true;
+        generateClientReportBtn.textContent = 'Generating Report...';
+
+        try {
+            const response = await fetch('/generate_client_report', { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                alert('Client Profitability Report generated! Your download will begin.');
+                const downloadUrl = `/charts/${result.filename}`;
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.setAttribute('download', result.filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert(`Error generating report: ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Failed to generate client profitability report:', error);
+            alert('An unexpected error occurred while generating the report.');
+        } finally {
+            generateClientReportBtn.disabled = false;
+            generateClientReportBtn.textContent = 'Download Client Profitability Report';
+        }
+    });
+}
+
+
     // --- NEW LISTENER ---
     if (generateMarketReportBtn) {
         generateMarketReportBtn.addEventListener('click', async () => {
