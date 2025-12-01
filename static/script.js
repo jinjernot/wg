@@ -538,6 +538,11 @@ function updateBalancesDashboard(balances) {
         }
         
         for (const accountName in balances) {
+            // Skip Paxful accounts
+            if (accountName.toLowerCase().includes('paxful')) {
+                continue;
+            }
+            
             const accountData = balances[accountName];
             
             let content = `<div class="balance-account-container">`;
