@@ -411,10 +411,10 @@ if (generateClientReportBtn) {
             
             // Check if trade is newly created (within 30 minutes)
             const isNewTrade = () => {
-                if (trade.created_at) {
-                    const createdTime = new Date(trade.created_at);
+                if (trade.started_at) {
+                    const startedTime = new Date(trade.started_at);
                     const now = new Date();
-                    const diffMinutes = (now - createdTime) / (1000 * 60);
+                    const diffMinutes = (now - startedTime) / (1000 * 60);
                     return diffMinutes <= 30;
                 }
                 return false;
