@@ -356,6 +356,91 @@ def plot_trades_per_time_of_day(all_trades, output_path):
     plt.close()
 
 
+
+def generate_client_profitability_csv(trades, output_dir):
+    """Generate client profitability CSV for current month using existing trade data."""
+    from datetime import timezone as tz
+    from dateutil.parser import isoparse
+    
+    if not trades:
+        logging.info("No trades data for client profitability report.")
+        return
+    
+    # Filter for current month
+    now = datetime.now(tz.utc)
+    current_month_start = datetime(now.year, now.month, 1, tzinfo=tz.utc)
+    
+    month_trades = [t for t in trades if t.get('completed_at') and 
+                    isoparse(t['completed_at']) >= current_month_start]
+    
+    if not month_trades:
+        logging.info(f"No trades found for current month ({now.strftime('%B %Y')}).")
+        return
+    
+    # Analyze by buyer
+    buyer_stats = {}
+    for trade in month_trades:
+        buyer = trade.get('buyer')
+        if not buyer:
+            continue
+        
+        fiat_amount = trade.get('fiat_amount_requested')
+        try:
+            fiat_amount = float(fiat_amount) if fiat_amount else 0
+        except:
+            continue
+        
+        if buyer not in buyer_stats:
+            buyer_stats[buyer] = {
+                'total_trades': 0,
+                'total_volume_mxn': 0.0,
+                'payment_methods': set(),
+                'crypto_currencies': set()
+            }
+        
+        buyer_stats[buyer]['total_trades'] += 1
+        buyer_stats[buyer]['total_volume_mxn'] += fiat_amount
+        if trade.get('payment_method_name'):
+            buyer_stats[buyer]['payment_methods'].add(trade['payment_method_name'])
+        if trade.get('crypto_currency_code'):
+            buyer_stats[buyer]['crypto_currencies'].add(trade['crypto_currency_code'])
+    
+    # Convert to sorted list
+    buyer_list = []
+    for buyer, stats in buyer_stats.items():
+        buyer_list.append({
+            'buyer': buyer,
+            'total_trades': stats['total_trades'],
+            'total_volume_mxn': round(stats['total_volume_mxn'], 2),
+            'average_trade_size_mxn': round(stats['total_volume_mxn'] / stats['total_trades'], 2),
+            'payment_methods': ', '.join(sorted(stats['payment_methods'])),
+            'crypto_currencies': ', '.join(sorted(stats['crypto_currencies']))
+        })
+    
+    buyer_list.sort(key=lambda x: x['total_volume_mxn'], reverse=True)
+    
+    # Save CSV
+    month_year = now.strftime('%B_%Y')
+    filename = f"client_profitability_{month_year}.csv"
+    filepath = os.path.join(output_dir, filename)
+    
+    fieldnames = ['buyer', 'total_trades', 'total_volume_mxn', 'average_trade_size_mxn',
+                  'payment_methods', 'crypto_currencies']
+    
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(buyer_list)
+        
+        logging.info(f"Generated client profitability report for {month_year}: {filename}")
+        if buyer_list:
+            logging.info(f"Top client: {buyer_list[0]['buyer']} with ${buyer_list[0]['total_volume_mxn']:,.2f} MXN")
+    except Exception as e:
+        logging.error(f"Failed to write client profitability CSV: {e}")
+
+
+
 def main():
     threads = []
     for account in ACCOUNTS:
@@ -403,6 +488,9 @@ def main():
         filtered_trades, plot_paths["trades_by_payment_method"])
 
     save_all_trades_csv(filtered_trades, output_dir)
+    
+    # Generate Client Profitability Report for current month
+    generate_client_profitability_csv(filtered_trades, output_dir)
 
     return plot_paths
 
