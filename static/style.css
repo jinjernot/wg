@@ -1014,4 +1014,44 @@ tr.status-disputed:hover {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}/* Trade Row Color Coding - Bright and Visible */
+
+/* New trades (within 30 minutes) - Bright Blue */
+.status-new {
+    background-color: rgba(59, 130, 246, 0.25) !important;  /* Brighter blue */
+    border-left: 4px solid #3B82F6 !important;
+}
+
+.status-new:hover {
+    background-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+/* Paid without attachment - Bright Orange/Red */
+.status-paid-no-attachment {
+    background-color: rgba(251, 146, 60, 0.25) !important;  /* Brighter orange */
+    border-left: 4px solid #FB923C !important;
+}
+
+.status-paid-no-attachment:hover {
+    background-color: rgba(251, 146, 60, 0.35) !important;
+}
+
+/* Paid with attachment - Bright Green */
+.status-paid {
+    background-color: rgba(34, 197, 94, 0.25) !important;  /* Brighter green */
+    border-left: 4px solid #22C55E !important;
+}
+
+.status-paid:hover {
+    background-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+/* Disputed - Bright Red */
+.status-disputed {
+    background-color: rgba(239, 68, 68, 0.30) !important;  /* Brighter red */
+    border-left: 4px solid #EF4444 !important;
+}
+
+.status-disputed:hover {
+    background-color: rgba(239, 68, 68, 0.40) !important;
 }
