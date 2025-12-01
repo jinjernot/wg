@@ -370,8 +370,18 @@ def generate_client_profitability_csv(trades, output_dir):
     now = datetime.now(tz.utc)
     current_month_start = datetime(now.year, now.month, 1, tzinfo=tz.utc)
     
-    month_trades = [t for t in trades if t.get('completed_at') and 
-                    isoparse(t['completed_at']) >= current_month_start]
+    month_trades = []
+    for t in trades:
+        if t.get('completed_at'):
+            try:
+                completed_date = isoparse(t['completed_at'])
+                # Ensure timezone-aware comparison
+                if completed_date.tzinfo is None:
+                    completed_date = completed_date.replace(tzinfo=tz.utc)
+                if completed_date >= current_month_start:
+                    month_trades.append(t)
+            except:
+                pass
     
     if not month_trades:
         logging.info(f"No trades found for current month ({now.strftime('%B %Y')}).")
