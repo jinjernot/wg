@@ -55,6 +55,11 @@ def generate_mxn_market_report():
                         country_code=COUNTRY_ISO
                     )
 
+                    # Validate that offers is a list, not a string or error
+                    if not isinstance(offers, list):
+                        logger.warning(f"Received non-list response for market {market_key}: {type(offers).__name__}")
+                        continue
+
                     if not offers:
                         logger.warning(f"No offers found for market {market_key}.")
                         continue
@@ -62,6 +67,10 @@ def generate_mxn_market_report():
                     logger.info(f"Found {len(offers)} offers for {market_key}.")
                     
                     for offer in offers:
+                        # Safety check: ensure offer is a dictionary
+                        if not isinstance(offer, dict):
+                            logger.warning(f"Skipping invalid offer (not a dict) in market {market_key}")
+                            continue
                         flat_offer = {
                             "market_crypto": crypto,
                             "market_fiat": FIAT,

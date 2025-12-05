@@ -327,10 +327,10 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     """Builds and sends an amount validation embed using templates."""
     if found is None:
         template = AMOUNT_VALIDATION_EMBEDS["not_found"]
-        fields = [{" name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
     elif float(expected) == float(found):
         template = AMOUNT_VALIDATION_EMBEDS["matched"]
-        fields = [{" name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
     else:
         template = AMOUNT_VALIDATION_EMBEDS["mismatch"]
         fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
