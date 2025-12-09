@@ -7,6 +7,9 @@ class DiscordHandler(logging.Handler):
     """
     A custom logging handler that sends logs to a Discord channel via a webhook.
     """
+    # Class-level set to track credential errors already sent
+    _sent_credential_errors = set()
+    
     def __init__(self, webhook_url):
         super().__init__()
         self.webhook_url = webhook_url
@@ -21,6 +24,16 @@ class DiscordHandler(logging.Handler):
         # TEMPORARY: Skip all Paxful-related error alerts
         if "Paxful" in log_message:
             return
+        
+        # Skip repeated "Credentials file not found" errors - only alert once per credential
+        if "Credentials file not found for" in log_message:
+            # Extract the credential identifier from the message
+            if log_message not in self._sent_credential_errors:
+                # First time seeing this error, add it to the set and allow it to be sent
+                self._sent_credential_errors.add(log_message)
+            else:
+                # Already sent this error before, skip it
+                return
         
         # Discord embed field value limit is 1024 characters.
         if len(log_message) > 1000:
