@@ -1046,6 +1046,16 @@ tr.status-disputed:hover {
     background-color: rgba(34, 197, 94, 0.35) !important;
 }
 
+/* Old Paid trades (>3 hours) - Darker Green */
+.status-paid-old {
+    background-color: rgba(5, 150, 105, 0.30) !important;  /* Darker green */
+    border-left: 4px solid #059669 !important;
+}
+
+.status-paid-old:hover {
+    background-color: rgba(5, 150, 105, 0.40) !important;
+}
+
 /* Disputed - Bright Red */
 .status-disputed {
     background-color: rgba(239, 68, 68, 0.30) !important;  /* Brighter red */
