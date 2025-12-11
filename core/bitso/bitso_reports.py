@@ -24,7 +24,10 @@ def load_eduardo_fallback_data(year: int, month: int):
     if year != 2025 or month != 12:
         return []
     
-    fallback_csv = os.path.join(os.path.dirname(REPORTS_DIR), 'bitso_deposits_eduardo_ramirez.csv')
+    # Get the project root directory (parent of the data directory)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root = os.path.dirname(project_root)  # Go up one more level to reach will_gang root
+    fallback_csv = os.path.join(project_root, 'bitso_deposits_eduardo_ramirez.csv')
     
     if not os.path.exists(fallback_csv):
         print(f"⚠️ Fallback CSV not found at: {fallback_csv}")
@@ -74,8 +77,11 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
     fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
     
     # WORKAROUND: If eduardo_ramirez returns no data, try loading from fallback CSV (December 2025 only)
+    used_fallback = False
     if user == 'eduardo_ramirez' and not fundings:
         fundings = load_eduardo_fallback_data(year, month)
+        used_fallback = len(fundings) > 0
+    
     for f in fundings:
         f['account_user'] = user
 
@@ -84,8 +90,12 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
     deposits_filename = os.path.join(REPORTS_DIR, f'bitso_deposits_{user}.csv')
     failed_filename = os.path.join(REPORTS_DIR, f'bitso_failed_deposits_{user}.csv')
 
+    # Only export to reports directory (don't overwrite the root fallback CSV)
     export_to_csv(filtered, filename=deposits_filename)
-    export_failed_to_csv(fundings, filename=failed_filename)
+    if not used_fallback:  # Only export failed if we didn't use fallback (to preserve root CSV)
+        export_failed_to_csv(fundings, filename=failed_filename)
+    else:
+        print(f"Skipping failed deposits export for {user} (using fallback data)")
 
     return filtered, fundings
 
