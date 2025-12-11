@@ -41,19 +41,33 @@ def load_eduardo_fallback_data(year: int, month: int):
         # Convert DataFrame back to list of dicts (simulating API response format)
         fundings = []
         for _, row in df.iterrows():
+            # Safely convert amount to string, handling NaN and other types
+            try:
+                amount_value = float(row['Amount'])
+                amount_str = str(amount_value)
+            except (ValueError, TypeError):
+                print(f"⚠️ Skipping row with invalid amount: {row.get('Funding ID', 'unknown')}")
+                continue
+            
+            # Safely get string fields, replacing NaN with empty string
+            def safe_str(val):
+                if pd.isna(val):
+                    return ''
+                return str(val)
+            
             funding = {
-                'fid': row['Funding ID'],
-                'status': row['Status'],
-                'created_at': row['Date (UTC)'],
-                'amount': str(row['Amount']),
-                'currency': row['Currency'],
-                'asset': row['Asset'],
-                'method': row['Method'],
-                'method_name': row['Method Name'],
+                'fid': safe_str(row['Funding ID']),
+                'status': safe_str(row['Status']),
+                'created_at': safe_str(row['Date (UTC)']),
+                'amount': amount_str,
+                'currency': safe_str(row['Currency']),
+                'asset': safe_str(row['Asset']),
+                'method': safe_str(row['Method']),
+                'method_name': safe_str(row['Method Name']),
                 'details': {
-                    'sender_name': row['Sender Name'],
-                    'sender_clabe': row['Sender CLABE'],
-                    'receiver_clabe': row['Receive CLABE']
+                    'sender_name': safe_str(row['Sender Name']),
+                    'sender_clabe': safe_str(row['Sender CLABE']),
+                    'receiver_clabe': safe_str(row['Receive CLABE'])
                 },
                 'account_user': 'eduardo_ramirez'
             }
