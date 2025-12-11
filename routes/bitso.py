@@ -4,6 +4,7 @@ from datetime import datetime
 from dateutil.parser import parse as date_parse
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month
+from core.bitso.bitso_reports import load_eduardo_fallback_data
 import bitso_config
 
 bitso_bp = Blueprint('bitso', __name__)
@@ -29,8 +30,14 @@ def get_bitso_summary():
             if not api_key or not api_secret:
                 print(f"Missing credentials for {user}. Skipping...")
                 continue
+            
             fundings = fetch_funding_transactions_for_user(
                 user, api_key, api_secret)
+            
+            # WORKAROUND: If eduardo_ramirez returns no data, try loading from fallback CSV (December 2025 only)
+            if user == 'eduardo_ramirez' and not fundings:
+                fundings = load_eduardo_fallback_data(year, month)
+            
             all_fundings.extend(fundings)
 
         filtered_fundings = filter_fundings_by_month(
