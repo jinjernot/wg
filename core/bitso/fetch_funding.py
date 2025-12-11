@@ -55,7 +55,9 @@ def fetch_funding_transactions_for_user(user, api_key, api_secret, max_retries=5
             print(f"Retry {retries}/{max_retries} - sleeping {sleep_time:.1f} seconds...")
             time.sleep(sleep_time)
         else:
-            raise Exception(f"Failed to fetch data after {max_retries} retries for user {user}")
+            print(f"⚠️ WARNING: Failed to fetch data after {max_retries} retries for user {user}. Skipping this account.")
+            print(f"   This account may be blocked or experiencing issues. Continuing with remaining accounts...")
+            return []  # Return empty list to skip this account
 
         result = response.json()
         fundings = result.get('payload', [])
