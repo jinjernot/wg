@@ -15,6 +15,55 @@ from config import REPORTS_DIR
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
+def load_eduardo_fallback_data(year: int, month: int):
+    """
+    Temporary workaround for blocked eduardo_ramirez account (December 2025).
+    Loads data from static CSV file in root directory.
+    """
+    # Only use this workaround for December 2025
+    if year != 2025 or month != 12:
+        return []
+    
+    fallback_csv = os.path.join(os.path.dirname(REPORTS_DIR), 'bitso_deposits_eduardo_ramirez.csv')
+    
+    if not os.path.exists(fallback_csv):
+        print(f"⚠️ Fallback CSV not found at: {fallback_csv}")
+        return []
+    
+    print(f"📁 Loading fallback data for eduardo_ramirez from: {fallback_csv}")
+    
+    try:
+        df = pd.read_csv(fallback_csv)
+        
+        # Convert DataFrame back to list of dicts (simulating API response format)
+        fundings = []
+        for _, row in df.iterrows():
+            funding = {
+                'fid': row['Funding ID'],
+                'status': row['Status'],
+                'created_at': row['Date (UTC)'],
+                'amount': str(row['Amount']),
+                'currency': row['Currency'],
+                'asset': row['Asset'],
+                'method': row['Method'],
+                'method_name': row['Method Name'],
+                'details': {
+                    'sender_name': row['Sender Name'],
+                    'sender_clabe': row['Sender CLABE'],
+                    'receiver_clabe': row['Receive CLABE']
+                },
+                'account_user': 'eduardo_ramirez'
+            }
+            fundings.append(funding)
+        
+        print(f"✅ Loaded {len(fundings)} transactions from fallback CSV")
+        return fundings
+        
+    except Exception as e:
+        print(f"❌ Error loading fallback CSV: {e}")
+        return []
+
+
 def process_user_funding(user: str, api_key: str, api_secret: str, year: int, month: int) -> tuple[list, list]:
     print(f"\nProcessing user: {user}")
 
@@ -23,6 +72,10 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
         return [], []
 
     fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
+    
+    # WORKAROUND: If eduardo_ramirez returns no data, try loading from fallback CSV (December 2025 only)
+    if user == 'eduardo_ramirez' and not fundings:
+        fundings = load_eduardo_fallback_data(year, month)
     for f in fundings:
         f['account_user'] = user
 
