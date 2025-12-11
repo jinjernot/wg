@@ -4,7 +4,7 @@ from datetime import datetime
 from dateutil.parser import parse as date_parse
 from core.bitso.fetch_funding import fetch_funding_transactions_for_user
 from core.bitso.filter_data import filter_fundings_by_month
-from core.bitso.bitso_reports import load_eduardo_fallback_data
+from core.bitso.fallback_loader import load_eduardo_fallback_data
 import bitso_config
 
 bitso_bp = Blueprint('bitso', __name__)
