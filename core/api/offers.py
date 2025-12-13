@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-from config import ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import PLATFORM_ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from core.messaging.alerts.telegram_alert import escape_markdown
 from core.utils.http_client import get_http_client
 from core.utils.response_cache import get_response_cache

@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from config_messages.discord_messages import SERVER_UNREACHABLE
 from config import DISCORD_GUILD_ID
-from config import REPORTS_DIR
+from config import BITSO_REPORTS_DIR
 
 MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 
@@ -69,7 +69,7 @@ class BitsoCommands(commands.Cog):
                 return
 
             chart_filename = f"bitso_income_{year}_{month_num}.png"
-            chart_filepath = os.path.join(REPORTS_DIR, chart_filename)
+            chart_filepath = os.path.join(BITSO_REPORTS_DIR, chart_filename)
 
             generate_growth_chart(all_fundings, year,
                                   month_num, filename=chart_filename)

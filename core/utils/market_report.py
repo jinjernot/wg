@@ -2,7 +2,7 @@ import logging
 import csv
 import os
 from datetime import datetime, timezone
-from config import TRADE_HISTORY 
+from config import TRADE_HISTORY_DIR 
 from core.api.offers import search_public_offers
 
 logger = logging.getLogger(__name__)

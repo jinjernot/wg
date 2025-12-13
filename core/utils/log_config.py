@@ -2,14 +2,14 @@ import logging
 import json
 import os
 # Remove the RotatingFileHandler import, we'll use the basic FileHandler
-from config import SETTINGS_FILE, DISCORD_WEBHOOKS
+from config import APP_SETTINGS_FILE, DISCORD_WEBHOOKS
 from core.messaging.alerts.discord_logging_handler import DiscordHandler
 
 def setup_logging():
     """Reads settings and configures the root logger."""
     try:
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, "r") as f:
+        if os.path.exists(APP_SETTINGS_FILE):
+            with open(APP_SETTINGS_FILE, "r") as f:
                 settings = json.load(f)
             verbose_enabled = settings.get("verbose_logging_enabled", True)
         else:

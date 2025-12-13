@@ -3,7 +3,7 @@ import logging
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trading.processor import process_trades
-from config import ACCOUNTS, TRADE_STORAGE_DIR
+from config import PLATFORM_ACCOUNTS, TRADES_STORAGE_DIR
 from core.api.offers import set_offer_status, send_scheduled_task_alert
 from core.utils.log_config import setup_logging
 from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
@@ -56,10 +56,10 @@ def turn_off_offers_job():
 
 def main():
 
-    if not os.path.exists(TRADE_STORAGE_DIR):
+    if not os.path.exists(TRADES_STORAGE_DIR):
         logger.info(
-            f"Creating trade storage directory at: {TRADE_STORAGE_DIR}")
-        os.makedirs(TRADE_STORAGE_DIR)
+            f"Creating trade storage directory at: {TRADES_STORAGE_DIR}")
+        os.makedirs(TRADES_STORAGE_DIR)
 
     logger.info("Performing initial wallet balance check on startup...")
     check_wallet_balances_and_alert()

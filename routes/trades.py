@@ -4,25 +4,23 @@ import logging
 from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
-from config import ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES
+from config import PLATFORM_ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, TRADES_ACTIVE_DIR
 from core.api.trade_chat import get_all_messages_from_chat, release_trade
 
 trades_bp = Blueprint('trades', __name__)
 logger = logging.getLogger(__name__)
 
-ACTIVE_TRADES_DIR = os.path.join('data', 'logs', 'active_trades')
-
 
 @trades_bp.route("/get_active_trades")
 def get_active_trades():
     active_trades_data = []
-    if not os.path.exists(ACTIVE_TRADES_DIR):
+    if not os.path.exists(TRADES_ACTIVE_DIR):
         return jsonify([])
 
-    for filename in os.listdir(ACTIVE_TRADES_DIR):
+    for filename in os.listdir(TRADES_ACTIVE_DIR):
         if filename.endswith("_trades.json"):
             try:
-                filepath = os.path.join(ACTIVE_TRADES_DIR, filename)
+                filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     trades_list = data.get("data", {}).get("trades", [])
@@ -35,7 +33,7 @@ def get_active_trades():
                                 account_name_for_lookup = account_name_source.replace(
                                     " ", "_")
                                 account = next(
-                                    (acc for acc in ACCOUNTS if acc["name"] == account_name_for_lookup), None)
+                                    (acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name_for_lookup), None)
                                 if account:
                                     token = fetch_token_with_retry(account)
                                     if token:
@@ -69,7 +67,7 @@ def send_manual_message():
     # --- END OF CHECK ---
 
     formatted_account_name = account_name.replace(" ", "_")
-    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower(
+    target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"].lower(
     ) == formatted_account_name.lower()), None)
 
     if not target_account:
@@ -105,7 +103,7 @@ def release_trade_route():
     # --- END OF CHECK ---
 
     formatted_account_name = account_name.replace(" ", "_")
-    target_account = next((acc for acc in ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
+    target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)
 
     if not target_account:
         return jsonify({"success": False, "error": f"Account '{account_name}' not found."}), 404

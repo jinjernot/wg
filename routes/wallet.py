@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 from core.api.wallet import get_wallet_balances
 from core.messaging.alerts.low_balance_alert import get_crypto_in_open_trades
-from config import ACCOUNTS
+from config import PLATFORM_ACCOUNTS
 
 wallet_bp = Blueprint('wallet', __name__)
 
@@ -14,7 +14,7 @@ def get_wallet_balances_route():
     balances = get_wallet_balances()
     effective_balances = {}
 
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         account_name = account['name']
         balance_data = balances.get(account_name, {})
 

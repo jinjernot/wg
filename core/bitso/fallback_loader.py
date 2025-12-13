@@ -4,21 +4,19 @@ This module is separate from bitso_reports to avoid heavy dependencies like matp
 """
 import pandas as pd
 import os
+from config import BITSO_FALLBACK_DIR
 
 
 def load_eduardo_fallback_data(year: int, month: int):
     """
     Temporary workaround for blocked eduardo_ramirez account (December 2025).
-    Loads data from static CSV file in root directory.
+    Loads data from static CSV file in reports/bitso/fallback/ directory.
     """
     # Only use this workaround for December 2025
     if year != 2025 or month != 12:
         return []
     
-    # Get the project root directory (parent of the data directory)
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    project_root = os.path.dirname(project_root)  # Go up one more level to reach will_gang root
-    fallback_csv = os.path.join(project_root, 'bitso_deposits_eduardo_ramirez.csv')
+    fallback_csv = os.path.join(BITSO_FALLBACK_DIR, 'eduardo_ramirez_dec2025.csv')
     
     if not os.path.exists(fallback_csv):
         print(f"⚠️ Fallback CSV not found at: {fallback_csv}")

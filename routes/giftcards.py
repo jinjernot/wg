@@ -9,7 +9,7 @@ from core.utils.gift_card_analytics import (
     generate_gift_card_csv,
     GIFT_CARD_SLUGS
 )
-from config import TRADE_HISTORY
+from config import TRADE_HISTORY_DIR
 
 giftcards_bp = Blueprint('giftcards', __name__)
 logger = logging.getLogger(__name__)

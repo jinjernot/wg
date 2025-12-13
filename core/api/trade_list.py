@@ -4,7 +4,7 @@ import json
 import time
 import os 
 from datetime import datetime, timedelta, timezone
-from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL, ACTIVE_TRADES_DIR
+from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL, TRADES_ACTIVE_DIR
 from core.utils.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
             if response.status_code == 200:
                 trades_data = response.json()
                 filename = f"{account['name'].replace(' ', '_')}_trades.json"
-                filepath = os.path.join(ACTIVE_TRADES_DIR, filename)
+                filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
                 with open(filepath, "w", encoding="utf-8") as json_file:
                     json.dump(trades_data, json_file, indent=4)
                 logger.info(f"Saved raw trade data to {filepath}")

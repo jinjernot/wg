@@ -3,7 +3,7 @@ import os
 import time
 import logging
 from functools import wraps
-from config import TRADE_STORAGE_DIR
+from config import TRADES_STORAGE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def retry_on_permission_error(max_retries=5, base_delay=0.1):
 
 def load_processed_trades(owner_username, platform):
     """Loads all processed trades for a specific user and platform."""
-    file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
+    file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
     try:
         # Check if file exists and is not empty
         if not os.path.exists(file_path):
@@ -58,7 +58,7 @@ def save_processed_trade(trade_data, platform):
     if not owner_username or not trade_hash:
         return # Cannot save without these essential keys
 
-    file_path = os.path.join(TRADE_STORAGE_DIR, f"{owner_username}_{platform}.json")
+    file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
     
     # Load all trades to ensure we don't overwrite other trades in the file.
     all_trades = load_processed_trades(owner_username, platform)

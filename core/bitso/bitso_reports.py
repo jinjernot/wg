@@ -11,9 +11,9 @@ from core.bitso.filter_sender import filter_sender_name
 from core.bitso.fallback_loader import load_eduardo_fallback_data
 
 from datetime import datetime
-from config import REPORTS_DIR
+from config import BITSO_REPORTS_DIR
 
-os.makedirs(REPORTS_DIR, exist_ok=True)
+os.makedirs(BITSO_REPORTS_DIR, exist_ok=True)
 
 
 def process_user_funding(user: str, api_key: str, api_secret: str, year: int, month: int) -> tuple[list, list]:
@@ -36,8 +36,8 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
 
     filtered = filter_fundings_by_month(fundings, year, month)
 
-    deposits_filename = os.path.join(REPORTS_DIR, f'bitso_deposits_{user}.csv')
-    failed_filename = os.path.join(REPORTS_DIR, f'bitso_failed_deposits_{user}.csv')
+    deposits_filename = os.path.join(BITSO_REPORTS_DIR, f'bitso_deposits_{user}.csv')
+    failed_filename = os.path.join(BITSO_REPORTS_DIR, f'bitso_failed_deposits_{user}.csv')
 
     # Only export to reports directory (don't overwrite the root fallback CSV)
     export_to_csv(filtered, filename=deposits_filename)
@@ -94,7 +94,7 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     plt.tight_layout()
 
     # --- Save chart to the reports directory ---
-    chart_filepath = os.path.join(REPORTS_DIR, filename)
+    chart_filepath = os.path.join(BITSO_REPORTS_DIR, filename)
     plt.savefig(chart_filepath)
     print(f"Success! Daily income bar chart saved to {chart_filepath}")
     plt.close()

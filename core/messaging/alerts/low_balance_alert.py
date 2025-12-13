@@ -5,7 +5,7 @@ from core.messaging.alerts.telegram_alert import send_low_balance_alert
 from config_messages.discord_messages import LOW_BALANCE_ALERT_EMBED
 from core.api.trade_list import get_trade_list
 from core.api.auth import fetch_token_with_retry
-from config import ACCOUNTS
+from config import PLATFORM_ACCOUNTS
 
 logger = logging.getLogger(__name__)
 

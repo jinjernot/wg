@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 from core.utils.trade_history import fetch_completed_trades
-from config import ACCOUNTS, TRADE_HISTORY
+from config import PLATFORM_ACCOUNTS, TRADE_HISTORY_DIR
 
 logger = logging.getLogger(__name__)
 

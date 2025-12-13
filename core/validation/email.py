@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
-from config import CREDENTIALS_DIR
+from config import GMAIL_CREDENTIALS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ def get_gmail_service(name_identifier):
 
     sanitized_name = name_identifier.replace(" ", "_")
     creds = None
-    token_file = os.path.join(CREDENTIALS_DIR, f"token_{sanitized_name}.json")
-    creds_file = os.path.join(CREDENTIALS_DIR, f"credentials_{sanitized_name}.json")
+    token_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"token_{sanitized_name}.json")
+    creds_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"credentials_{sanitized_name}.json")
 
     if os.path.exists(token_file):
         creds = Credentials.from_authorized_user_file(token_file, SCOPES)

@@ -4,7 +4,7 @@ from core.utils import trade_history
 # --- NEW IMPORTS ---
 from core.utils.market_report import generate_mxn_market_report
 from core.utils.client_profitability import generate_client_profitability_report
-from config import TRADE_HISTORY 
+from config import TRADE_HISTORY_DIR 
 # --- END NEW IMPORTS ---
 
 charts_bp = Blueprint('charts', __name__)

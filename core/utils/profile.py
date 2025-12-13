@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from datetime import datetime, timezone
-from config import TRADE_STORAGE_DIR
+from config import TRADES_STORAGE_DIR
 from dateutil import parser
 
 logger = logging.getLogger(__name__)
@@ -29,11 +29,11 @@ def generate_user_profile(username):
     current_month = now.month
 
     try:
-        if not os.path.exists(TRADE_STORAGE_DIR):
-            logger.warning(f"Trade storage directory not found at: {TRADE_STORAGE_DIR}")
+        if not os.path.exists(TRADES_STORAGE_DIR):
+            logger.warning(f"Trade storage directory not found at: {TRADES_STORAGE_DIR}")
             return None
 
-        for filename in os.listdir(TRADE_STORAGE_DIR):
+        for filename in os.listdir(TRADES_STORAGE_DIR):
             if not filename.endswith(".json"):
                 continue
             
@@ -42,7 +42,7 @@ def generate_user_profile(username):
             except ValueError:
                 continue 
 
-            filepath = os.path.join(TRADE_STORAGE_DIR, filename)
+            filepath = os.path.join(TRADES_STORAGE_DIR, filename)
             with open(filepath, 'r') as f:
                 trades = json.load(f)
 

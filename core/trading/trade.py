@@ -9,7 +9,7 @@ from config import (
     EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES,
     ONLINE_QUERY_KEYWORDS
 )
-from core.state.get_files import load_processed_trades, save_processed_trade
+from core.state.trade_state_loader import load_processed_trades, save_processed_trade
 from core.api.trade_chat import get_all_messages_from_chat, download_attachment
 from core.validation.email import check_for_payment_email, get_gmail_service
 from core.validation.ocr import (
