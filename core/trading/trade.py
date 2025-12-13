@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timezone
 from config import (
     CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
-    EMAIL_CHECK_DURATION, JSON_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES,
+    EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES,
     ONLINE_QUERY_KEYWORDS
 )
 from core.state.get_files import load_processed_trades, save_processed_trade
@@ -201,7 +201,7 @@ class Trade:
             return None
 
         json_filename = f"{json_key_slug}.json"
-        json_path = os.path.join(JSON_PATH, json_filename)
+        json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
 
         try:
             with open(json_path, "r", encoding="utf-8") as f:

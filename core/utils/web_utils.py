@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from config import JSON_PATH, SETTINGS_FILE
+from config import PAYMENT_ACCOUNTS_PATH, SETTINGS_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +41,12 @@ def update_app_settings(new_settings):
 def get_payment_data():
     """Loads all payment method JSON files."""
     payment_data = {}
-    if not os.path.exists(JSON_PATH):
-        logger.warning(f"Warning: Directory {JSON_PATH} not found.")
+    if not os.path.exists(PAYMENT_ACCOUNTS_PATH):
+        logger.warning(f"Warning: Directory {PAYMENT_ACCOUNTS_PATH} not found.")
         return payment_data
-    for filename in os.listdir(JSON_PATH):
+    for filename in os.listdir(PAYMENT_ACCOUNTS_PATH):
         if filename.endswith(".json"):
-            filepath = os.path.join(JSON_PATH, filename)
+            filepath = os.path.join(PAYMENT_ACCOUNTS_PATH, filename)
             with open(filepath, "r", encoding="utf-8") as f:
                 try:
                     payment_data[filename] = json.load(f)

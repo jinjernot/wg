@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, jsonify
 import core.utils.web_utils as web_utils
 from core.utils.log_config import setup_logging
-from config import JSON_PATH
+from config import PAYMENT_ACCOUNTS_PATH
 import os
 
 settings_bp = Blueprint('settings', __name__)
@@ -48,7 +48,7 @@ def update_all_selections():
             errors.append(f"Incomplete data for one of the selections.")
             continue
 
-        filepath = os.path.join(JSON_PATH, filename)
+        filepath = os.path.join(PAYMENT_ACCOUNTS_PATH, filename)
         if not os.path.exists(filepath):
             errors.append(f"File not found: {filename}")
             continue

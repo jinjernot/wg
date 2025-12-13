@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from config import JSON_PATH
+from config import PAYMENT_ACCOUNTS_PATH
 from config_messages.payment_david import PAYMENT_MESSAGES_DAVID
 from config_messages.payment_joe import PAYMENT_MESSAGES_JOE
 from core.messaging.message_sender import send_message_with_retry
@@ -21,7 +21,7 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             json_key_slug = payment_method_slug
 
         json_filename = f"{normalized_slug}.json"
-        json_path = os.path.join(JSON_PATH, json_filename)
+        json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
 
         with open(json_path, "r") as f:
             payment_data = json.load(f)

@@ -17,3 +17,4 @@ bitso_config.py
 ocr_logs
 trade_history/
 .env
+payment_accounts

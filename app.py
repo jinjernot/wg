@@ -3,7 +3,7 @@ import logging
 import atexit
 from flask import Flask
 from core.utils.log_config import setup_logging
-from config import JSON_PATH, DISCORD_WEBHOOKS
+from config import PAYMENT_ACCOUNTS_PATH, DISCORD_WEBHOOKS
 from core.utils.bot_process_manager import start_trading
 from core.utils.heartbeat import HeartbeatMonitor
 from core.utils.http_client import get_http_client, close_http_client
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 http_client = get_http_client()
 logger.info("HTTP client initialized with connection pooling")
 
-if not os.path.exists(JSON_PATH):
-    os.makedirs(JSON_PATH)
+if not os.path.exists(PAYMENT_ACCOUNTS_PATH):
+    os.makedirs(PAYMENT_ACCOUNTS_PATH)
 
 # Initialize heartbeat monitor
 heartbeat = None
