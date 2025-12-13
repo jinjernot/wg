@@ -29,20 +29,23 @@ def get_active_trades():
                             "_trades.json", "").replace("_", " ").title()
                         for trade in trades_list:
                             trade['account_name_source'] = account_name_source
-                            if trade.get('trade_status') == 'Paid':
-                                account_name_for_lookup = account_name_source.replace(
-                                    " ", "_")
-                                account = next(
-                                    (acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name_for_lookup), None)
-                                if account:
-                                    token = fetch_token_with_retry(account)
-                                    if token:
-                                        headers = {
-                                            "Authorization": f"Bearer {token}"}
-                                        all_messages = get_all_messages_from_chat(
-                                            trade.get("trade_hash"), account, headers)
-                                        trade['has_attachment'] = any(
-                                            msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                            
+                            # Check for attachments for ALL trades (not just Paid)
+                            account_name_for_lookup = account_name_source.replace(" ", "_")
+                            account = next(
+                                (acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name_for_lookup), None)
+                            if account:
+                                token = fetch_token_with_retry(account)
+                                if token:
+                                    headers = {"Authorization": f"Bearer {token}"}
+                                    all_messages = get_all_messages_from_chat(
+                                        trade.get("trade_hash"), account, headers)
+                                    trade['has_attachment'] = any(
+                                        msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                                else:
+                                    trade['has_attachment'] = False
+                            else:
+                                trade['has_attachment'] = False
                         active_trades_data.extend(trades_list)
             except Exception as e:
                 logger.error(
