@@ -6,6 +6,7 @@ import os
 import re
 from config import (
     CHAT_URL_NOONES, CHAT_URL_PAXFUL,
+    GET_CHAT_URL_NOONES,
     CHAT_LOG_PATH, ATTACHMENT_PATH
 )
 from core.messaging.alerts.telegram_alert import send_chat_message_alert
@@ -32,7 +33,8 @@ def save_chat_log(trade_hash, messages, account_name):
 
 def get_new_messages(trade_hash, account, headers, max_retries=3):
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
-    chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else CHAT_URL_NOONES
+    # Use GET endpoint for reading messages
+    chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
     account_name = account.get("name")
     data = {"trade_hash": trade_hash}
 
@@ -119,7 +121,8 @@ def get_all_messages_from_chat(trade_hash, account, headers, max_retries=3):
     This is a read-only operation and does not update the state.
     """
     platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
-    chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else CHAT_URL_NOONES
+    # Use GET endpoint for reading messages
+    chat_url = CHAT_URL_PAXFUL if platform == "Paxful" else GET_CHAT_URL_NOONES
     data = {"trade_hash": trade_hash}
 
     for attempt in range(max_retries):
