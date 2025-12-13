@@ -31,7 +31,8 @@ def get_active_trades():
                             trade['account_name_source'] = account_name_source
                             
                             # Check for attachments for ALL trades (not just Paid)
-                            account_name_for_lookup = account_name_source.replace(" ", "_")
+                            # Use original filename for lookup (case-sensitive match)
+                            account_name_for_lookup = filename.replace("_trades.json", "")
                             account = next(
                                 (acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name_for_lookup), None)
                             if account:
