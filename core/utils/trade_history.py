@@ -131,30 +131,30 @@ def normalize_trade(trade, account_name):
 
 
 def save_raw_json_response(account, raw_data):
-    os.makedirs(TRADE_HISTORY, exist_ok=True)
+    os.makedirs(TRADE_HISTORY_DIR, exist_ok=True)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     fname = f"{account['name'].lower()}_raw_trades_{date_str}.json"
-    path = os.path.join(TRADE_HISTORY, fname)
+    path = os.path.join(TRADE_HISTORY_DIR, fname)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(raw_data, f, ensure_ascii=False, indent=2)
     logging.info(f"Saved raw JSON response for {account['name']} to {path}")
 
 
 def save_normalized_trades(account, trades):
-    os.makedirs(TRADE_HISTORY, exist_ok=True)
+    os.makedirs(TRADE_HISTORY_DIR, exist_ok=True)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     fname = f"{account['name'].lower()}_normalized_trades_{date_str}.json"
-    path = os.path.join(TRADE_HISTORY, fname)
+    path = os.path.join(TRADE_HISTORY_DIR, fname)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(trades, f, ensure_ascii=False, indent=2)
     logging.info(f"Saved normalized trades for {account['name']} to {path}")
 
 
 def save_trades_csv(account, trades):
-    os.makedirs(TRADE_HISTORY, exist_ok=True)
+    os.makedirs(TRADE_HISTORY_DIR, exist_ok=True)
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     fname = f"{account['name'].lower()}_normalized_trades_{date_str}.csv"
-    path = os.path.join(TRADE_HISTORY, fname)
+    path = os.path.join(TRADE_HISTORY_DIR, fname)
 
     if not trades:
         logging.info(f"No trades to save to CSV for {account['name']}")
@@ -613,7 +613,7 @@ def generate_client_profitability_csv(trades, output_dir):
 
 def main():
     threads = []
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         thread = threading.Thread(
             target=fetch_completed_trades, args=(account,))
         thread.start()
@@ -637,7 +637,7 @@ def main():
         f"Filtered to {len(filtered_trades)} successful trades from the last 150 days.")
 
     date_folder = datetime.now().strftime('%Y-%m-%d')
-    output_dir = os.path.join(TRADE_HISTORY, date_folder)
+    output_dir = os.path.join(TRADE_HISTORY_DIR, date_folder)
     os.makedirs(output_dir, exist_ok=True)
 
     plot_paths = {

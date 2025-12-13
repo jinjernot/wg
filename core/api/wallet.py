@@ -40,7 +40,7 @@ def get_wallet_balances():
     
     all_balances = {}
     http_client = get_http_client()
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         # SKIP ALL PAXFUL ACCOUNTS
         if "paxful" in account.get("name", "").lower():
             logger.info(f"Skipping Paxful account: {account.get('name')}")

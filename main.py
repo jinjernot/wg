@@ -73,7 +73,7 @@ def main():
         "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
 
     threads = []
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         # --- ADDED TEMPORARY CHECK ---
         if "_Paxful" in account.get("name", ""):
             logger.warning(f"Temporarily skipping all processing for Paxful account: {account.get('name')}")

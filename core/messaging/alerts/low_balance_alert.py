@@ -74,7 +74,7 @@ def check_wallet_balances_and_alert():
         logger.info("No balances found to check.")
         return
 
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         account_name = account.get("name", "Unknown")
         
         # SKIP ALL PAXFUL ACCOUNTS

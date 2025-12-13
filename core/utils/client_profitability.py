@@ -23,7 +23,7 @@ def generate_client_profitability_report(output_dir=None):
     logger.info("Generating client profitability report...")
     
     if output_dir is None:
-        output_dir = TRADE_HISTORY
+        output_dir = TRADE_HISTORY_DIR
     
     # Fetch all trades from all accounts
     all_trades = []
@@ -34,7 +34,7 @@ def generate_client_profitability_report(output_dir=None):
         if trades:
             all_trades.extend(trades)
     
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         t = threading.Thread(target=fetch_and_append, args=(account,))
         threads.append(t)
         t.start()

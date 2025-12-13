@@ -27,11 +27,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         logger.debug(f"Returning cached public offers for {crypto_code}/{fiat_code}/{payment_method_slug}")
         return cached_result
     
-    if not ACCOUNTS:
-        logger.error("Cannot search public offers, no accounts configured in ACCOUNTS.")
+    if not PLATFORM_ACCOUNTS:
+        logger.error("Cannot search public offers, no accounts configured in PLATFORM_ACCOUNTS.")
         return None # <-- MODIFIED: Return None on failure
 
-    auth_account = ACCOUNTS[0]
+    auth_account = PLATFORM_ACCOUNTS[0]
     token = fetch_token_with_retry(auth_account)
     if not token:
         logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
@@ -142,7 +142,7 @@ def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
     all_offers_data = []
     http_client = get_http_client()
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         if "_Paxful" in account.get("name", ""):
             logger.warning(f"Temporarily skipping offer fetching for Paxful account: {account.get('name')}")
             continue
@@ -202,7 +202,7 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
          logger.warning(f"Temporarily skipping single offer toggle for Paxful account: {account_name}")
          return {"success": False, "error": "Paxful actions are temporarily disabled."}
 
-    target_account = next((acc for acc in ACCOUNTS if acc["name"] == account_name), None)
+    target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name), None)
     if not target_account:
         return {"success": False, "error": f"Account '{account_name}' not found."}
 
@@ -239,7 +239,7 @@ def set_offer_status(turn_on):
     """
     results = []
     http_client = get_http_client()
-    for account in ACCOUNTS:
+    for account in PLATFORM_ACCOUNTS:
         if "_Paxful" in account.get("name", ""):
             logger.warning(f"Temporarily skipping offer status change for Paxful account: {account.get('name')}")
             continue
