@@ -40,11 +40,22 @@ def get_active_trades():
                                     headers = {"Authorization": f"Bearer {token}"}
                                     all_messages = get_all_messages_from_chat(
                                         trade.get("trade_hash"), account, headers)
-                                    trade['has_attachment'] = any(
-                                        msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                                    
+                                    # Debug logging
+                                    logger.info(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Got {len(all_messages) if all_messages else 0} messages")
+                                    
+                                    if all_messages:
+                                        attachment_messages = [msg for msg in all_messages if msg.get("type") == "trade_attach_uploaded"]
+                                        logger.info(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Found {len(attachment_messages)} attachment messages")
+                                        trade['has_attachment'] = len(attachment_messages) > 0
+                                    else:
+                                        logger.warning(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: No messages returned!")
+                                        trade['has_attachment'] = False
                                 else:
+                                    logger.error(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Failed to get token")
                                     trade['has_attachment'] = False
                             else:
+                                logger.error(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Account not found")
                                 trade['has_attachment'] = False
                         active_trades_data.extend(trades_list)
             except Exception as e:
