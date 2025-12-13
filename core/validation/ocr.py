@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 from PIL import Image
 
-from config import OCR_LOG_PATH
+from config import OCR_LOG_PATH, OCR_TEMPLATES_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,10 @@ def log_duplicate_receipt(trade_hash, owner_username, image_hash, previous_trade
 def load_ocr_templates():
     """Loads OCR keyword templates from a JSON file."""
     try:
-        templates_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'ocr_templates.json')
-        with open(templates_path, 'r', encoding="utf-8") as f:
+        with open(OCR_TEMPLATES_FILE, 'r', encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        logger.error(f"Could not load or parse ocr_templates.json from the data folder: {e}")
+        logger.error(f"Could not load or parse ocr_templates.json: {e}")
         return {"bank_templates": {}, "generic_amount_keywords": []}
 
 OCR_TEMPLATES = load_ocr_templates()
