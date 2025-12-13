@@ -31,8 +31,8 @@ def fetch_token_with_retry(account, max_retries=3, force_refresh=False):
     token_url = TOKEN_URL_PAXFUL if "_Paxful" in account_name else TOKEN_URL_NOONES
     token_data = {
         "grant_type": "client_credentials",
-        "client_id": account["api_key"],
-        "client_secret": account["secret_key"]
+        "client_id": account["key"],
+        "client_secret": account["secret"]
     }
     
     http_client = get_http_client()
