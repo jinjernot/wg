@@ -265,7 +265,12 @@ class Trade:
 
         paid_timestamp = self.trade_state.get('paid_timestamp')
         if not paid_timestamp:
-            return
+            # Trade is Paid but has no paid_timestamp - initialize it now
+            logger.warning(
+                f"[EMAIL CHECK] Trade {self.trade_hash} is 'Paid' but missing 'paid_timestamp'. Initializing now.")
+            self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
+            paid_timestamp = self.trade_state['paid_timestamp']
+            self.save()
 
         elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
         
