@@ -263,6 +263,9 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             result = service.users().messages().list(userId="me", q=query, maxResults=10).execute()
             message_ids = result.get("messages", [])
             
+            logger.info(f"[EMAIL SEARCH DEBUG] Query: {query}")
+            logger.info(f"[EMAIL SEARCH DEBUG] Found {len(message_ids)} emails matching query")
+            
             if not message_ids:
                 logger.warning(f"No emails found for {validator} matching query for trade {trade_details.get('trade_hash')}")
                 continue # Try next candidate
@@ -270,11 +273,24 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             logger.info(f"Found {len(message_ids)} potential emails for {validator}")
 
             full_messages = batch_get_messages(service, message_ids)
+            
+            logger.info(f"[EMAIL SEARCH DEBUG] Successfully fetched {len(full_messages)} full message(s)")
 
-            for msg in full_messages:
+            for idx, msg in enumerate(full_messages, 1):
+                # Log email subject for debugging
+                subject = ""
+                for header in msg.get('payload', {}).get('headers', []):
+                    if header['name'].lower() == 'subject':
+                        subject = header['value']
+                        break
+                logger.info(f"[EMAIL {idx}/{len(full_messages)}] Subject: {subject}")
+                
                 email_body = get_email_body(msg['payload'])
                 if not email_body:
+                    logger.warning(f"[EMAIL {idx}] Could not extract email body, skipping")
                     continue
+
+                logger.info(f"[EMAIL {idx}] Successfully extracted email body ({len(email_body)} chars)")
 
                 expected_amount = float(trade_details.get("fiat_amount_requested", 0))
                 
@@ -287,8 +303,8 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                     found_amount, found_name = extract_banco_azteca_details(email_body)
 
                 # Enhanced logging for debugging
-                logger.info(f"Extracted from email ({validator}) - Amount: {found_amount}, Name: {found_name}")
-                logger.info(f"Expected values - Amount: {expected_amount}, Name: {expected_name}")
+                logger.info(f"[EMAIL {idx}] Extracted from email ({validator}) - Amount: {found_amount}, Name: {found_name}")
+                logger.info(f"[EMAIL {idx}] Expected values - Amount: {expected_amount}, Name: {expected_name}")
 
                 # --- Save Email Log ---
                 log_dir = os.path.join("email_logs", validator)
@@ -296,9 +312,11 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                     os.makedirs(log_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                log_filename = f"{timestamp}_{trade_details['trade_hash']}.html"
-                with open(os.path.join(log_dir, log_filename), "w", encoding="utf-8") as f:
+                log_filename = f"{timestamp}_{trade_details['trade_hash']}_email{idx}.html"
+                log_path = os.path.join(log_dir, log_filename)
+                with open(log_path, "w", encoding="utf-8") as f:
                     f.write(email_body)
+                logger.info(f"[EMAIL {idx}] Saved email HTML to: {log_path}")
 
                 # --- Validate ---
                 is_amount_match = False
