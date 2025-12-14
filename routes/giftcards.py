@@ -25,7 +25,7 @@ def load_all_trades():
     
     # Find all normalized trade JSON files
     for filename in os.listdir(TRADE_HISTORY_DIR):
-        if filename.endswith("_normalized_trades_") and filename.endswith(".json"):
+        if "_normalized_trades_" in filename and filename.endswith(".json"):
             filepath = os.path.join(TRADE_HISTORY_DIR, filename)
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
