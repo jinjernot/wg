@@ -19,14 +19,14 @@ def load_all_trades():
     """Load all normalized trade data from the trade history directory."""
     all_trades = []
     
-    if not os.path.exists(TRADE_HISTORY):
-        logger.warning(f"Trade history directory not found: {TRADE_HISTORY}")
+    if not os.path.exists(TRADE_HISTORY_DIR):
+        logger.warning(f"Trade history directory not found: {TRADE_HISTORY_DIR}")
         return all_trades
     
     # Find all normalized trade JSON files
-    for filename in os.listdir(TRADE_HISTORY):
+    for filename in os.listdir(TRADE_HISTORY_DIR):
         if filename.endswith("_normalized_trades_") and filename.endswith(".json"):
-            filepath = os.path.join(TRADE_HISTORY, filename)
+            filepath = os.path.join(TRADE_HISTORY_DIR, filename)
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     trades = json.load(f)
@@ -176,7 +176,7 @@ def export_giftcard_report():
             }), 404
         
         # Generate CSV
-        csv_path = generate_gift_card_csv(gift_card_trades, TRADE_HISTORY)
+        csv_path = generate_gift_card_csv(gift_card_trades, TRADE_HISTORY_DIR)
         
         if csv_path and os.path.exists(csv_path):
             return send_file(
