@@ -239,7 +239,18 @@ class Trade:
         is_pending = not self.trade_state.get(
             'email_verified') and not self.trade_state.get('email_check_timed_out')
 
+        # Debug logging
+        logger.info(f"[EMAIL CHECK] Trade {self.trade_hash} - is_paid: {is_paid}, is_relevant: {is_relevant}, is_pending: {is_pending}")
+        logger.info(f"[EMAIL CHECK] Payment method: {self.trade_state.get('payment_method_slug')}")
+        logger.info(f"[EMAIL CHECK] Email verified: {self.trade_state.get('email_verified')}, Timed out: {self.trade_state.get('email_check_timed_out')}")
+
         if not (is_paid and is_relevant and is_pending):
+            if not is_paid:
+                logger.debug(f"[EMAIL CHECK] Skipping - trade not paid")
+            elif not is_relevant:
+                logger.info(f"[EMAIL CHECK] Skipping - payment method '{self.trade_state.get('payment_method_slug')}' doesn't require email validation")
+            elif not is_pending:
+                logger.info(f"[EMAIL CHECK] Skipping - email already verified or check timed out")
             return
 
         credential_identifier = self.get_credential_identifier_for_trade()
