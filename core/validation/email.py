@@ -273,6 +273,31 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             result = service.users().messages().list(userId="me", q=query, maxResults=50).execute()
             message_ids = result.get("messages", [])
             
+            # --- Save search summary immediately ---
+            search_log_dir = os.path.join("email_logs", "_search_logs")
+            if not os.path.exists(search_log_dir):
+                os.makedirs(search_log_dir)
+            
+            search_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            search_log_file = os.path.join(search_log_dir, f"{search_timestamp}_{trade_details['trade_hash']}_{validator}_search.json")
+            
+            search_summary = {
+                "timestamp": search_timestamp,
+                "trade_hash": trade_details['trade_hash'],
+                "validator": validator,
+                "query": query,
+                "expected_amount": float(trade_details.get("fiat_amount_requested", 0)),
+                "expected_name": expected_name,
+                "payment_method": payment_method_slug,
+                "credential_identifier": credential_identifier,
+                "emails_found": len(message_ids),
+                "message_ids": [m.get('id') for m in message_ids] if message_ids else []
+            }
+            
+            with open(search_log_file, "w", encoding="utf-8") as f:
+                json.dump(search_summary, f, indent=2)
+            logger.info(f"📝 Saved search summary to: {search_log_file}")
+            
             logger.info(f"[EMAIL SEARCH DEBUG] Query: {query}")
             logger.info(f"[EMAIL SEARCH DEBUG] Found {len(message_ids)} emails matching query")
             
@@ -316,17 +341,47 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                 logger.info(f"[EMAIL {idx}] Extracted from email ({validator}) - Amount: {found_amount}, Name: {found_name}")
                 logger.info(f"[EMAIL {idx}] Expected values - Amount: {expected_amount}, Name: {expected_name}")
 
-                # --- Save Email Log ---
-                log_dir = os.path.join("email_logs", validator)
+                # --- Save Email Log (ENHANCED FOR DEBUGGING) ---
+                log_dir = os.path.join("email_logs", validator, trade_details['trade_hash'])
                 if not os.path.exists(log_dir):
                     os.makedirs(log_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                log_filename = f"{timestamp}_{trade_details['trade_hash']}_email{idx}.html"
-                log_path = os.path.join(log_dir, log_filename)
-                with open(log_path, "w", encoding="utf-8") as f:
+                
+                # Save HTML body
+                html_filename = f"{timestamp}_email{idx}_body.html"
+                html_path = os.path.join(log_dir, html_filename)
+                with open(html_path, "w", encoding="utf-8") as f:
                     f.write(email_body)
-                logger.info(f"[EMAIL {idx}] Saved email HTML to: {log_path}")
+                logger.info(f"[EMAIL {idx}] Saved email HTML to: {html_path}")
+                
+                # Save raw metadata as JSON for full debugging
+                metadata_filename = f"{timestamp}_email{idx}_metadata.json"
+                metadata_path = os.path.join(log_dir, metadata_filename)
+                
+                # Extract all headers
+                headers_dict = {}
+                for header in msg.get('payload', {}).get('headers', []):
+                    headers_dict[header['name']] = header['value']
+                
+                metadata = {
+                    "trade_hash": trade_details['trade_hash'],
+                    "validator": validator,
+                    "search_query": query,
+                    "email_subject": subject,
+                    "headers": headers_dict,
+                    "message_id": msg.get('id'),
+                    "internal_date": msg.get('internalDate'),
+                    "found_amount": found_amount,
+                    "found_name": found_name,
+                    "expected_amount": expected_amount,
+                    "expected_name": expected_name,
+                    "body_length": len(email_body)
+                }
+                
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+                logger.info(f"[EMAIL {idx}] Saved email metadata to: {metadata_path}")
 
                 # --- Validate ---
                 is_amount_match = False
