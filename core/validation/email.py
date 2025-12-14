@@ -252,15 +252,25 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             continue
 
         try:
-            # Add time constraint
-            # Search last 3 hours instead of 1 hour for better coverage of delayed emails
-            after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
+            # Get paid timestamp from trade_details to search from when payment was marked
+            paid_timestamp = trade_details.get('paid_timestamp')
+            if paid_timestamp:
+                # Convert from Unix timestamp to datetime, timezone aware
+                from datetime import timezone as tz
+                search_start_time = datetime.fromtimestamp(paid_timestamp, tz=tz.utc)
+                # Gmail search uses UTC time, so we need to format in UTC
+                after_time = search_start_time.strftime('%Y/%m/%d %H:%M:%S')
+            else:
+                # Fallback: search last 3 hours if no paid_timestamp
+                after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
+            
             query = f"{query_base} after:{after_time}"
             
             logger.info(f"Searching ({validator}) with query: {query}")
             logger.info(f"Expected amount: {trade_details.get('fiat_amount_requested')}, Expected name: {expected_name}")
 
-            result = service.users().messages().list(userId="me", q=query, maxResults=10).execute()
+            # Increased maxResults to 50 to search more emails
+            result = service.users().messages().list(userId="me", q=query, maxResults=50).execute()
             message_ids = result.get("messages", [])
             
             logger.info(f"[EMAIL SEARCH DEBUG] Query: {query}")
