@@ -4,7 +4,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 import requests
-import aiohttp
 import datetime
 import logging
 import re
@@ -134,10 +133,9 @@ class TradeCommands(commands.Cog):
             return
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get("http://127.0.0.1:5001/get_active_trades", timeout=aiohttp.ClientTimeout(total=10)) as response:
-                    trades = await response.json() if response.status == 200 else []
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
+            trades = response.json() if response.status_code == 200 else []
+        except requests.exceptions.RequestException as e:
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
             return
 
