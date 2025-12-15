@@ -91,21 +91,25 @@ class ConfirmationView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         payload = {"trade_hash": self.trade_hash, "account_name": self.account_name}
         try:
-            response = requests.post(
-                "http://127.0.0.1:5001/release_trade", json=payload, timeout=15)
-            data = response.json()
-            if response.status_code == 200 and data.get("success"):
-                embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    trade_hash=self.trade_hash)
-                embed = discord.Embed.from_dict(embed_data)
-            else:
-                embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
-                embed_data["description"] = embed_data["description"].format(
-                    error=data.get("error", "An unknown error occurred."))
-                embed = discord.Embed.from_dict(embed_data)
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        except requests.exceptions.RequestException:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "http://127.0.0.1:5001/release_trade", 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=15)
+                ) as response:
+                    data = await response.json()
+                    if response.status == 200 and data.get("success"):
+                        embed_data = RELEASE_TRADE_EMBEDS["success"].copy()
+                        embed_data["description"] = embed_data["description"].format(
+                            trade_hash=self.trade_hash)
+                        embed = discord.Embed.from_dict(embed_data)
+                    else:
+                        embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
+                        embed_data["description"] = embed_data["description"].format(
+                            error=data.get("error", "An unknown error occurred."))
+                        embed = discord.Embed.from_dict(embed_data)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         self.stop()
 
@@ -193,8 +197,9 @@ class TradeCommands(commands.Cog):
     async def active_trades_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
-            trades = response.json() if response.status_code == 200 else []
+            async with aiohttp.ClientSession() as session:
+                async with session.get("http://127.0.0.1:5001/get_active_trades", timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    trades = await response.json() if response.status == 200 else []
             if not trades:
                 await interaction.followup.send(embed=discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED), ephemeral=True)
                 return
@@ -221,7 +226,7 @@ class TradeCommands(commands.Cog):
                 embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
 
             await interaction.followup.send(embed=embed, ephemeral=True)
-        except requests.exceptions.RequestException:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
     @app_commands.guilds(MY_GUILD)
@@ -231,19 +236,24 @@ class TradeCommands(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         payload = {"trade_hash": trade_hash, "account_name": account_name, "message": message}
         try:
-            response = requests.post("http://127.0.0.1:5001/send_manual_message", json=payload, timeout=15)
-            data = response.json()
-            if response.status_code == 200 and data.get("success"):
-                embed_data = SEND_MESSAGE_EMBEDS["success"].copy()
-                embed_data["description"] = embed_data["description"].format(trade_hash=trade_hash)
-                embed = discord.Embed.from_dict(embed_data)
-                embed.add_field(name=SEND_MESSAGE_EMBEDS["success"]["field_name"], value=message)
-            else:
-                embed_data = SEND_MESSAGE_EMBEDS["error"].copy()
-                embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown error occurred."))
-                embed = discord.Embed.from_dict(embed_data)
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        except requests.exceptions.RequestException:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "http://127.0.0.1:5001/send_manual_message", 
+                    json=payload, 
+                    timeout=aiohttp.ClientTimeout(total=15)
+                ) as response:
+                    data = await response.json()
+                    if response.status == 200 and data.get("success"):
+                        embed_data = SEND_MESSAGE_EMBEDS["success"].copy()
+                        embed_data["description"] = embed_data["description"].format(trade_hash=trade_hash)
+                        embed = discord.Embed.from_dict(embed_data)
+                        embed.add_field(name=SEND_MESSAGE_EMBEDS["success"]["field_name"], value=message)
+                    else:
+                        embed_data = SEND_MESSAGE_EMBEDS["error"].copy()
+                        embed_data["description"] = embed_data["description"].format(error=data.get("error", "An unknown error occurred."))
+                        embed = discord.Embed.from_dict(embed_data)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
             
     @app_commands.guilds(MY_GUILD)
@@ -252,38 +262,40 @@ class TradeCommands(commands.Cog):
     async def user_profile_command(self, interaction: discord.Interaction, username: str):
         await interaction.response.defer(ephemeral=True)
         try:
-            response = requests.get(f"http://127.0.0.1:5001/user_profile/{username}", timeout=10)
-            if response.status_code == 200:
-                stats = response.json()
-                embed_data = USER_PROFILE_EMBED.copy()
-                embed_data["title"] = embed_data["title"].format(username=stats.get('username', 'N/A'))
-                issues = stats.get('canceled_trades', 0) + stats.get('disputed_trades', 0)
-                successful_trades = stats.get('successful_trades', 0)
-                total_trades = stats.get('total_trades', 0)
-                total_volume = stats.get('total_volume', 0)
-                avg_trade_size = total_volume / successful_trades if successful_trades > 0 else 0
-                success_rate = (successful_trades / total_trades) * 100 if total_trades > 0 else 0
-                embed_data["description"] = embed_data["description"].format(
-                    first_trade_date=stats.get('first_trade_date', 'N/A'),
-                    last_trade_date=stats.get('last_trade_date', 'N/A')
-                )
-                for field in embed_data["fields"]:
-                    field["value"] = field["value"].format(
-                        total_volume=total_volume,
-                        avg_trade_size=avg_trade_size,
-                        success_rate=f"{success_rate:.1f}",
-                        successful_trades=successful_trades,
-                        issues=issues
-                    )
-                embed = discord.Embed.from_dict(embed_data)
-                await interaction.followup.send(embed=embed, ephemeral=True)
-            elif response.status_code == 404:
-                embed = discord.Embed.from_dict(USER_NOT_FOUND_EMBED)
-                embed.description = embed.description.format(username=username)
-                await interaction.followup.send(embed=embed, ephemeral=True)
-            else:
-                await interaction.followup.send(f"Error: Server responded with {response.status_code}.", ephemeral=True)
-        except requests.exceptions.RequestException:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"http://127.0.0.1:5001/user_profile/{username}", timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    status_code = response.status
+                    if status_code == 200:
+                        stats = await response.json()
+                        embed_data = USER_PROFILE_EMBED.copy()
+                        embed_data["title"] = embed_data["title"].format(username=stats.get('username', 'N/A'))
+                        issues = stats.get('canceled_trades', 0) + stats.get('disputed_trades', 0)
+                        successful_trades = stats.get('successful_trades', 0)
+                        total_trades = stats.get('total_trades', 0)
+                        total_volume = stats.get('total_volume', 0)
+                        avg_trade_size = total_volume / successful_trades if successful_trades > 0 else 0
+                        success_rate = (successful_trades / total_trades) * 100 if total_trades > 0 else 0
+                        embed_data["description"] = embed_data["description"].format(
+                            first_trade_date=stats.get('first_trade_date', 'N/A'),
+                            last_trade_date=stats.get('last_trade_date', 'N/A')
+                        )
+                        for field in embed_data["fields"]:
+                            field["value"] = field["value"].format(
+                                total_volume=total_volume,
+                                avg_trade_size=avg_trade_size,
+                                success_rate=f"{success_rate:.1f}",
+                                successful_trades=successful_trades,
+                                issues=issues
+                            )
+                        embed = discord.Embed.from_dict(embed_data)
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                    elif status_code == 404:
+                        embed = discord.Embed.from_dict(USER_NOT_FOUND_EMBED)
+                        embed.description = embed.description.format(username=username)
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+                    else:
+                        await interaction.followup.send(f"Error: Server responded with {status_code}.", ephemeral=True)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
 
     @app_commands.guilds(MY_GUILD)
@@ -302,20 +314,21 @@ class TradeCommands(commands.Cog):
                         trade_hash = inferred_trade_hash
                     
                     try:
-                        response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
-                        if response.status_code == 200:
-                            trades = response.json()
-                            trade_info = next((t for t in trades if t.get('trade_hash') == trade_hash), None)
-                            if trade_info:
-                                if not account_name:
-                                    account_name = trade_info.get('account_name_source')
-                            else:
-                                await interaction.followup.send("Could not find an active trade with this hash.", ephemeral=True)
-                                return
-                        else:
-                            await interaction.followup.send("Could not fetch active trades to determine the account name.", ephemeral=True)
-                            return
-                    except requests.exceptions.RequestException:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get("http://127.0.0.1:5001/get_active_trades", timeout=aiohttp.ClientTimeout(total=10)) as response:
+                                if response.status == 200:
+                                    trades = await response.json()
+                                    trade_info = next((t for t in trades if t.get('trade_hash') == trade_hash), None)
+                                    if trade_info:
+                                        if not account_name:
+                                            account_name = trade_info.get('account_name_source')
+                                    else:
+                                        await interaction.followup.send("Could not find an active trade with this hash.", ephemeral=True)
+                                        return
+                                else:
+                                    await interaction.followup.send("Could not fetch active trades to determine the account name.", ephemeral=True)
+                                    return
+                    except (aiohttp.ClientError, asyncio.TimeoutError):
                         await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
                         return
                 else:
