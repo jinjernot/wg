@@ -7,6 +7,7 @@ import requests
 import datetime
 import logging
 import re
+import asyncio
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
@@ -152,8 +153,8 @@ class TradeCommands(commands.Cog):
             for trade in trades:
                 username = trade.get('responder_username')
                 if username and username not in profile_cache:
-                    # This function reads from disk, so we cache it for this loop
-                    profile_cache[username] = generate_user_profile(username)
+                    # This function reads from disk, so we run it in a thread to avoid blocking
+                    profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
                 
                 # Attach the profile (or None) to the trade object
                 trade['buyer_profile'] = profile_cache.get(username)
@@ -204,7 +205,7 @@ class TradeCommands(commands.Cog):
                 for trade in trades:
                     username = trade.get('responder_username')
                     if username and username not in profile_cache:
-                        profile_cache[username] = generate_user_profile(username)
+                        profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
                     trade['buyer_profile'] = profile_cache.get(username)
             # --- END MODIFICATION ---
 
