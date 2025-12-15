@@ -1,5 +1,7 @@
 import bitso_config
 import requests
+import aiohttp
+import asyncio
 import datetime
 import discord
 import os
@@ -27,25 +29,30 @@ class BitsoCommands(commands.Cog):
             params = {}
             if month:
                 params['month'] = month
-            response = requests.get(
-                "http://127.0.0.1:5001/bitso_summary", params=params, timeout=30)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success"):
-                    deposits = data.get("deposits_by_sender", [])
-                    total = data.get("total_deposits", 0.0)
-                    month_str = data.get("month_str", "Current Month")
-                    description = "\n".join(
-                        [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits])
-                    embed = discord.Embed(
-                        title=f"💰 Bitso Deposits for {month_str}", description=description, color=discord.Color.green())
-                    embed.add_field(name="Total", value=f"**`${total:,.2f}`**")
-                    await interaction.followup.send(embed=embed, ephemeral=True)
-                else:
-                    await interaction.followup.send(f"Error: {data.get('error', 'Unknown error.')}", ephemeral=True)
-            else:
-                await interaction.followup.send(f"Error: Server responded with {response.status_code}.", ephemeral=True)
-        except requests.exceptions.RequestException:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "http://127.0.0.1:5001/bitso_summary", 
+                    params=params, 
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    status_code = response.status
+                    if status_code == 200:
+                        data = await response.json()
+                        if data.get("success"):
+                            deposits = data.get("deposits_by_sender", [])
+                            total = data.get("total_deposits", 0.0)
+                            month_str = data.get("month_str", "Current Month")
+                            description = "\n".join(
+                                [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits])
+                            embed = discord.Embed(
+                                title=f"💰 Bitso Deposits for {month_str}", description=description, color=discord.Color.green())
+                            embed.add_field(name="Total", value=f"**`${total:,.2f}`**")
+                            await interaction.followup.send(embed=embed, ephemeral=True)
+                        else:
+                            await interaction.followup.send(f"Error: {data.get('error', 'Unknown error.')}", ephemeral=True)
+                    else:
+                        await interaction.followup.send(f"Error: Server responded with {status_code}.", ephemeral=True)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
             
     @app_commands.guilds(MY_GUILD)
@@ -58,10 +65,11 @@ class BitsoCommands(commands.Cog):
                 month) if month else datetime.datetime.now()
             year, month_num = target_date.year, target_date.month
 
+            # Run blocking API calls in a thread pool
             all_fundings = []
             for user, (key, secret) in bitso_config.API_KEYS.items():
-                _, fundings = process_user_funding(
-                    user, key, secret, year, month_num)
+                _, fundings = await asyncio.to_thread(
+                    process_user_funding, user, key, secret, year, month_num)
                 all_fundings.extend(fundings)
 
             if not all_fundings:
@@ -71,8 +79,9 @@ class BitsoCommands(commands.Cog):
             chart_filename = f"bitso_income_{year}_{month_num}.png"
             chart_filepath = os.path.join(BITSO_REPORTS_DIR, chart_filename)
 
-            generate_growth_chart(all_fundings, year,
-                                  month_num, filename=chart_filename)
+            # Run chart generation in a thread pool
+            await asyncio.to_thread(
+                generate_growth_chart, all_fundings, year, month_num, filename=chart_filename)
 
             if os.path.exists(chart_filepath):
                 await interaction.followup.send(file=discord.File(chart_filepath), ephemeral=True)
