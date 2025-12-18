@@ -369,7 +369,7 @@ class Trade:
                     break
 
         # Process attachments from entire history, avoiding duplicates
-        processed_attachments = self.trade_state.get('processed_attachments', [])
+        processed_attachments = self.trade_state.get('processed_attachments', {})
         new_attachments_to_process = []
         platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
         image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
@@ -380,12 +380,19 @@ class Trade:
                 author = msg.get("author", "Unknown")
                 for file_info in files:
                     image_url_path = file_info.get("url")
-                    if image_url_path and image_url_path not in processed_attachments:
-                        logger.info(f"New attachment uploaded by '{author}' for trade {self.trade_hash}. URL: {image_url_path}")
-                        file_path = download_attachment(image_url_path, image_api_url, self.trade_hash, self.headers)
-                        if file_path:
-                            new_attachments_to_process.append({"path": file_path, "author": author})
-                            processed_attachments.append(image_url_path)
+                    if image_url_path:
+                        # Check if this attachment has been processed and alerts sent
+                        if image_url_path not in processed_attachments:
+                            logger.info(f"New attachment uploaded by '{author}' for trade {self.trade_hash}. URL: {image_url_path}")
+                            file_path = download_attachment(image_url_path, image_api_url, self.trade_hash, self.headers)
+                            if file_path:
+                                new_attachments_to_process.append({
+                                    "path": file_path, 
+                                    "author": author,
+                                    "url": image_url_path
+                                })
+                                # Mark as downloaded but alerts not yet sent
+                                processed_attachments[image_url_path] = {"downloaded": True, "alerts_sent": False}
         
         self.trade_state['processed_attachments'] = processed_attachments
 
@@ -404,7 +411,13 @@ class Trade:
         expected_names = account_config.get("name_receipt", []) if account_config else []
 
         for attachment in new_attachments_to_process:
-            path, author = attachment['path'], attachment['author']
+            path, author, url = attachment['path'], attachment['author'], attachment['url']
+            
+            # Check if alerts have already been sent for this attachment
+            if processed_attachments.get(url, {}).get('alerts_sent'):
+                logger.info(f"Alerts already sent for attachment {url}, skipping...")
+                continue
+                
             if author not in ["davidvs", "JoeWillgang"]:
                 logger.info(f"--- Processing new attachment by {author} for {self.trade_hash} ---")
                 
@@ -463,7 +476,12 @@ class Trade:
                             create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
                         
                         self.trade_state['name_validation_alert_sent'] = True
-                self.save()
+                
+                # Mark alerts as sent for this attachment
+                processed_attachments[url]['alerts_sent'] = True
+                logger.info(f"Marked attachment {url} as alerts_sent=True")
+                
+            self.save()
 
         if all_messages:
             self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
