@@ -31,12 +31,13 @@ def get_bitso_summary():
                 print(f"Missing credentials for {user}. Skipping...")
                 continue
             
-            fundings = fetch_funding_transactions_for_user(
-                user, api_key, api_secret)
-            
-            # WORKAROUND: If eduardo_ramirez returns no data, try loading from fallback CSV (December 2025 only)
-            if user == 'eduardo_ramirez' and not fundings:
+            # WORKAROUND: eduardo_ramirez account is gone, go directly to fallback CSV to avoid API timeout
+            if user == 'eduardo_ramirez':
+                print(f"Skipping API call for {user}, using fallback data directly...")
                 fundings = load_eduardo_fallback_data(year, month)
+            else:
+                fundings = fetch_funding_transactions_for_user(
+                    user, api_key, api_secret)
             
             all_fundings.extend(fundings)
 
