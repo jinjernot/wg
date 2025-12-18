@@ -34,11 +34,11 @@ def log_duplicate_receipt(trade_hash, owner_username, image_hash, previous_trade
 def load_ocr_templates():
     """Loads OCR keyword templates from a JSON file."""
     try:
-        templates_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'ocr_templates.json')
+        templates_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'config', 'ocr_templates.json')
         with open(templates_path, 'r', encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        logger.error(f"Could not load or parse ocr_templates.json from the data folder: {e}")
+        logger.error(f"Could not load or parse ocr_templates.json from the data/config folder: {e}")
         return {"bank_templates": {}, "generic_amount_keywords": []}
 
 OCR_TEMPLATES = load_ocr_templates()
