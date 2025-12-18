@@ -23,13 +23,14 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
         print(f"Missing credentials for {user}. Skipping...")
         return [], []
 
-    fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
-    
-    # WORKAROUND: If eduardo_ramirez returns no data, try loading from fallback CSV (December 2025 only)
+    # WORKAROUND: eduardo_ramirez account is gone, go directly to fallback CSV to avoid API timeout
     used_fallback = False
-    if user == 'eduardo_ramirez' and not fundings:
+    if user == 'eduardo_ramirez':
+        print(f"Skipping API call for {user}, using fallback data directly...")
         fundings = load_eduardo_fallback_data(year, month)
         used_fallback = len(fundings) > 0
+    else:
+        fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
     
     for f in fundings:
         f['account_user'] = user
