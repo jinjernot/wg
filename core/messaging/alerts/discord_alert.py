@@ -297,21 +297,8 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
 
     template = ATTACHMENT_EMBED
     
-    # Build fields - add account and author first
+    # Build fields
     fields = []
-    
-    # Add account and author fields
-    fields.append({
-        "name": template["account_field"]["name"],
-        "value": template["account_field"]["value"].format(owner_username=owner_username),
-        "inline": template["account_field"]["inline"]
-    })
-    
-    fields.append({
-        "name": template["author_field"]["name"],
-        "value": template["author_field"]["value"].format(author=author),
-        "inline": template["author_field"]["inline"]
-    })
     
     # Add bank identifier if available
     if bank_name:
@@ -321,6 +308,7 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
             "inline": template["bank_field"]["inline"]
         })
     
+    # Add image field
     fields.append(template["image_field"])
 
     embed = {
@@ -336,6 +324,7 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
         "footer": {"text": "🤖 WillGang Bot"}
     }
     send_discord_embed_with_image(embed, image_path, alert_type="attachments", trade_hash=trade_hash)
+
 
 
 
