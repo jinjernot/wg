@@ -20,6 +20,7 @@ from routes.bitso import bitso_bp
 from routes.charts import charts_bp
 from routes.bot import bot_bp
 from routes.giftcards import giftcards_bp
+from routes.metrics import metrics_bp
 
 
 app = Flask(__name__)
@@ -74,6 +75,7 @@ app.register_blueprint(bitso_bp)
 app.register_blueprint(charts_bp)
 app.register_blueprint(bot_bp)
 app.register_blueprint(giftcards_bp)
+app.register_blueprint(metrics_bp)
 
 with app.app_context():
     start_trading()
