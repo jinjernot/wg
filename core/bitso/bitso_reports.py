@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend to prevent threading issues
 import matplotlib.pyplot as plt
 import bitso_config
 import pandas as pd
