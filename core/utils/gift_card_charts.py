@@ -2,6 +2,8 @@
 Gift card-specific chart generation functions for trade history reports.
 """
 import logging
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend to prevent threading issues
 import matplotlib.pyplot as plt
 from datetime import datetime
 from  core.utils.gift_card_analytics import filter_gift_card_trades, GIFT_CARD_NAMES
