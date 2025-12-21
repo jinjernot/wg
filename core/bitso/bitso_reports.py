@@ -65,7 +65,7 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     successful_fundings = [
         f for f in all_fundings 
         if f.get('status') == 'complete' and 
-        (f.get('details', {}) or {}).get('integration') != 'Bitso Transfer'
+        f.get('method_name') != 'Bitso Transfer'
     ]
 
     if not successful_fundings:

@@ -9,8 +9,7 @@ def filter_sender_name(fundings, filename='bitso_sum_by_sender_name.csv'):
             continue
         
         # Exclude Bitso transfers (internal transfers between Bitso accounts)
-        details = f.get('details', {}) or {}
-        if details.get('integration') == 'Bitso Transfer':
+        if f.get('method_name') == 'Bitso Transfer':
             continue
 
         details = f.get('details', {}) or {}
