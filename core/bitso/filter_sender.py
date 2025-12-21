@@ -7,6 +7,11 @@ def filter_sender_name(fundings, filename='bitso_sum_by_sender_name.csv'):
         # Exclude fundings with a status of 'failed'
         if f.get('status') == 'failed':
             continue
+        
+        # Exclude Bitso transfers (internal transfers between Bitso accounts)
+        details = f.get('details', {}) or {}
+        if details.get('integration') == 'Bitso Transfer':
+            continue
 
         details = f.get('details', {}) or {}
         clabe = details.get('sender_clabe')
