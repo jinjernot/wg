@@ -61,7 +61,12 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
         print("No funding data available to generate a bar chart.")
         return
 
-    successful_fundings = [f for f in all_fundings if f.get('status') == 'complete']
+    # Filter out Bitso transfers and only keep successful fundings
+    successful_fundings = [
+        f for f in all_fundings 
+        if f.get('status') == 'complete' and 
+        (f.get('details', {}) or {}).get('integration') != 'Bitso Transfer'
+    ]
 
     if not successful_fundings:
         print("No successful funding data found to generate a bar chart.")
