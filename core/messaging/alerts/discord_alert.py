@@ -54,7 +54,7 @@ def _send_discord_request(webhook_url, payload=None, files=None):
         return False, "Webhook URL is not configured.", None
 
     # Debug logging to see exact webhook URL
-    logger.debug(f"Sending Discord request to webhook URL: {webhook_url!r}")
+    logger.info(f"[WEBHOOK DEBUG] Sending Discord request to webhook URL: {webhook_url!r}")
     
     try:
         if files:
@@ -125,8 +125,8 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     else:
         # Original webhook logic for other alert types
         # Debug logging - show all available webhooks
-        logger.debug(f"DISCORD_WEBHOOKS keys: {list(DISCORD_WEBHOOKS.keys())}")
-        logger.debug(f"Alert type requested: {alert_type}")
+        logger.info(f"[WEBHOOK DEBUG] DISCORD_WEBHOOKS keys: {list(DISCORD_WEBHOOKS.keys())}")
+        logger.info(f"[WEBHOOK DEBUG] Alert type requested: {alert_type}")
         
         if trade_hash:
             webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
@@ -138,7 +138,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
             logger.error(f"CRITICAL: webhook_url_base is None for alert_type '{alert_type}'!")
             logger.error(f"DISCORD_WEBHOOKS contents: {DISCORD_WEBHOOKS}")
         
-        logger.debug(f"Alert type: {alert_type}, Webhook URL: {webhook_url_base!r}")
+        logger.info(f"[WEBHOOK DEBUG] Alert type: {alert_type}, Webhook URL: {webhook_url_base!r}")
 
         webhook_url = webhook_url_base
         thread_id = None
