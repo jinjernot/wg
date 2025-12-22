@@ -124,12 +124,20 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
 
     else:
         # Original webhook logic for other alert types
+        # Debug logging - show all available webhooks
+        logger.debug(f"DISCORD_WEBHOOKS keys: {list(DISCORD_WEBHOOKS.keys())}")
+        logger.debug(f"Alert type requested: {alert_type}")
+        
         if trade_hash:
             webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
         else:
             webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
         
-        # Debug logging
+        # Debug logging - check if webhook is None
+        if webhook_url_base is None:
+            logger.error(f"CRITICAL: webhook_url_base is None for alert_type '{alert_type}'!")
+            logger.error(f"DISCORD_WEBHOOKS contents: {DISCORD_WEBHOOKS}")
+        
         logger.debug(f"Alert type: {alert_type}, Webhook URL: {webhook_url_base!r}")
 
         webhook_url = webhook_url_base
