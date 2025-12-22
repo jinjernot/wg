@@ -53,6 +53,9 @@ def _send_discord_request(webhook_url, payload=None, files=None):
     if not webhook_url or "YOUR_WEBHOOK_URL_HERE" in webhook_url:
         return False, "Webhook URL is not configured.", None
 
+    # Debug logging to see exact webhook URL
+    logger.debug(f"Sending Discord request to webhook URL: {webhook_url!r}")
+    
     try:
         if files:
             response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files)
@@ -125,6 +128,9 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
             webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
         else:
             webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+        
+        # Debug logging
+        logger.debug(f"Alert type: {alert_type}, Webhook URL: {webhook_url_base!r}")
 
         webhook_url = webhook_url_base
         thread_id = None
