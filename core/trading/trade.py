@@ -230,6 +230,56 @@ class Trade:
 
         return None
 
+    def get_all_credential_identifiers_for_trade(self):
+        """Returns ALL account names for the payment method, with selected account first."""
+        logger.info(f"--- Getting All Credential Identifiers for {self.trade_hash} ---")
+        slug = self.trade_state.get("payment_method_slug", "").lower()
+
+        json_key_slug = ""
+        if slug == "oxxo":
+            json_key_slug = "oxxo"
+        elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
+            json_key_slug = "bank-transfer"
+        else:
+            return []
+
+        json_filename = f"{json_key_slug}.json"
+        json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                payment_data = json.load(f)
+
+            user_data = payment_data.get(self.owner_username, {})
+            method_data = user_data.get(json_key_slug, {})
+            selected_id = str(method_data.get("selected_id", ""))
+            all_accounts = method_data.get("accounts", [])
+
+            # Build list with selected account first, then others
+            account_names = []
+            
+            # Add selected account first (if it exists)
+            if selected_id:
+                selected_account = next((acc for acc in all_accounts if str(acc.get("id")) == selected_id), None)
+                if selected_account and "name" in selected_account:
+                    account_names.append(selected_account["name"])
+                    logger.info(f"Selected account: {selected_account['name']}")
+            
+            # Add all other accounts that have names and valid credentials
+            for acc in all_accounts:
+                if "name" in acc:
+                    acc_name = acc["name"]
+                    if acc_name not in account_names and acc_name in EMAIL_ACCOUNT_DETAILS:
+                        account_names.append(acc_name)
+                        logger.info(f"Additional account to check: {acc_name}")
+
+            logger.info(f"Total accounts to check for email: {len(account_names)}")
+            return account_names
+
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Could not read or parse {json_filename}: {e}")
+            return []
+
     def check_for_email_confirmation(self):
         """Checks for payment confirmation emails if the trade is marked as Paid and has an attachment."""
         logger.info(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
@@ -253,14 +303,11 @@ class Trade:
                 logger.info(f"[EMAIL CHECK] Skipping - email already verified or check timed out")
             return
 
-        credential_identifier = self.get_credential_identifier_for_trade()
-        if not credential_identifier:
+        # Get ALL accounts to check (selected first, then others)
+        credential_identifiers = self.get_all_credential_identifiers_for_trade()
+        if not credential_identifiers:
             logger.warning(
-                f"Could not determine credential identifier for trade {self.trade_hash}. Skipping email check.")
-            return
-
-        self.gmail_service = get_gmail_service(credential_identifier)
-        if not self.gmail_service:
+                f"Could not determine credential identifiers for trade {self.trade_hash}. Skipping email check.")
             return
 
         paid_timestamp = self.trade_state.get('paid_timestamp')
@@ -277,45 +324,81 @@ class Trade:
         # Check if within the retry window (EMAIL_CHECK_DURATION = 900 seconds = 15 minutes)
         if elapsed_time < EMAIL_CHECK_DURATION:
             logger.info(f"Email check for {self.trade_hash}: Elapsed {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
-            success, details = check_for_payment_email(self.gmail_service, self.trade_state, self.platform, credential_identifier)
+            
+            # Try each account until we find a match
+            success = False
+            details = None
+            matched_account = None
+            expected_account = credential_identifiers[0] if credential_identifiers else None
+            
+            for credential_identifier in credential_identifiers:
+                logger.info(f"🔍 Checking email in account: {credential_identifier}")
+                
+                gmail_service = get_gmail_service(credential_identifier)
+                if not gmail_service:
+                    logger.warning(f"Could not get Gmail service for {credential_identifier}, skipping")
+                    continue
+                
+                success, details = check_for_payment_email(gmail_service, self.trade_state, self.platform, credential_identifier)
+                
+                if success:
+                    matched_account = credential_identifier
+                    logger.info(f"✅ Email found in account: {credential_identifier}")
+                    
+                    # Alert if payment went to unexpected account
+                    if credential_identifier != expected_account:
+                        logger.warning(f"⚠️ PAYMENT DEPOSITED TO UNEXPECTED ACCOUNT!")
+                        logger.warning(f"   Expected: {expected_account}")
+                        logger.warning(f"   Found in: {credential_identifier}")
+                    break
+                else:
+                    logger.info(f"❌ No matching email found in {credential_identifier}")
             
             if success:
                 # SUCCESS - Email found!
                 logger.info(
-                    f"✅ PAYMENT VERIFIED via email for trade {self.trade_hash} in '{credential_identifier}' account.")
+                    f"✅ PAYMENT VERIFIED via email for trade {self.trade_hash} in '{matched_account}' account.")
                 if not self.trade_state.get('email_validation_alert_sent'):
                     send_email_validation_alert(
-                        self.trade_hash, success=True, account_name=credential_identifier, details=details)
+                        self.trade_hash, success=True, account_name=matched_account, details=details)
                     
                     # TEMPORARY: Skip Paxful Discord alerts
                     if self.platform == "Paxful":
                         logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
                     else:
                         create_email_validation_embed(
-                            self.trade_hash, success=True, account_name=credential_identifier, details=details)
+                            self.trade_hash, success=True, account_name=matched_account, details=details)
                     
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
                 self.trade_state['email_verified'] = True
+                self.trade_state['email_verified_account'] = matched_account  # Track which account received payment
+                
+                # Alert if payment went to wrong account
+                if matched_account != expected_account:
+                    logger.warning(
+                        f"⚠️ Trade {self.trade_hash}: Payment deposited to '{matched_account}' instead of '{expected_account}'")
             else:
-                # Email not found YET - will retry on next cycle (don't send alert yet)
+                # Email not found YET in ANY account - will retry on next cycle (don't send alert yet)
                 logger.info(
-                    f"Email not found yet for {self.trade_hash}. Will retry. Elapsed: {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
+                    f"Email not found yet in any account for {self.trade_hash}. Will retry. Elapsed: {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
         else:
             # TRUE TIMEOUT - Exceeded EMAIL_CHECK_DURATION, now send failure alert
             if not self.trade_state.get('email_check_timed_out'):
                 logger.warning(
                     f"❌ Email check TIMED OUT for trade {self.trade_hash} after {EMAIL_CHECK_DURATION}s ({EMAIL_CHECK_DURATION/60:.0f} minutes)")
+                logger.warning(f"   Checked {len(credential_identifiers)} account(s): {', '.join(credential_identifiers)}")
                 if not self.trade_state.get('email_validation_alert_sent'):
+                    expected_account = credential_identifiers[0] if credential_identifiers else "unknown"
                     send_email_validation_alert(
-                        self.trade_hash, success=False, account_name=credential_identifier)
+                        self.trade_hash, success=False, account_name=expected_account)
                     
                     # TEMPORARY: Skip Paxful Discord alerts
                     if self.platform == "Paxful":
                         logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
                     else:
                         create_email_validation_embed(
-                            self.trade_hash, success=False, account_name=credential_identifier)
+                            self.trade_hash, success=False, account_name=expected_account)
                     
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
