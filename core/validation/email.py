@@ -252,19 +252,26 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
             continue
 
         try:
-            # Get paid timestamp from trade_details to search from when payment was marked
+            # Get paid timestamp from trade_details to search around when payment was made
             paid_timestamp = trade_details.get('paid_timestamp')
             if paid_timestamp:
-                # Convert from Unix timestamp to datetime, timezone aware
+                # Payment emails arrive BEFORE the trade is marked as paid
+                # Search from 3 hours before to 30 minutes after the paid timestamp
                 from datetime import timezone as tz
-                search_start_time = datetime.fromtimestamp(paid_timestamp, tz=tz.utc)
-                # Gmail search uses UTC time, so we need to format in UTC
-                after_time = search_start_time.strftime('%Y/%m/%d %H:%M:%S')
+                paid_time = datetime.fromtimestamp(paid_timestamp, tz=tz.utc)
+                search_start_time = paid_time - timedelta(hours=3)
+                search_end_time = paid_time + timedelta(minutes=30)
+                # Gmail search uses UTC time
+                after_time = search_start_time.strftime('%Y/%m/%d')
+                before_time = search_end_time.strftime('%Y/%m/%d')
             else:
                 # Fallback: search last 3 hours if no paid_timestamp
-                after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d %H:%M:%S')
+                after_time = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y/%m/%d')
+                before_time = None
             
             query = f"{query_base} after:{after_time}"
+            if paid_timestamp and before_time:
+                query += f" before:{before_time}"
             
             logger.info(f"Searching ({validator}) with query: {query}")
             logger.info(f"Expected amount: {trade_details.get('fiat_amount_requested')}, Expected name: {expected_name}")
