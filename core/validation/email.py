@@ -412,19 +412,31 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
                             is_name_match = True
                             logger.info(f"Fuzzy name match successful: {found_words} vs {expected_words}")
 
-                if is_amount_match and is_name_match:
-                    logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
-                    return True, {"validator": validator, "found_amount": found_amount, "found_name": found_name, "expected_amount": expected_amount, "expected_name": expected_name}
-                else:
-                    # Detailed failure logging
-                    if not is_amount_match:
+                # For OXXO, name matching is NOT required (OXXO emails don't include sender name)
+                # For bank transfers, BOTH amount and name must match
+                if validator == "oxxo":
+                    # OXXO: Only amount needs to match
+                    if is_amount_match:
+                        logger.info(f"✅ SUCCESS: Amount in OXXO email matches for trade {trade_details['trade_hash']}.")
+                        logger.info(f"   Note: OXXO validation is amount-only (emails don't include sender name)")
+                        return True, {"validator": validator, "found_amount": found_amount, "found_name": found_name, "expected_amount": expected_amount, "expected_name": expected_name}
+                    else:
                         logger.warning(f"❌ Amount mismatch: Expected {expected_amount}, Found {found_amount}")
-                    if not is_name_match:
-                        logger.warning(f"❌ Name mismatch: Expected '{expected_name}', Found '{found_name}'")
-                    logger.warning(
-                        f"Validation failed for trade {trade_details['trade_hash']}: "
-                        f"Amount Match: {is_amount_match}, Name Match: {is_name_match}"
-                    )
+                else:
+                    # Bank transfers: Both amount AND name must match
+                    if is_amount_match and is_name_match:
+                        logger.info(f"✅ SUCCESS: Amount and Name in email match for trade {trade_details['trade_hash']}.")
+                        return True, {"validator": validator, "found_amount": found_amount, "found_name": found_name, "expected_amount": expected_amount, "expected_name": expected_name}
+                    else:
+                        # Detailed failure logging
+                        if not is_amount_match:
+                            logger.warning(f"❌ Amount mismatch: Expected {expected_amount}, Found {found_amount}")
+                        if not is_name_match:
+                            logger.warning(f"❌ Name mismatch: Expected '{expected_name}', Found '{found_name}'")
+                        logger.warning(
+                            f"Validation failed for trade {trade_details['trade_hash']}: "
+                            f"Amount Match: {is_amount_match}, Name Match: {is_name_match}"
+                        )
 
         except Exception as e:
             logger.error(f"Error checking {validator} email: {e}")
