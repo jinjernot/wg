@@ -217,7 +217,7 @@ def check_for_payment_email(service, trade_details, platform, credential_identif
     if payment_method_slug == "oxxo":
         candidates.append((
             "oxxo", 
-            'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo; (OXXO)")', 
+            'from:noreply@spinbyoxxo.com.mx subject:("Recibiste un depósito de efectivo;(OXXO)")', 
             "name_oxxo"
         ))
     elif payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
