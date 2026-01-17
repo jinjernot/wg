@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pytz
 import os
+import calendar
 from datetime import datetime
 from pathlib import Path
 
@@ -216,55 +217,105 @@ def _generate_unified_chart(bitso_data: list, binance_data: list, year: int, mon
     
     mexico_tz = pytz.timezone('America/Mexico_City')
     
+    # Determine the date range for the month
+    start_date = datetime(year, month, 1, tzinfo=mexico_tz)
+    last_day = calendar.monthrange(year, month)[1]
+    end_date = datetime(year, month, last_day, 23, 59, 59, tzinfo=mexico_tz)
+    
+    # Create a complete date range for the month (normalized to start of day)
+    date_range = pd.date_range(start=start_date.replace(hour=0, minute=0, second=0), 
+                                end=end_date.replace(hour=0, minute=0, second=0), 
+                                freq='D', 
+                                tz=mexico_tz)
+    
+    # Initialize dictionary to store daily totals
+    bitso_daily_dict = {d: 0.0 for d in date_range}
+    binance_daily_dict = {d: 0.0 for d in date_range}
+    
     # Process Bitso data
-    bitso_df = None
     if bitso_data:
-        bitso_df = pd.DataFrame(bitso_data)
-        bitso_df['created_at'] = pd.to_datetime(bitso_df['created_at'])
-        bitso_df['amount'] = pd.to_numeric(bitso_df['amount'])
-        bitso_df['created_at'] = bitso_df['created_at'].dt.tz_convert(mexico_tz)
-        bitso_df.set_index('created_at', inplace=True)
-        bitso_daily = bitso_df['amount'].resample('D').sum()
+        for item in bitso_data:
+            try:
+                # Parse the created_at timestamp
+                created_at = pd.to_datetime(item['created_at'])
+                if created_at.tzinfo is None:
+                    created_at = created_at.tz_localize(pytz.UTC)
+                created_at = created_at.tz_convert(mexico_tz)
+                
+                # Normalize to start of day for grouping
+                day_key = created_at.normalize()
+                
+                # Find matching day in our date range
+                for d in date_range:
+                    if d.date() == day_key.date():
+                        amount = float(item.get('amount', 0))
+                        bitso_daily_dict[d] += amount
+                        break
+            except Exception as e:
+                print(f"Error processing Bitso item: {e}")
+                continue
     
     # Process Binance data
-    binance_df = None
     if binance_data:
-        binance_list = []
         for item in binance_data:
-            timestamp = item.get('insertTime') or item.get('createTime')
-            if timestamp:
-                try:
+            try:
+                timestamp = item.get('insertTime') or item.get('createTime')
+                if timestamp:
                     utc_dt = datetime.fromtimestamp(timestamp / 1000, tz=pytz.UTC)
                     local_dt = utc_dt.astimezone(mexico_tz)
-                    amount = float(item.get('amount', 0))
-                    binance_list.append({'date': local_dt, 'amount': amount})
-                except:
-                    pass
-        
-        if binance_list:
-            binance_df = pd.DataFrame(binance_list)
-            binance_df.set_index('date', inplace=True)
-            binance_daily = binance_df['amount'].resample('D').sum()
+                    
+                    # Normalize to start of day for grouping
+                    day_key = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                    
+                    # Find matching day in our date range
+                    for d in date_range:
+                        if d.date() == day_key.date():
+                            amount = float(item.get('amount', 0))
+                            binance_daily_dict[d] += amount
+                            break
+            except Exception as e:
+                print(f"Error processing Binance item: {e}")
+                continue
+    
+    # Convert to Series
+    bitso_daily = pd.Series(bitso_daily_dict)
+    binance_daily = pd.Series(binance_daily_dict)
+    
+    # Combine into a single DataFrame
+    combined_df = pd.DataFrame({
+        'Bitso': bitso_daily,
+        'Binance': binance_daily
+    })
+    
+    # Debug output
+    print(f"Debug - Bitso total: {bitso_daily.sum()}")
+    print(f"Debug - Binance total: {binance_daily.sum()}")
+    print(f"Debug - Days with Bitso data: {(bitso_daily > 0).sum()}")
+    print(f"Debug - Days with Binance data: {(binance_daily > 0).sum()}")
     
     # Create chart
-    plt.figure(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(14, 8))
     
-    if bitso_df is not None:
-        bitso_daily.plot(kind='bar', color='#1E90FF', label='Bitso', alpha=0.8, width=0.4, position=0)
-    
-    if binance_df is not None and binance_list:
-        binance_daily.plot(kind='bar', color='#F0B90B', label='Binance', alpha=0.8, width=0.4, position=1)
+    # Plot grouped bar chart
+    combined_df.plot(
+        kind='bar',
+        ax=ax,
+        color=['#1E90FF', '#F0B90B'],
+        alpha=0.8,
+        width=0.8
+    )
     
     chart_date = datetime(year, month, 1)
-    plt.title(f'Unified Exchange Deposits: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
-    plt.xlabel('Day of Month', fontsize=12)
-    plt.ylabel('Deposit Amount', fontsize=12)
-    plt.legend(loc='upper right', fontsize=10)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d'))
-    plt.xticks(rotation=0)
-    plt.tight_layout()
+    ax.set_title(f'Unified Exchange Deposits: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
+    ax.set_xlabel('Day of Month', fontsize=12)
+    ax.set_ylabel('Deposit Amount', fontsize=12)
+    ax.legend(loc='upper right', fontsize=10)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
     
+    # Format x-axis to show day numbers
+    ax.set_xticklabels([d.day for d in date_range], rotation=0)
+    
+    plt.tight_layout()
     plt.savefig(filename)
     print(f"✅ Unified chart saved to: {filename}")
     plt.close()
