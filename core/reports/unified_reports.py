@@ -277,6 +277,17 @@ def _generate_unified_chart(bitso_data: list, binance_data: list, year: int, mon
                 print(f"Error processing Binance item: {e}")
                 continue
     
+    # Debug output - check what data we're receiving
+    print(f"\n=== CHART DEBUG INFO ===")
+    print(f"Received {len(bitso_data)} Bitso deposits")
+    print(f"Received {len(binance_data)} Binance deposits")
+    
+    # Sample first few Bitso items
+    if bitso_data:
+        print(f"\nSample Bitso deposits:")
+        for i, item in enumerate(bitso_data[:3]):
+            print(f"  {i+1}. Date: {item.get('created_at')}, Amount: {item.get('amount')}, Account: {item.get('exchange_account')}")
+    
     # Convert to Series
     bitso_daily = pd.Series(bitso_daily_dict)
     binance_daily = pd.Series(binance_daily_dict)
@@ -288,10 +299,22 @@ def _generate_unified_chart(bitso_data: list, binance_data: list, year: int, mon
     })
     
     # Debug output
-    print(f"Debug - Bitso total: {bitso_daily.sum()}")
-    print(f"Debug - Binance total: {binance_daily.sum()}")
-    print(f"Debug - Days with Bitso data: {(bitso_daily > 0).sum()}")
-    print(f"Debug - Days with Binance data: {(binance_daily > 0).sum()}")
+    print(f"\nBitso total: {bitso_daily.sum()}")
+    print(f"Binance total: {binance_daily.sum()}")
+    print(f"Days with Bitso data: {(bitso_daily > 0).sum()}")
+    print(f"Days with Binance data: {(binance_daily > 0).sum()}")
+    
+    # Show daily breakdown for days with data
+    print(f"\nBitso daily breakdown:")
+    for date, amount in bitso_daily.items():
+        if amount > 0:
+            print(f"  {date.strftime('%Y-%m-%d')}: {amount:,.2f}")
+    
+    print(f"\nBinance daily breakdown:")
+    for date, amount in binance_daily.items():
+        if amount > 0:
+            print(f"  {date.strftime('%Y-%m-%d')}: {amount:,.2f}")
+    print(f"=========================\n")
     
     # Create chart
     fig, ax = plt.subplots(figsize=(14, 8))
