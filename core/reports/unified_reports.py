@@ -109,8 +109,16 @@ def generate_unified_reports(year: int, month: int):
     print("GENERATING UNIFIED CSV REPORT")
     print(f"{'='*80}")
     
+    # Filter out Bitso Transfers (only count SPEI transfers for Bitso)
+    bitso_filtered = [
+        item for item in all_bitso_data 
+        if item.get('method_name') != 'Bitso Transfer' and item.get('status') == 'complete'
+    ]
+    print(f"Filtered out {len(all_bitso_data) - len(bitso_filtered)} Bitso Transfer transactions")
+    print(f"Remaining Bitso deposits (SPEI only): {len(bitso_filtered)}")
+    
     csv_filename = UNIFIED_REPORTS_DIR / f"unified_deposits_{year}_{month:02d}.csv"
-    _export_unified_csv(all_bitso_data, all_binance_data, csv_filename)
+    _export_unified_csv(bitso_filtered, all_binance_data, csv_filename)
     
     # Generate unified chart
     print(f"\n{'='*80}")
@@ -118,15 +126,15 @@ def generate_unified_reports(year: int, month: int):
     print(f"{'='*80}")
     
     chart_filename = UNIFIED_REPORTS_DIR / f"unified_deposits_chart_{year}_{month:02d}.png"
-    _generate_unified_chart(all_bitso_data, all_binance_data, year, month, chart_filename)
+    _generate_unified_chart(bitso_filtered, all_binance_data, year, month, chart_filename)
     
     # Summary
     print(f"\n{'='*80}")
     print("UNIFIED REPORT SUMMARY")
     print(f"{'='*80}")
-    print(f"Bitso deposits: {len(all_bitso_data)}")
+    print(f"Bitso deposits (SPEI only): {len(bitso_filtered)}")
     print(f"Binance deposits: {len(all_binance_data)}")
-    print(f"Total deposits: {len(all_bitso_data) + len(all_binance_data)}")
+    print(f"Total deposits: {len(bitso_filtered) + len(all_binance_data)}")
     print(f"\nFiles generated:")
     print(f"  CSV: {csv_filename}")
     print(f"  Chart: {chart_filename}")
