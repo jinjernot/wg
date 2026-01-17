@@ -18,3 +18,4 @@ ocr_logs
 trade_history/
 .env
 payment_accounts
+binance_config.py
