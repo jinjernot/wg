@@ -55,20 +55,55 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
 
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     trades = trades_data["data"]["trades"]
+                    
                     if include_completed:
-                        recently_completed_trades = []
-                        fifteen_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
-                        for trade in trades:
-                            if trade.get("trade_status") == "Successful":
-                                completed_at_str = trade.get("completed_at")
-                                if completed_at_str:
-                                    try:
-                                        completed_at = datetime.fromisoformat(completed_at_str.replace("Z", "+00:00"))
-                                        if completed_at > fifteen_minutes_ago:
-                                            recently_completed_trades.append(trade)
-                                    except (ValueError, TypeError):
-                                        pass
-                        trades.extend(recently_completed_trades)
+                        # Fetch recently completed trades from the completed endpoint
+                        try:
+                            completed_url = trade_list_url.replace("/trade/list", "/trades/completed")
+                            # Fetch completed trades from last 15 minutes
+                            completed_data = {
+                                "page": 1,
+                                "count": 1,
+                                "limit": 20  # Get recent completed trades
+                            }
+                            
+                            logger.debug(f"Fetching completed trades from {completed_url}")
+                            completed_response = http_client.post(
+                                completed_url,
+                                headers=headers_paxful,
+                                json=completed_data,
+                                verify=certifi.where(),
+                                timeout=10
+                            )
+                            
+                            if completed_response.status_code == 200:
+                                completed_trades_data = completed_response.json()
+                                if completed_trades_data.get("status") == "success" and completed_trades_data["data"].get("trades"):
+                                    completed_trades = completed_trades_data["data"]["trades"]
+                                    
+                                    # Filter to only recently completed (within 15 minutes)
+                                    fifteen_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
+                                    recently_completed = []
+                                    for trade in completed_trades:
+                                        if trade.get("trade_status") == "Successful":
+                                            completed_at_str = trade.get("completed_at")
+                                            if completed_at_str:
+                                                try:
+                                                    completed_at = datetime.fromisoformat(completed_at_str.replace("Z", "+00:00"))
+                                                    if completed_at > fifteen_minutes_ago:
+                                                        recently_completed.append(trade)
+                                                        logger.info(f"Found recently completed trade: {trade.get('trade_hash')}")
+                                                except (ValueError, TypeError) as e:
+                                                    logger.debug(f"Error parsing completion time: {e}")
+                                    
+                                    # Add recently completed trades to the active trades list
+                                    trades.extend(recently_completed)
+                                    logger.info(f"Added {len(recently_completed)} recently completed trades to processing queue")
+                            else:
+                                logger.warning(f"Failed to fetch completed trades: {completed_response.status_code}")
+                        except Exception as e:
+                            logger.error(f"Error fetching completed trades: {e}")
+                    
                     return trades
                 else:
                     logger.warning(f"No trades found for {account['name']}.")
