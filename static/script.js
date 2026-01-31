@@ -1,3 +1,36 @@
+// ===========================
+// Toast Notification System
+// ===========================
+function showToast(title, message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const icons = {
+        success: '✅',
+        error: '❌',
+        info: 'ℹ️',
+        warning: '⚠️'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.info}</div>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const startBtn = document.getElementById('start-btn');
@@ -23,18 +56,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     if (startBtn) {
         startBtn.addEventListener('click', async () => {
+            startBtn.classList.add('loading');
             const response = await fetch('/start_trading', { method: 'POST' });
             const result = await response.json();
-            alert(result.message);
+            startBtn.classList.remove('loading');
+            showToast('Bot Started', result.message, result.success ? 'success' : 'error');
             updateStatus();
         });
     }
 
     if(stopBtn) {
         stopBtn.addEventListener('click', async () => {
+            stopBtn.classList.add('loading');
             const response = await fetch('/stop_trading', { method: 'POST' });
             const result = await response.json();
-            alert(result.message);
+            stopBtn.classList.remove('loading');
+            showToast('Bot Stopped', result.message, result.success ? 'success' : 'error');
             updateStatus();
         });
     }
