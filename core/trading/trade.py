@@ -695,14 +695,17 @@ class Trade:
             message_threshold = 3
             time_threshold_minutes = 5
             
-            # New condition: check time since owner's last message
-            owner_inactivity_minutes = (datetime.now(timezone.utc).timestamp() - last_owner_message_ts) / 60 if last_owner_message_ts else float('inf')
-
-            if (consecutive_buyer_messages >= message_threshold and 
-                time_since_first_message > time_threshold_minutes and
-                owner_inactivity_minutes > time_threshold_minutes): # Add this line
+            # FIXED: Check if owner sent any message AFTER the first consecutive buyer message
+            # This prevents false positives when owner is actively responding
+            owner_responded_during_consecutive = last_owner_message_ts and last_owner_message_ts > first_consecutive_message_ts
+            
+            if owner_responded_during_consecutive:
                 logger.info(
-                    f"AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes. Sending AFK message.")
+                    f"AFK not triggered for {self.trade_hash}: Owner sent a message during the consecutive buyer messages (owner was responsive).")
+            elif (consecutive_buyer_messages >= message_threshold and 
+                  time_since_first_message > time_threshold_minutes):
+                logger.info(
+                    f"AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes without owner response. Sending AFK message.")
                 send_afk_message(self.trade_hash, self.account, self.headers)
                 self.trade_state['afk_message_sent'] = True
                 self.save()
@@ -713,10 +716,6 @@ class Trade:
                 if time_since_first_message <= time_threshold_minutes:
                     logger.info(
                         f"AFK not triggered for {self.trade_hash}: Not enough time has passed since first message ({time_since_first_message:.2f}/{time_threshold_minutes} minutes).")
-                # Add a log for the new condition
-                if owner_inactivity_minutes <= time_threshold_minutes:
-                    logger.info(
-                        f"AFK not triggered for {self.trade_hash}: Owner has been active recently ({owner_inactivity_minutes:.2f} minutes ago).")
                     
             
     def check_for_extended_afk(self):

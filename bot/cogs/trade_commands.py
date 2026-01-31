@@ -38,6 +38,10 @@ def create_trade_field(trade):
     trade_hash = trade.get('trade_hash', 'N/A')
     account_name = trade.get('account_name_source', 'N/A')
     
+    # Remove platform suffix (e.g., "Noones") since we only use one platform now
+    if ' ' in account_name:
+        account_name = account_name.split()[0]  # Keep only the first part (e.g., "Davidvs" from "Davidvs Noones")
+    
     # Determine the status emoji
     status = trade.get('trade_status', 'N/A')
     has_attachment = trade.get('has_attachment', True)
