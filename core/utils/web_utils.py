@@ -12,7 +12,8 @@ def get_app_settings():
             "night_mode_enabled": False,
             "afk_mode_enabled": False,
             "verbose_logging_enabled": True,
-            "offers_enabled": False
+            "offers_enabled": False,
+            "wallet_alerts_enabled": True
         }
         with open(APP_SETTINGS_FILE, "w") as f:
             json.dump(default_settings, f)
@@ -24,13 +25,15 @@ def get_app_settings():
             settings.setdefault("night_mode_enabled", False)
             settings.setdefault("verbose_logging_enabled", True)
             settings.setdefault("offers_enabled", False)
+            settings.setdefault("wallet_alerts_enabled", True)
             return settings
     except (json.JSONDecodeError, FileNotFoundError):
         return {
             "night_mode_enabled": False,
             "afk_mode_enabled": False,
             "verbose_logging_enabled": True,
-            "offers_enabled": False
+            "offers_enabled": False,
+            "wallet_alerts_enabled": True
         }
 
 def update_app_settings(new_settings):
