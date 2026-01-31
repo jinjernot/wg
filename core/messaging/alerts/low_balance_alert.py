@@ -6,6 +6,7 @@ from config_messages.discord_messages import LOW_BALANCE_ALERT_EMBED
 from core.api.trade_list import get_trade_list
 from core.api.auth import fetch_token_with_retry
 from config import PLATFORM_ACCOUNTS
+from core.utils.web_utils import get_app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,12 @@ def check_wallet_balances_and_alert():
     Checks wallet balances, adds funds from open trades, converts to USD,
     and sends alerts if any balance is below the threshold.
     """
+    # Check if wallet alerts are enabled
+    app_settings = get_app_settings()
+    if not app_settings.get("wallet_alerts_enabled", True):
+        logger.info("Wallet alerts are disabled. Skipping balance check.")
+        return
+    
     logger.info("--- Running Low Balance Check ---")
     balances = get_wallet_balances()
     if not balances:
