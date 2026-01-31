@@ -377,6 +377,162 @@ h4 {
     box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
 }
 
+/* Button Loading States */
+.card-control button:disabled,
+.card-control button.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.card-control button.loading {
+    position: relative;
+}
+
+.card-control button.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   TOAST NOTIFICATIONS - Modern Feedback
+   ======================================== */
+
+.toast-container {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.toast {
+    background: rgba(26, 26, 42, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-width: 300px;
+    max-width: 420px;
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: all;
+    animation: toastSlideIn 0.3s ease-out;
+    transition: all var(--transition-base);
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.toast.removing {
+    animation: toastSlideOut 0.3s ease-out forwards;
+}
+
+@keyframes toastSlideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(120%);
+    }
+}
+
+.toast-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.toast-message {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.success .toast-icon {
+    color: var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid var(--error-color);
+}
+
+.toast.error .toast-icon {
+    color: var(--error-color);
+}
+
+.toast.info {
+    border-left: 4px solid var(--info-color);
+}
+
+.toast.info .toast-icon {
+    color: var(--info-color);
+}
+
+.toast.warning {
+    border-left: 4px solid var(--warning-color);
+}
+
+.toast.warning .toast-icon {
+    color: var(--warning-color);
+}
+
+@media (max-width: 768px) {
+    .toast-container {
+        right: 12px;
+        top: 60px;
+    }
+    
+    .toast {
+        min-width: auto;
+        max-width: calc(100vw - 24px);
+    }
+}
+
 /* Status Text and Indicator */
 .status-text {
     font-size: 1rem;
@@ -732,47 +888,219 @@ tr.status-disputed:hover {
     background: rgba(245, 158, 11, 0.25);
 } 
 
-.balance-account-container {
-    margin-bottom: 1.25rem;
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.02);
+/* ========================================
+   SKELETON LOADERS - Modern Loading States
+   ======================================== */
+
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.03) 0%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.03) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite linear;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.skeleton-text {
+    height: 16px;
+    width: 100%;
+    margin: 8px 0;
+}
+
+.skeleton-heading {
+    height: 24px;
+    width: 60%;
+    margin: 12px 0;
+}
+
+.skeleton-card {
+    height: 120px;
+    width: 100%;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: all var(--transition-base);
+}
+
+/* ========================================
+   WALLET BALANCE CARDS - Modern Redesign
+   ======================================== */
+
+.balance-columns {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.balance-account-container {
+    margin-bottom: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    transition: none;
 }
 
 .balance-account-container:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
-    transform: translateY(-2px);
+    background: transparent;
+    border-color: transparent;
+    transform: none;
 }
 
 .balance-account-name {
     color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid rgba(99, 102, 241, 0.3);
-    font-size: 1.05rem;
-    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.875rem;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.balance-account-name::before {
+    content: '👤';
+    font-size: 1.25rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .balance-list {
     list-style-type: none;
     padding: 0;
     margin: 0;
-    font-size: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .balance-list li {
-    padding: 6px 0;
+    padding: 0;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.balance-list li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+.balance-list li:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(4px);
+}
+
+.balance-list li:hover::before {
+    opacity: 1;
 }
 
 .balance-list strong {
     color: var(--text-secondary);
     font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Crypto Emoji Icons */
+.balance-list strong::before {
+    font-size: 1.1rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.balance-list li:has(strong:contains("BTC"))::before,
+.balance-list strong:contains("BTC")::before {
+    content: '₿';
+}
+
+.balance-list strong[data-crypto="USDT"]::before {
+    content: '₮';
+}
+
+.balance-list strong[data-crypto="ETH"]::before {
+    content: 'Ξ';
+}
+
+/* Balance Amount Styling */
+.balance-list li {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.balance-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.balance-usd {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+/* ========================================
+   EMPTY STATES - Better UX
+   ======================================== */
+
+.empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+    filter: grayscale(1);
+}
+
+.empty-state h3 {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.empty-state p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
 }
 
 /* Status Indicator in Tables */

@@ -57,16 +57,13 @@ def create_trade_field(trade):
     # Use the function to get the colored code block for the status
     status_text_block = format_status_for_discord_code_block(status, has_attachment)
 
-    # --- MODIFIED SECTION: Add buyer stats ---
     profile_data = trade.get('buyer_profile')
     buyer_stats_line = ""
     if profile_data:
         successful_trades = profile_data.get('successful_trades', 0)
         total_volume = profile_data.get('total_volume', 0.0)
         currency_code = trade.get('fiat_currency_code', '')
-        # Format as one line
-        buyer_stats_line = f"**Buyer Stats:** {successful_trades} trades (${total_volume:,.2f} {currency_code})\n"
-    # --- END MODIFICATION ---
+        buyer_stats_line = f"**Stats:** {successful_trades} trades (${total_volume:,.2f} {currency_code})\n"
 
     field_value = (
         f"**Buyer:** {trade.get('responder_username', 'N/A')}\n"
@@ -177,7 +174,7 @@ class TradeCommands(commands.Cog):
             embed = discord.Embed(
                 title=f"📊 Active Trades ({len(trades)})",
                 color=COLORS.get("info", 0x5865F2),
-                description="A summary of all ongoing trades."
+                description="( ͡° ͜ʖ ͡°)"
             )
             # Add trades as fields, max 25 fields per embed
             for trade in trades[:25]:

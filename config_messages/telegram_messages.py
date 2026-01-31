@@ -25,7 +25,7 @@ PAXFUL_ALERT_MESSAGE = """🅿️ *NEW PAXFUL TRADE*
 `{trade_hash}`
 """
 
-NOONES_ALERT_MESSAGE = """💠 *NEW NOONES TRADE*
+NOONES_ALERT_MESSAGE = """💠 *NEW TRADE*
 
 *BUYER*
 {buyer_line}

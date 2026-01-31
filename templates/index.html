@@ -29,7 +29,7 @@
     <div class="dashboard-container">
 
         <div class="card card-control">
-            <h2>Bot Control</h2>
+            <h2>⚙️ Bot Control</h2>
             <div class="control-buttons">
                 <button id="start-btn">Start Bot</button>
                 <button id="stop-btn">Stop Bot</button>
@@ -41,7 +41,7 @@
 
             <div class="toggles-container">
                 <div class="offers-toggle">
-                    <span>Nighttime Messages</span>
+                    <span>🌙 Nighttime Messages</span>
                     <label class="switch">
                         <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if
                             app_settings.night_mode_enabled %}checked{% endif %}>
@@ -49,7 +49,7 @@
                     </label>
                 </div>
                 <div class="offers-toggle">
-                    <span>AFK Messages</span>
+                    <span>💤 AFK Messages</span>
                     <label class="switch">
                         <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if
                             app_settings.afk_mode_enabled %}checked{% endif %}>
@@ -57,7 +57,7 @@
                     </label>
                 </div>
                 <div class="offers-toggle">
-                    <span>Enable All Offers</span>
+                    <span>📢 Enable All Offers</span>
                     <label class="switch">
                         <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif
                             %}>
@@ -65,7 +65,7 @@
                     </label>
                 </div>
                 <div class="offers-toggle">
-                    <span>Verbose Logging</span>
+                    <span>🪵 Verbose Logging</span>
                     <label class="switch">
                         <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if
                             app_settings.verbose_logging_enabled %}checked{% endif %}>
@@ -73,7 +73,7 @@
                     </label>
                 </div>
                 <div class="offers-toggle">
-                    <span>Wallet Alerts</span>
+                    <span>💰 Wallet Alerts</span>
                     <label class="switch">
                         <input type="checkbox" class="setting-toggle" data-key="wallet_alerts_enabled" {% if
                             app_settings.wallet_alerts_enabled %}checked{% endif %}>
@@ -87,7 +87,7 @@
             {% if user_grouped_data %}
             {% for owner_name, methods in user_grouped_data.items() %}
             <div class="card card-selector">
-                <h2>{{ owner_name }}'s Accounts</h2>
+                <h2>👤 {{ owner_name }}'s Accounts</h2>
                 {% for method_name, data in methods.items() %}
                 <div class="method-section">
                     <h4>{{ method_name | replace('-', ' ') | title }}</h4>
@@ -111,41 +111,48 @@
             {% else %}
             <div class="card">
                 <h2>Account Selector</h2>
-                <p>No payment JSON files found in /data/json directory.</p>
+                <div class="empty-state">
+                    <div class="empty-state-icon">📂</div>
+                    <h3>No Payment Files Found</h3>
+                    <p>No payment JSON files found in /data/json directory.</p>
+                </div>
             </div>
             {% endif %}
         </div>
 
         <div class="card card-balances">
-            <h2>Wallet Balances</h2>
+            <h2>💎 Wallet Balances</h2>
             <div id="wallet-balances-container" class="balance-columns">
                 <div id="david-balances-col">
-                    <p>Fetching...</p>
+                    <div class="skeleton skeleton-card"></div>
                 </div>
                 <div id="joe-balances-col">
-                    <p>Fetching...</p>
+                    <div class="skeleton skeleton-card"></div>
                 </div>
             </div>
         </div>
 
         <div class="card card-trades-table full-width">
-            <h2>Active Trades</h2>
+            <h2>📊 Active Trades</h2>
             <div id="active-trades-container">
-                <p>Fetching trades...</p>
+                <div class="skeleton skeleton-card"></div>
             </div>
         </div>
 
         <div class="card card-offers-table full-width">
             <div class="card-header">
-                <h2>Offer Management</h2>
+                <h2>🎯 Offer Management</h2>
                 <button id="toggle-offers-visibility-btn" class="toggle-visibility-btn">Show All</button>
             </div>
             <div id="offers-container">
-                <p>Fetching offers...</p>
+                <div class="skeleton skeleton-card"></div>
             </div>
         </div>
 
     </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
