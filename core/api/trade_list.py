@@ -4,7 +4,13 @@ import json
 import time
 import os 
 from datetime import datetime, timedelta, timezone
-from config import TRADE_LIST_URL_NOONES, TRADE_LIST_URL_PAXFUL, TRADES_ACTIVE_DIR
+from config import (
+    TRADE_LIST_URL_NOONES, 
+    TRADE_LIST_URL_PAXFUL, 
+    TRADE_COMPLETED_URL_NOONES,
+    TRADE_COMPLETED_URL_PAXFUL,
+    TRADES_ACTIVE_DIR
+)
 from core.utils.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
@@ -59,7 +65,11 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                     if include_completed:
                         # Fetch recently completed trades from the completed endpoint
                         try:
-                            completed_url = trade_list_url.replace("/trade/list", "/trades/completed")
+                            # Use the proper completed URL based on the account type
+                            if "_Paxful" in account["name"]:
+                                completed_url = TRADE_COMPLETED_URL_PAXFUL
+                            else:
+                                completed_url = TRADE_COMPLETED_URL_NOONES
                             # Fetch completed trades from last 15 minutes
                             completed_data = {
                                 "page": 1,
