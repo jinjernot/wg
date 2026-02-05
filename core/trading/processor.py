@@ -45,7 +45,7 @@ def process_trades(account):
         headers = {"Authorization": f"Bearer {access_token}"}
         
         logger.debug(f"Checking for new trades for {account['name']}...")
-        trades = get_trade_list(account, headers, limit=10, page=1, include_completed=True)
+        trades = get_trade_list(account, headers, limit=10, page=1)
 
         if trades:
             logger.info(f"Found {len(trades)} trades to process for {account['name']}.")
