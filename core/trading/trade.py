@@ -153,7 +153,9 @@ class Trade:
                     self.trade_hash, self.owner_username, current_status, self.platform
                 )
 
-            if current_status == 'Successful' and not self.trade_state.get('completion_message_sent'):
+            # API returns 'Released' for successfully completed trades (not 'Successful')
+            if current_status in ['Released', 'Successful'] and not self.trade_state.get('completion_message_sent'):
+                logger.info(f"Trade {self.trade_hash} completed with status '{current_status}'. Sending completion message.")
                 send_trade_completion_message(
                     self.trade_hash, self.account, self.headers)
                 self.trade_state['completion_message_sent'] = True
