@@ -33,7 +33,7 @@ class PaymentTracker(commands.Cog):
         except:
             return dt_str
     
-    @app_commands.command(name="record-payment", description="Record a customer payment")
+    @app_commands.command(name="amzn-record-payment", description="Record a customer payment")
     @app_commands.describe(
         customer="Customer name",
         amount="Payment amount in MXN",
@@ -89,7 +89,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="payment-history", description="View payment history for a customer")
+    @app_commands.command(name="amzn-payment-history", description="View payment history for a customer")
     @app_commands.describe(customer="Customer name")
     async def payment_history(
         self, 
@@ -146,7 +146,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="payment-total", description="View total amount paid by a customer")
+    @app_commands.command(name="amzn-payment-total", description="View total amount paid by a customer")
     @app_commands.describe(customer="Customer name")
     async def payment_total(
         self, 
@@ -184,7 +184,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="all-payments", description="View all payment records")
+    @app_commands.command(name="amzn-all-payments", description="View all payment records")
     async def all_payments(self, interaction: discord.Interaction):
         """View all payment records across all customers."""
         await interaction.response.defer()
@@ -237,7 +237,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
-    @app_commands.command(name="payment-stats", description="View payment statistics")
+    @app_commands.command(name="amzn-payment-stats", description="View payment statistics")
     async def payment_stats(self, interaction: discord.Interaction):
         """View summary statistics across all payments."""
         await interaction.response.defer()
