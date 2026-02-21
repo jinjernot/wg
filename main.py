@@ -35,7 +35,7 @@ def turn_on_offers_job():
 
 def turn_off_offers_job():
     """Job to be run by the scheduler to turn off offers."""
-    logger.info("SCHEDULLER: Running scheduled job to turn off offers.")
+    logger.info("SCHEDULER: Running scheduled job to turn off offers.")
     send_scheduled_task_alert("Automatically turning off all offers.")
 
     results = set_offer_status(turn_on=False)
@@ -74,7 +74,7 @@ def main():
 
     threads = []
     for account in PLATFORM_ACCOUNTS:
-        thread = threading.Thread(target=process_trades, args=(account,))
+        thread = threading.Thread(target=process_trades, args=(account,), daemon=True)
         thread.start()
         threads.append(thread)
 

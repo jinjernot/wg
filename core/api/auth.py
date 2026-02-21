@@ -60,8 +60,5 @@ def fetch_token_with_retry(account, max_retries=3, force_refresh=False):
         except Exception as e:
             logger.error(f"Request failed on attempt {attempt + 1}: {e}")
 
-        if attempt == max_retries - 1:
-            logger.error(f"Max retries reached for {account_name}. Giving up.")
-            return None
-
+    logger.error(f"Max retries reached for {account_name}. Giving up.")
     return None
