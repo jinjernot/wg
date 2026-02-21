@@ -143,10 +143,6 @@ def get_all_offers():
     all_offers_data = []
     http_client = get_http_client()
     for account in PLATFORM_ACCOUNTS:
-        if "_Paxful" in account.get("name", ""):
-            logger.warning(f"Temporarily skipping offer fetching for Paxful account: {account.get('name')}")
-            continue
-
         token = fetch_token_with_retry(account)
         if not token:
             logger.error(f"Could not authenticate for {account['name']} to fetch offers.")
@@ -157,8 +153,7 @@ def get_all_offers():
             "Content-Type": "application/x-www-form-urlencoded"
         }
 
-        platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
-        url = f"{platform_url}/offer/list"
+        url = "https://api.noones.com/noones/v1/offer/list"
         
         try:
             response = http_client.post(url, headers=headers, timeout=15)
@@ -198,10 +193,6 @@ def get_all_offers():
 
 def toggle_single_offer(account_name, offer_hash, turn_on):
     """Activates or deactivates a single offer."""
-    if "_Paxful" in account_name:
-         logger.warning(f"Temporarily skipping single offer toggle for Paxful account: {account_name}")
-         return {"success": False, "error": "Paxful actions are temporarily disabled."}
-
     target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name), None)
     if not target_account:
         return {"success": False, "error": f"Account '{account_name}' not found."}
@@ -215,10 +206,8 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
         "Content-Type": "application/x-www-form-urlencoded"
     }
     
-    platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in target_account["name"] else "https://api.noones.com/noones/v1"
-    
     endpoint = "/offer/activate" if turn_on else "/offer/deactivate"
-    url = f"{platform_url}{endpoint}"
+    url = f"https://api.noones.com/noones/v1{endpoint}"
     data = {"offer_hash": offer_hash}
     
     http_client = get_http_client()
@@ -240,10 +229,6 @@ def set_offer_status(turn_on):
     results = []
     http_client = get_http_client()
     for account in PLATFORM_ACCOUNTS:
-        if "_Paxful" in account.get("name", ""):
-            logger.warning(f"Temporarily skipping offer status change for Paxful account: {account.get('name')}")
-            continue
-
         token = fetch_token_with_retry(account)
         if not token:
             results.append({"account": account["name"], "success": False, "error": "Could not authenticate."})
@@ -254,9 +239,8 @@ def set_offer_status(turn_on):
             "Content-Type": "application/x-www-form-urlencoded"
         }
         
-        platform_url = "https://api.paxful.com/paxful/v1" if "_Paxful" in account["name"] else "https://api.noones.com/noones/v1"
         endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
-        url = f"{platform_url}{endpoint}"
+        url = f"https://api.noones.com/noones/v1{endpoint}"
 
         try:
             response = http_client.post(url, headers=headers)

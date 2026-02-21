@@ -4,7 +4,7 @@ import logging
 from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
-from config import PLATFORM_ACCOUNTS, CHAT_URL_PAXFUL, CHAT_URL_NOONES, TRADES_ACTIVE_DIR
+from config import PLATFORM_ACCOUNTS, CHAT_URL_NOONES, TRADES_ACTIVE_DIR
 from core.api.trade_chat import get_all_messages_from_chat, release_trade
 
 trades_bp = Blueprint('trades', __name__)
@@ -43,11 +43,11 @@ def get_active_trades():
                                         trade.get("trade_hash"), account, headers)
                                     
                                     # Debug logging
-                                    logger.info(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Got {len(all_messages) if all_messages else 0} messages")
+                                    logger.debug(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Got {len(all_messages) if all_messages else 0} messages")
                                     
                                     if all_messages:
                                         attachment_messages = [msg for msg in all_messages if msg.get("type") == "trade_attach_uploaded"]
-                                        logger.info(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Found {len(attachment_messages)} attachment messages")
+                                        logger.debug(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Found {len(attachment_messages)} attachment messages")
                                         trade['has_attachment'] = len(attachment_messages) > 0
                                     else:
                                         logger.warning(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: No messages returned!")
@@ -75,12 +75,6 @@ def send_manual_message():
     if not all([trade_hash, account_name, message]):
         return jsonify({"success": False, "error": "Missing trade hash, account name, or message."}), 400
 
-    # --- ADDED TEMPORARY CHECK ---
-    if "_Paxful" in account_name:
-        logger.warning(f"Temporarily skipping manual message for Paxful account: {account_name}")
-        return jsonify({"success": False, "error": "Paxful actions are temporarily disabled."}), 400
-    # --- END OF CHECK ---
-
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"].lower(
     ) == formatted_account_name.lower()), None)
@@ -94,7 +88,7 @@ def send_manual_message():
 
     headers = {"Authorization": f"Bearer {token}",
                "Content-Type": "application/x-www-form-urlencoded"}
-    chat_url = CHAT_URL_PAXFUL if "_Paxful" in target_account["name"] else CHAT_URL_NOONES
+    chat_url = CHAT_URL_NOONES
     body = {"trade_hash": trade_hash, "message": message}
 
     if send_message_with_retry(chat_url, body, headers):
@@ -110,12 +104,6 @@ def release_trade_route():
 
     if not all([trade_hash, account_name]):
         return jsonify({"success": False, "error": "Missing trade hash or account name."}), 400
-
-    # --- ADDED TEMPORARY CHECK ---
-    if "_Paxful" in account_name:
-        logger.warning(f"Temporarily skipping trade release for Paxful account: {account_name}")
-        return jsonify({"success": False, "error": "Paxful actions are temporarily disabled."}), 400
-    # --- END OF CHECK ---
 
     formatted_account_name = account_name.replace(" ", "_")
     target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"].lower() == formatted_account_name.lower()), None)

@@ -21,10 +21,6 @@ class DiscordHandler(logging.Handler):
         # Get the raw error message from the log record.
         log_message = record.getMessage()
 
-        # TEMPORARY: Skip all Paxful-related error alerts
-        if "Paxful" in log_message:
-            return
-        
         # Skip repeated "Credentials file not found" errors - only alert once per credential
         if "Credentials file not found for" in log_message:
             # Extract the credential identifier from the message

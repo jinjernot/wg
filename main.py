@@ -74,12 +74,6 @@ def main():
 
     threads = []
     for account in PLATFORM_ACCOUNTS:
-        # --- ADDED TEMPORARY CHECK ---
-        if "_Paxful" in account.get("name", ""):
-            logger.warning(f"Temporarily skipping all processing for Paxful account: {account.get('name')}")
-            continue
-        # --- END OF CHECK ---
-            
         thread = threading.Thread(target=process_trades, args=(account,))
         thread.start()
         threads.append(thread)

@@ -10,21 +10,7 @@ def format_currency(amount, currency=""):
         return f"{amount} {currency}".strip()
 
 
-# --- New Trade Templates ---
-PAXFUL_ALERT_MESSAGE = """🅿️ *NEW PAXFUL TRADE*
-
-*BUYER*
-{buyer_line}
-
-*TRADE DETAILS*
-💰 Amount: *{amount_formatted}*
-💳 Method: *{payment_method_name}*
-🏦 Account: *{owner_username}*
-
-*TRADE ID*
-`{trade_hash}`
-"""
-
+# --- New Trade Template ---
 NOONES_ALERT_MESSAGE = """💠 *NEW TRADE*
 
 *BUYER*

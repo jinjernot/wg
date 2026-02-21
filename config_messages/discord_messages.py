@@ -5,7 +5,6 @@ COLORS = {
     "warning": 15105570, 
     "error": 15158332,  
     "chat": 8359053,  
-    "PAXFUL_GREEN": 5621458,
     "NOONES_GREEN": 2044896
 }
 

@@ -25,7 +25,7 @@ def _save_api_response(account_name, response):
                 json.dump(response.json(), f, indent=4)
             except json.JSONDecodeError:
                 f.write(response.text)
-        logger.info(f"Saved API response for {account_name} to {filepath}")
+        logger.debug(f"Saved API response for {account_name} to {filepath}")
     except Exception as e:
         logger.error(f"Failed to save API response for {account_name}: {e}")
 
@@ -41,11 +41,6 @@ def get_wallet_balances():
     all_balances = {}
     http_client = get_http_client()
     for account in PLATFORM_ACCOUNTS:
-        # SKIP ALL PAXFUL ACCOUNTS
-        if "paxful" in account.get("name", "").lower():
-            logger.info(f"Skipping Paxful account: {account.get('name')}")
-            continue
-        
         token = fetch_token_with_retry(account)
         if not token:
             logger.error(f"Could not authenticate for {account['name']} to fetch wallet balances.")
@@ -53,51 +48,25 @@ def get_wallet_balances():
             continue
 
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
         
-        response = None
         try:
-            if platform == "Paxful":
-                url = "https://api.paxful.com/paxful/v1/wallet/balance"
-                headers["Content-Type"] = "application/x-www-form-urlencoded"
-                response = http_client.post(url, headers=headers, timeout=15)
-            else: # Noones
-                url = "https://api.noones.com/noones/v1/user/wallet-balances"
-                headers["Content-Type"] = "application/x-www-form-urlencoded"
-                response = http_client.post(url, headers=headers, timeout=15)
+            url = "https://api.noones.com/noones/v1/user/wallet-balances"
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            response = http_client.post(url, headers=headers, timeout=15)
 
             if response:
                 _save_api_response(account['name'], response)
 
             if response.status_code == 200:
                 data = response.json().get("data", {})
-                if platform == "Paxful":
-                    if data and 'crypto_currency_code' in data and 'balance' in data:
-                        currency_code = data['crypto_currency_code']
-                        balance_value = data['balance']
-                    
-                        if currency_code == 'BTC':
-                            try:
-                                satoshi_balance = int(balance_value)
-                                btc_balance = satoshi_balance / 100_000_000
-                                balance_value = f"{btc_balance:.8f}"
-                            except (ValueError, TypeError):
-                                logger.error(f"Could not convert Paxful BTC balance '{balance_value}' to a number.")
+                balances = {
+                    currency['code']: currency['balance']
+                    for currency in data.get('cryptoCurrencies', [])
+                }
+                if 'preferredFiatCurrency' in data and data['preferredFiatCurrency'].get('code'):
+                    balances[data['preferredFiatCurrency']['code']] = data['preferredFiatCurrency']['balance']
 
-                        all_balances[account['name']] = {
-                            currency_code: balance_value
-                        }
-                    else:
-                         all_balances[account['name']] = {"error": "Unexpected Paxful data structure"}
-                else: # Noones
-                    balances = {
-                        currency['code']: currency['balance']
-                        for currency in data.get('cryptoCurrencies', [])
-                    }
-                    if 'preferredFiatCurrency' in data and data['preferredFiatCurrency'].get('code'):
-                        balances[data['preferredFiatCurrency']['code']] = data['preferredFiatCurrency']['balance']
-
-                    all_balances[account['name']] = balances
+                all_balances[account['name']] = balances
             else:
                 error_message = f"API error (Status: {response.status_code}): {response.text}"
                 logger.error(f"Failed to fetch balance for {account['name']}: {error_message}")

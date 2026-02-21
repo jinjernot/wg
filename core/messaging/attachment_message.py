@@ -1,6 +1,6 @@
 import logging
 import random
-from config import CHAT_URL_PAXFUL, CHAT_URL_NOONES
+from config import CHAT_URL_NOONES
 from core.messaging.message_sender import send_message_with_retry
 from config_messages.chat_messages import ATTACHMENT_MESSAGE
 
@@ -17,7 +17,7 @@ def send_attachment_message(trade_hash, account, headers, max_retries=3):
             "message": message
         }
 
-        chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
+        chat_url = CHAT_URL_NOONES
 
         if send_message_with_retry(chat_url, body, headers, max_retries):
             logger.info(f"Initial message sent for trade {trade_hash}.")

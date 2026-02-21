@@ -35,7 +35,7 @@ class TokenCache:
             
             # Check if token is still valid (with 5 minute buffer)
             if time.time() >= expires_at:
-                logger.info(f"Cached token for {account_name} has expired")
+                logger.debug(f"Cached token for {account_name} has expired")
                 del self._cache[account_name]
                 return None
             
@@ -61,21 +61,21 @@ class TokenCache:
                 "token": token,
                 "expires_at": expires_at
             }
-            logger.info(f"Cached token for {account_name} (TTL: {ttl_seconds}s)")
+            logger.debug(f"Cached token for {account_name} (TTL: {ttl_seconds}s)")
     
     def invalidate(self, account_name):
         """Remove a token from the cache."""
         with self._lock:
             if account_name in self._cache:
                 del self._cache[account_name]
-                logger.info(f"Invalidated cached token for {account_name}")
+            logger.debug(f"Invalidated cached token for {account_name}")
     
     def clear(self):
         """Clear all cached tokens."""
         with self._lock:
             count = len(self._cache)
             self._cache.clear()
-            logger.info(f"Cleared {count} cached tokens")
+            logger.debug(f"Cleared {count} cached tokens")
     
     def get_stats(self):
         """Get cache statistics."""

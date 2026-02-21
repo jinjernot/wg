@@ -5,10 +5,8 @@ import time
 import os 
 from datetime import datetime, timedelta, timezone
 from config import (
-    TRADE_LIST_URL_NOONES, 
-    TRADE_LIST_URL_PAXFUL,
+    TRADE_LIST_URL_NOONES,
     TRADE_COMPLETED_URL_NOONES,
-    TRADE_COMPLETED_URL_PAXFUL,
     TRADES_ACTIVE_DIR
 )
 from core.utils.http_client import get_http_client
@@ -17,36 +15,21 @@ logger = logging.getLogger(__name__)
 
 
 def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_completed=False):
-    # --- ADDED TEMPORARY CHECK ---
-    if "_Paxful" in account.get("name", ""):
-        logger.warning(f"Temporarily skipping trade list fetching for Paxful account: {account['name']}")
-        return []
-    # --- END OF CHECK ---
-
-    if "_Paxful" in account["name"]:
-        trade_list_url = TRADE_LIST_URL_PAXFUL
-    else:
-        trade_list_url = TRADE_LIST_URL_NOONES
 
     data = {
         "page": page,
         "count": 1,
         "limit": limit
     }
-    
-    headers_paxful = headers.copy()
-    if "_Paxful"in account["name"]:
-        headers_paxful["Content-Type"] = "application/x-www-form-urlencoded"
-    
+
     http_client = get_http_client()
     
     for attempt in range(max_retries):
         try:
-            logger.debug(f"Attempt {attempt + 1} of {max_retries} for {account['name']}")
             response = http_client.post(
-                trade_list_url,
-                headers=headers_paxful,
-                json=data if "_Paxful" not in account["name"] else data,  
+                TRADE_LIST_URL_NOONES,
+                headers=headers,
+                json=data,
                 verify=certifi.where(),
                 timeout=10
             )
@@ -57,7 +40,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
                 with open(filepath, "w", encoding="utf-8") as json_file:
                     json.dump(trades_data, json_file, indent=4)
-                logger.info(f"Saved raw trade data to {filepath}")
+                logger.debug(f"Saved raw trade data to {filepath}")
 
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
                     trades = trades_data["data"]["trades"]
@@ -66,11 +49,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                     # Completed trades immediately drop off the /trade/list endpoint
                     if include_completed:
                         try:
-                            # Use proper completed URL based on platform
-                            if "_Paxful" in account["name"]:
-                                completed_url = TRADE_COMPLETED_URL_PAXFUL
-                            else:
-                                completed_url = TRADE_COMPLETED_URL_NOONES
+                            completed_url = TRADE_COMPLETED_URL_NOONES
                             
                             # Fetch recent completed trades (last 5 minutes)
                             completed_data = {
@@ -78,11 +57,9 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                                 "limit": 20  # Get recent completed trades
                             }
                             
-                            logger.debug(f"Fetching recently completed trades from {completed_url}")
-                            # CRITICAL: Use data= not json= (matches trade_history.py implementation)
                             completed_response = http_client.post(
                                 completed_url,
-                                headers=headers_paxful,
+                                headers=headers,
                                 data=completed_data,  # Use data= not json=
                                 verify=certifi.where(),
                                 timeout=10
@@ -111,7 +88,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                                     
                                     # Add recently completed trades to processing queue
                                     trades.extend(recently_completed)
-                                    logger.info(f"Added {len(recently_completed)} recently completed trades from last 5 minutes")
+                                    logger.debug(f"Added {len(recently_completed)} recently completed trades from last 5 minutes")
                             else:
                                 logger.warning(f"Failed to fetch completed trades from {completed_url}: {completed_response.status_code}")
                                 logger.debug(f"Response text: {completed_response.text}")

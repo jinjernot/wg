@@ -5,7 +5,6 @@ import os
 import logging
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from config_messages.telegram_messages import (
-    PAXFUL_ALERT_MESSAGE,
     NOONES_ALERT_MESSAGE,
     NEW_CHAT_ALERT_MESSAGE,
     NEW_ATTACHMENT_ALERT_MESSAGE,
@@ -139,7 +138,7 @@ def send_telegram_alert(trade, platform):
     currency = trade.get('fiat_currency_code', '')
     amount_formatted = format_currency(amount, currency)
 
-    message_template = PAXFUL_ALERT_MESSAGE if platform == "Paxful" else NOONES_ALERT_MESSAGE
+    message_template = NOONES_ALERT_MESSAGE
     
     # Build formatted data with escaped values
     formatted_data = {

@@ -3,7 +3,6 @@ import logging
 from core.api.auth import fetch_token_with_retry
 from core.api.trade_list import get_trade_list
 from core.trading.trade import Trade
-from .trade import Trade
 from core.utils.adaptive_polling import AdaptivePoller
 
 logger = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ def process_trades(account):
     max_failed_auth = 5  # Stop retrying auth after 5 failures
     
     while True:
-        logger.info(f"--- Starting new trade processing cycle for {account['name']} ---")
+        logger.debug(f"--- Starting new trade processing cycle for {account['name']} ---")
         access_token = fetch_token_with_retry(account)
         
         if not access_token:
@@ -63,5 +62,5 @@ def process_trades(account):
 
         # Get adaptive interval based on activity and time of day
         wait_interval = poller.get_interval()
-        logger.info(f"--- Finished trade processing cycle for {account['name']}. Waiting {wait_interval}s... ---")
+        logger.debug(f"--- Finished trade processing cycle for {account['name']}. Waiting {wait_interval}s... ---")
         time.sleep(wait_interval)

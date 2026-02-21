@@ -5,8 +5,8 @@ import json
 import os
 from datetime import datetime, timezone
 from config import (
-    CHAT_URL_PAXFUL, CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
-    EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_PAXFUL, IMAGE_API_URL_NOONES,
+    CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
+    EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
     ONLINE_QUERY_KEYWORDS
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
@@ -69,10 +69,23 @@ class Trade:
         self.gmail_service = None
         self.trade_hash = trade_data.get("trade_hash")
         self.owner_username = trade_data.get("owner_username", "unknown_user")
-        self.platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
+        self.platform = "Noones"
         all_trades = load_processed_trades(self.owner_username, self.platform)
         existing_data = all_trades.get(self.trade_hash, {})
         self.trade_state = {**existing_data, **trade_data}
+        self._messages_cache = None  # Cleared each process() cycle
+
+    def _get_chat_messages(self):
+        """Returns chat messages, fetching from the API only once per process() cycle."""
+        if self._messages_cache is None:
+            self._messages_cache = get_all_messages_from_chat(
+                self.trade_hash, self.account, self.headers
+            )
+            logger.debug(
+                f"[CACHE] Fetched {len(self._messages_cache or [])} messages "
+                f"for trade {self.trade_hash}"
+            )
+        return self._messages_cache
 
     def save(self):
         """Saves the current, complete state of the trade."""
@@ -80,12 +93,8 @@ class Trade:
 
     def process(self):
         """Main entry point to process a trade's lifecycle."""
-        logger.info(f"--- Starting to process trade: {self.trade_hash} ---")
-        
-        # SKIP ALL PAXFUL TRADES
-        if "Paxful" in self.platform:
-            logger.info(f"Skipping Paxful trade: {self.trade_hash}")
-            return
+        logger.debug(f"--- Starting to process trade: {self.trade_hash} ---")
+        self._messages_cache = None  # Reset cache at the start of every cycle
         
         if self.trade_state.get("trade_status") == "Dispute open":
             logger.info(
@@ -107,7 +116,7 @@ class Trade:
         self.check_for_inactivity()
         self.check_for_paid_without_attachment()
         self.save()
-        logger.info(f"--- Finished processing trade: {self.trade_hash} ---")
+        logger.debug(f"--- Finished processing trade: {self.trade_hash} ---")
 
     def handle_new_trade(self):
         """Handles logic for a trade seen for the first time."""
@@ -118,12 +127,8 @@ class Trade:
         new_trade_embed_data = create_new_trade_embed(
             self.trade_state, self.platform, send=False)
         
-        # TEMPORARY: Skip Paxful Discord thread creation
         if new_trade_embed_data:
-            if self.platform == "Paxful":
-                logger.info(f"Skipping Paxful Discord thread creation for {self.trade_hash}")
-            else:
-                create_trade_thread(self.trade_hash, new_trade_embed_data)
+            create_trade_thread(self.trade_hash, new_trade_embed_data)
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
@@ -131,27 +136,22 @@ class Trade:
         payment_method_slug = self.trade_state.get(
             "payment_method_slug", "").lower()
         if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
-            chat_url = CHAT_URL_PAXFUL if self.platform == "Paxful" else CHAT_URL_NOONES
             send_payment_details_message(
-                self.trade_hash, payment_method_slug, self.headers, chat_url, self.owner_username)
+                self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username)
         self.trade_state['status_history'] = [
             self.trade_state.get("trade_status")]
 
     def check_status_change(self):
         """Checks for and handles changes in the trade's status."""
-        logger.info(f"--- Checking Status Change for {self.trade_hash} ---")
+        logger.debug(f"--- Checking Status Change for {self.trade_hash} ---")
         current_status = self.trade_state.get("trade_status")
         if current_status not in self.trade_state.get('status_history', []):
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
 
-            # TEMPORARY: Skip Paxful Discord alerts
-            if self.platform == "Paxful":
-                logger.info(f"Skipping Paxful Discord status update alert for {self.trade_hash}")
-            else:
-                create_trade_status_update_embed(
-                    self.trade_hash, self.owner_username, current_status, self.platform
-                )
+            create_trade_status_update_embed(
+                self.trade_hash, self.owner_username, current_status, self.platform
+            )
 
             # API returns 'Released' for successfully completed trades (not 'Successful')
             if current_status in ['Released', 'Successful'] and not self.trade_state.get('completion_message_sent'):
@@ -166,7 +166,7 @@ class Trade:
 
     def handle_paid_status(self):
         """Handles the logic when a trade is marked as paid."""
-        logger.info(f"--- Handling 'Paid' status for {self.trade_hash} ---")
+        logger.debug(f"--- Handling 'Paid' status for {self.trade_hash} ---")
         send_payment_received_message(self.trade_hash, self.account, self.headers)
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
@@ -189,18 +189,18 @@ class Trade:
                         send_payment_confirmed_no_attachment_message(self.trade_hash, self.account, self.headers)
                         self.trade_state['no_attachment_reminder_sent'] = True
                         
-    def get_credential_identifier_for_trade(self):
-        """Finds the name identifier for credentials based on the selected payment account."""
-        logger.info(f"--- Getting Credential Identifier for {self.trade_hash} ---")
+    def _load_payment_method_data(self):
+        """Shared helper: maps the payment slug, reads the JSON file, and returns
+        (json_key_slug, method_data) for this trade's owner.
+        Returns (None, None) when the payment method is not supported or data is missing."""
         slug = self.trade_state.get("payment_method_slug", "").lower()
 
-        json_key_slug = ""
         if slug == "oxxo":
             json_key_slug = "oxxo"
         elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
             json_key_slug = "bank-transfer"
         else:
-            return None
+            return None, None
 
         json_filename = f"{json_key_slug}.json"
         json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
@@ -208,101 +208,89 @@ class Trade:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 payment_data = json.load(f)
-
-            user_data = payment_data.get(self.owner_username, {})
-            method_data = user_data.get(json_key_slug, {})
-            selected_id = str(method_data.get("selected_id", ""))
-
-            if not selected_id:
-                logger.warning(
-                    f"No selected_id found for {self.owner_username} in {json_filename}")
-                return None
-
-            account = next((acc for acc in method_data.get(
-                "accounts", []) if str(acc.get("id")) == selected_id), None)
-
-            if account and "name" in account:
-                return account["name"]
-            else:
-                logger.warning(
-                    f"No 'name' found for account id {selected_id} in {json_filename}")
-
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Could not read or parse {json_filename}: {e}")
+            return None, None
 
+        user_data = payment_data.get(self.owner_username, {})
+        method_data = user_data.get(json_key_slug, {})
+        return json_key_slug, method_data
+
+    def get_credential_identifier_for_trade(self):
+        """Returns the name of the currently selected payment account, or None."""
+        logger.debug(f"--- Getting Credential Identifier for {self.trade_hash} ---")
+        json_key_slug, method_data = self._load_payment_method_data()
+        if method_data is None:
+            return None
+
+        selected_id = str(method_data.get("selected_id", ""))
+        if not selected_id:
+            logger.warning(f"No selected_id found for {self.owner_username}")
+            return None
+
+        account = next(
+            (acc for acc in method_data.get("accounts", [])
+             if str(acc.get("id")) == selected_id),
+            None
+        )
+        if account and "name" in account:
+            return account["name"]
+
+        logger.warning(f"No 'name' found for account id {selected_id}")
         return None
 
     def get_all_credential_identifiers_for_trade(self):
-        """Returns ALL account names for the payment method, with selected account first."""
-        logger.info(f"--- Getting All Credential Identifiers for {self.trade_hash} ---")
-        slug = self.trade_state.get("payment_method_slug", "").lower()
-
-        json_key_slug = ""
-        if slug == "oxxo":
-            json_key_slug = "oxxo"
-        elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
-            json_key_slug = "bank-transfer"
-        else:
+        """Returns ALL account names for the payment method, with the selected account first."""
+        logger.debug(f"--- Getting All Credential Identifiers for {self.trade_hash} ---")
+        json_key_slug, method_data = self._load_payment_method_data()
+        if method_data is None:
             return []
 
-        json_filename = f"{json_key_slug}.json"
-        json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
+        selected_id = str(method_data.get("selected_id", ""))
+        all_accounts = method_data.get("accounts", [])
 
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                payment_data = json.load(f)
+        # Build list: selected account first, then remaining ones that have credentials
+        account_names = []
 
-            user_data = payment_data.get(self.owner_username, {})
-            method_data = user_data.get(json_key_slug, {})
-            selected_id = str(method_data.get("selected_id", ""))
-            all_accounts = method_data.get("accounts", [])
+        if selected_id:
+            selected_account = next(
+                (acc for acc in all_accounts if str(acc.get("id")) == selected_id),
+                None
+            )
+            if selected_account and "name" in selected_account:
+                account_names.append(selected_account["name"])
+                logger.debug(f"Selected account: {selected_account['name']}")
 
-            # Build list with selected account first, then others
-            account_names = []
-            
-            # Add selected account first (if it exists)
-            if selected_id:
-                selected_account = next((acc for acc in all_accounts if str(acc.get("id")) == selected_id), None)
-                if selected_account and "name" in selected_account:
-                    account_names.append(selected_account["name"])
-                    logger.info(f"Selected account: {selected_account['name']}")
-            
-            # Add all other accounts that have names and valid credentials
-            for acc in all_accounts:
-                if "name" in acc:
-                    acc_name = acc["name"]
-                    if acc_name not in account_names and acc_name in EMAIL_ACCOUNT_DETAILS:
-                        account_names.append(acc_name)
-                        logger.info(f"Additional account to check: {acc_name}")
+        for acc in all_accounts:
+            if "name" in acc:
+                acc_name = acc["name"]
+                if acc_name not in account_names and acc_name in EMAIL_ACCOUNT_DETAILS:
+                    account_names.append(acc_name)
+                    logger.debug(f"Additional account to check: {acc_name}")
 
-            logger.info(f"Total accounts to check for email: {len(account_names)}")
-            return account_names
-
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Could not read or parse {json_filename}: {e}")
-            return []
+        logger.debug(f"Total accounts to check for email: {len(account_names)}")
+        return account_names
 
     def check_for_email_confirmation(self):
         """Checks for payment confirmation emails if the trade is marked as Paid and has an attachment."""
-        logger.info(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
         is_paid = self.trade_state.get("trade_status") == 'Paid'
         is_relevant = self.trade_state.get("payment_method_slug", "").lower() in [
             "oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
         is_pending = not self.trade_state.get(
             'email_verified') and not self.trade_state.get('email_check_timed_out')
 
-        # Debug logging
-        logger.info(f"[EMAIL CHECK] Trade {self.trade_hash} - is_paid: {is_paid}, is_relevant: {is_relevant}, is_pending: {is_pending}")
-        logger.info(f"[EMAIL CHECK] Payment method: {self.trade_state.get('payment_method_slug')}")
-        logger.info(f"[EMAIL CHECK] Email verified: {self.trade_state.get('email_verified')}, Timed out: {self.trade_state.get('email_check_timed_out')}")
+        logger.debug(f"[EMAIL CHECK] Trade {self.trade_hash} - is_paid: {is_paid}, is_relevant: {is_relevant}, is_pending: {is_pending}")
+        logger.debug(f"[EMAIL CHECK] Payment method: {self.trade_state.get('payment_method_slug')}")
+        logger.debug(f"[EMAIL CHECK] Email verified: {self.trade_state.get('email_verified')}, Timed out: {self.trade_state.get('email_check_timed_out')}")
 
         if not (is_paid and is_relevant and is_pending):
             if not is_paid:
                 logger.debug(f"[EMAIL CHECK] Skipping - trade not paid")
             elif not is_relevant:
-                logger.info(f"[EMAIL CHECK] Skipping - payment method '{self.trade_state.get('payment_method_slug')}' doesn't require email validation")
+                logger.debug(f"[EMAIL CHECK] Skipping - payment method '{self.trade_state.get('payment_method_slug')}' doesn't require email validation")
             elif not is_pending:
-                logger.info(f"[EMAIL CHECK] Skipping - email already verified or check timed out")
+                logger.debug(f"[EMAIL CHECK] Skipping - email already verified or check timed out")
             return
 
         # Get ALL accounts to check (selected first, then others)
@@ -325,7 +313,7 @@ class Trade:
         
         # Check if within the retry window (EMAIL_CHECK_DURATION = 900 seconds = 15 minutes)
         if elapsed_time < EMAIL_CHECK_DURATION:
-            logger.info(f"Email check for {self.trade_hash}: Elapsed {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
+            logger.debug(f"Email check for {self.trade_hash}: Elapsed {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
             
             # Try each account until we find a match
             success = False
@@ -334,7 +322,7 @@ class Trade:
             expected_account = credential_identifiers[0] if credential_identifiers else None
             
             for credential_identifier in credential_identifiers:
-                logger.info(f"🔍 Checking email in account: {credential_identifier}")
+                logger.debug(f"Checking email in account: {credential_identifier}")
                 
                 gmail_service = get_gmail_service(credential_identifier)
                 if not gmail_service:
@@ -354,7 +342,7 @@ class Trade:
                         logger.warning(f"   Found in: {credential_identifier}")
                     break
                 else:
-                    logger.info(f"❌ No matching email found in {credential_identifier}")
+                    logger.debug(f"No matching email found in {credential_identifier}")
             
             if success:
                 # SUCCESS - Email found!
@@ -364,12 +352,8 @@ class Trade:
                     send_email_validation_alert(
                         self.trade_hash, success=True, account_name=matched_account, details=details)
                     
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
-                    else:
-                        create_email_validation_embed(
-                            self.trade_hash, success=True, account_name=matched_account, details=details)
+                    create_email_validation_embed(
+                        self.trade_hash, success=True, account_name=matched_account, details=details)
                     
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
@@ -395,12 +379,8 @@ class Trade:
                     send_email_validation_alert(
                         self.trade_hash, success=False, account_name=expected_account)
                     
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord email validation alert for {self.trade_hash}")
-                    else:
-                        create_email_validation_embed(
-                            self.trade_hash, success=False, account_name=expected_account)
+                    create_email_validation_embed(
+                        self.trade_hash, success=False, account_name=expected_account)
                     
                     self.trade_state['email_validation_alert_sent'] = True
                     self.save()
@@ -408,8 +388,8 @@ class Trade:
 
     def check_chat_and_attachments(self):
         """Fetches the entire chat history and processes any unprocessed messages or attachments."""
-        logger.info(f"--- Checking Chat & Attachments for {self.trade_hash} ---")
-        all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
+        logger.debug(f"--- Checking Chat & Attachments for {self.trade_hash} ---")
+        all_messages = self._get_chat_messages()
         if not all_messages:
             return
 
@@ -436,12 +416,7 @@ class Trade:
                 if isinstance(message_text, str) and message_text:
                     msg_author = msg.get("author", "Unknown")
                     # send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
-                    
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord chat message alert for {self.trade_hash}")
-                    else:
-                        create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
+                    create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
 
         if new_messages:
             self.handle_online_query(new_messages)
@@ -456,8 +431,7 @@ class Trade:
         # Process attachments from entire history, avoiding duplicates
         processed_attachments = self.trade_state.get('processed_attachments', {})
         new_attachments_to_process = []
-        platform = "Paxful" if "_Paxful" in self.account["name"] else "Noones"
-        image_api_url = IMAGE_API_URL_PAXFUL if platform == "Paxful" else IMAGE_API_URL_NOONES
+        image_api_url = IMAGE_API_URL_NOONES
 
         for msg in all_messages:
             if msg.get("type") == "trade_attach_uploaded":
@@ -500,11 +474,11 @@ class Trade:
             
             # Check if alerts have already been sent for this attachment
             if processed_attachments.get(url, {}).get('alerts_sent'):
-                logger.info(f"Alerts already sent for attachment {url}, skipping...")
+                logger.debug(f"Alerts already sent for attachment {url}, skipping.")
                 continue
                 
             if author not in ["davidvs", "JoeWillgang"]:
-                logger.info(f"--- Processing new attachment by {author} for {self.trade_hash} ---")
+                logger.debug(f"Processing new attachment by {author} for {self.trade_hash}.")
                 
                 # Check for duplicate receipt
                 image_hash = hash_image(path)
@@ -512,59 +486,43 @@ class Trade:
                 if is_duplicate:
                     send_duplicate_receipt_alert(self.trade_hash, self.owner_username, path, previous_trade_info)
                     
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord duplicate receipt alert for {self.trade_hash}")
-                    else:
-                        create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
+                    create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
 
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
                 save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)
                 send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
                 
-                # TEMPORARY: Skip Paxful Discord alerts
-                if self.platform == "Paxful":
-                    logger.info(f"Skipping Paxful Discord attachment alert for {self.trade_hash}")
-                else:
-                    create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
+                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
 
                 if identified_bank:
                     self.trade_state['ocr_identified_bank'] = identified_bank
                     logger.info(f"Receipt for trade {self.trade_hash} identified as {identified_bank}.")
 
-                logger.info(f"--- Performing Amount Validation for {self.trade_hash} ---")
+                logger.debug(f"Performing amount validation for {self.trade_hash}.")
                 found_amount = find_amount_in_text(text, self.trade_state.get("fiat_amount_requested"))
                 if not self.trade_state.get('amount_validation_alert_sent'):
                     expected = self.trade_state.get("fiat_amount_requested")
                     currency = self.trade_state.get("fiat_currency_code")
                     send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
                     
-                    # TEMPORARY: Skip Paxful Discord alerts
-                    if self.platform == "Paxful":
-                        logger.info(f"Skipping Paxful Discord amount validation alert for {self.trade_hash}")
-                    else:
-                        create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
+                    create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
                     
                     self.trade_state['amount_validation_alert_sent'] = True
 
                 if expected_names:
-                    logger.info(f"--- Performing Name Validation for {self.trade_hash} ---")
+                    logger.debug(f"Performing name validation for {self.trade_hash}.")
                     is_name_found = find_name_in_text(text, expected_names)
                     if not self.trade_state.get('name_validation_alert_sent'):
                         send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
                         
-                        # TEMPORARY: Skip Paxful Discord alerts
-                        if self.platform == "Paxful":
-                            logger.info(f"Skipping Paxful Discord name validation alert for {self.trade_hash}")
-                        else:
-                            create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
+                        create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
                         
                         self.trade_state['name_validation_alert_sent'] = True
                 
                 # Mark alerts as sent for this attachment
                 processed_attachments[url]['alerts_sent'] = True
-                logger.info(f"Marked attachment {url} as alerts_sent=True")
+                logger.debug(f"Marked attachment {url} as alerts_sent=True")
                 
             self.save()
 
@@ -573,7 +531,7 @@ class Trade:
     
     def handle_online_query(self, new_messages):
         """Checks for messages asking if the user is online and sends a reply."""
-        logger.info(f"--- Checking for Online Query: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Online Query: {self.trade_hash} ---")
         if self.trade_state.get('online_reply_sent'):
             return
 
@@ -592,7 +550,7 @@ class Trade:
 
     def handle_oxxo_query(self, new_messages):
         """Checks if a user mentions OXXO in a bank transfer trade."""
-        logger.info(f"--- Checking for OXXO Query in Bank Trade: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for OXXO Query in Bank Trade: {self.trade_hash} ---")
         
         payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
         is_bank_transfer = payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
@@ -612,7 +570,7 @@ class Trade:
 
     def handle_third_party_query(self, new_messages):
         """Checks if a user asks about third party payments."""
-        logger.info(f"--- Checking for Third Party Query: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Third Party Query: {self.trade_hash} ---")
         if self.trade_state.get('third_party_reply_sent'):
             return
 
@@ -632,7 +590,7 @@ class Trade:
 
     def handle_release_query(self, new_messages):
         """Checks if a user asks about release."""
-        logger.info(f"--- Checking for Release Query: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Release Query: {self.trade_hash} ---")
         if self.trade_state.get('release_reply_sent'):
             return
 
@@ -648,12 +606,11 @@ class Trade:
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""
-        logger.info(f"--- Checking for AFK: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for AFK: {self.trade_hash} ---")
         if self.trade_state.get('afk_message_sent'):
             return
 
-        all_messages = get_all_messages_from_chat(
-            self.trade_hash, self.account, self.headers)
+        all_messages = self._get_chat_messages()
 
         if not all_messages:
             return
@@ -702,8 +659,8 @@ class Trade:
             owner_responded_during_consecutive = last_owner_message_ts and last_owner_message_ts > first_consecutive_message_ts
             
             if owner_responded_during_consecutive:
-                logger.info(
-                    f"AFK not triggered for {self.trade_hash}: Owner sent a message during the consecutive buyer messages (owner was responsive).")
+                logger.debug(
+                    f"AFK not triggered for {self.trade_hash}: Owner sent a message during the consecutive buyer messages.")
             elif (consecutive_buyer_messages >= message_threshold and 
                   time_since_first_message > time_threshold_minutes):
                 logger.info(
@@ -713,21 +670,20 @@ class Trade:
                 self.save()
             else:
                 if consecutive_buyer_messages < message_threshold:
-                    logger.info(
+                    logger.debug(
                         f"AFK not triggered for {self.trade_hash}: Not enough messages ({consecutive_buyer_messages}/{message_threshold}).")
                 if time_since_first_message <= time_threshold_minutes:
-                    logger.info(
-                        f"AFK not triggered for {self.trade_hash}: Not enough time has passed since first message ({time_since_first_message:.2f}/{time_threshold_minutes} minutes).")
+                    logger.debug(
+                        f"AFK not triggered for {self.trade_hash}: Not enough time ({time_since_first_message:.2f}/{time_threshold_minutes} min).")
                     
             
     def check_for_extended_afk(self):
         """Checks for extended inactivity from the buyer and sends a specific message."""
-        logger.info(f"--- Checking for Extended AFK: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Extended AFK: {self.trade_hash} ---")
         if self.trade_state.get('extended_afk_message_sent') or not self.trade_state.get('afk_message_sent'):
             return
 
-        all_messages = get_all_messages_from_chat(
-            self.trade_hash, self.account, self.headers)
+        all_messages = self._get_chat_messages()
         if not all_messages:
             return
 
@@ -758,7 +714,7 @@ class Trade:
 
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""
-        logger.info(f"--- Checking for Inactivity: {self.trade_hash} ---")
+        logger.debug(f"--- Checking for Inactivity: {self.trade_hash} ---")
         is_active = self.trade_state.get(
             "trade_status", "").startswith('Active')
         if not is_active or self.trade_state.get('reminder_sent'):

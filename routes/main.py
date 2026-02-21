@@ -10,10 +10,6 @@ def index():
     app_settings = web_utils.get_app_settings()
     user_grouped_data = {}
     for filename, owners_data in payment_data_from_files.items():
-        # Skip Paxful files
-        if 'paxful' in filename.lower():
-            continue
-            
         for owner_name, methods_data in owners_data.items():
             if owner_name not in user_grouped_data:
                 user_grouped_data[owner_name] = {}
