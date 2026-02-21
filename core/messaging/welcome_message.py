@@ -78,8 +78,7 @@ def send_welcome_message(trade, account, headers, max_retries=3):
     # Get the appropriate message from the selected dictionary
     message = message_dict.get(payment_method_slug, message_dict["default"])
 
-    # Determine which chat URL to use
-    chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
+    chat_url = CHAT_URL_NOONES
 
     # Prepare the message body
     headers["Content-Type"] = "application/x-www-form-urlencoded"

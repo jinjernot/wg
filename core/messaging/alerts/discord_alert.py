@@ -205,14 +205,9 @@ def create_new_trade_embed(trade_data, platform, send=True):
     trade_hash = trade_data.get('trade_hash')
     
     # Platform-specific details
-    if platform == "Paxful":
-        embed_color = COLORS["PAXFUL_GREEN"]
-        platform_emoji = "🅿️"
-        trade_url = f"https://paxful.com/trade/{trade_hash}"
-    else:  # Noones
-        embed_color = COLORS["NOONES_GREEN"]
-        platform_emoji = "💠"
-        trade_url = f"https://noones.com/trade/{trade_hash}"
+    embed_color = COLORS["NOONES_GREEN"]
+    platform_emoji = "💠"
+    trade_url = f"https://noones.com/trade/{trade_hash}"
 
     # Get buyer info with stats
     buyer_username = trade_data.get('responder_username', 'N/A')
@@ -269,7 +264,7 @@ def create_new_trade_embed(trade_data, platform, send=True):
 def create_trade_status_update_embed(trade_hash, owner_username, new_status, platform):
     """Creates and sends a Discord embed for a trade status change with improved formatting."""
     
-    trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
+    trade_url = f"https://noones.com/trade/{trade_hash}"
 
     # Determine template based on status
     if new_status == 'Paid':
@@ -304,10 +299,7 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
 def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
     """Creates and sends a Discord embed for a new attachment with improved formatting."""
     
-    if platform == "Paxful":
-        embed_color = COLORS["PAXFUL_GREEN"]
-    else:  # Noones
-        embed_color = COLORS["NOONES_GREEN"]
+    embed_color = COLORS["NOONES_GREEN"]
 
     template = ATTACHMENT_EMBED
     
@@ -398,7 +390,7 @@ def create_email_validation_embed(trade_hash, success, account_name, details=Non
 def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a visually improved Discord embed for a new chat message."""
     
-    trade_url = f"https://paxful.com/trade/{trade_hash}" if platform == "Paxful" else f"https://noones.com/trade/{trade_hash}"
+    trade_url = f"https://noones.com/trade/{trade_hash}"
     is_bot_owner = author in ["davidvs", "JoeWillgang"]
     is_automated = message in AUTOMATED_MESSAGES
 
@@ -414,7 +406,7 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
     if template["color_type"] == "info":
         embed_color = COLORS["info"]
     elif template["color_type"] == "platform":
-        embed_color = COLORS["PAXFUL_GREEN"] if platform == "Paxful" else COLORS["NOONES_GREEN"]
+        embed_color = COLORS["NOONES_GREEN"]
     else:
         embed_color = COLORS["info"]
 

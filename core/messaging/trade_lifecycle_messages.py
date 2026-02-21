@@ -1,17 +1,14 @@
 import logging
 import random
 from core.messaging.message_sender import send_message_with_retry
-from config import (
-    CHAT_URL_PAXFUL,
-    CHAT_URL_NOONES,
-)
+from config import CHAT_URL_NOONES
 from config_messages.chat_messages import *
 
 logger = logging.getLogger(__name__)
 
 def _send_lifecycle_message(trade_hash, account, headers, message_list, message_type, max_retries=3):
     """Generic function to send a trade lifecycle message."""
-    chat_url = CHAT_URL_PAXFUL if "_Paxful" in account["name"] else CHAT_URL_NOONES
+    chat_url = CHAT_URL_NOONES
     message = random.choice(message_list)
     body = {"trade_hash": trade_hash, "message": message}
     headers["Content-Type"] = "application/x-www-form-urlencoded"

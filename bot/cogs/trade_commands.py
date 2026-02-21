@@ -233,7 +233,7 @@ class TradeCommands(commands.Cog):
 
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="message", description="Send a manual message to a trade chat.")
-    @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., Davidvs_Paxful)", message="The message you want to send")
+    @app_commands.describe(trade_hash="The hash of the trade", account_name="The account name handling the trade (e.g., davidvs_Noones)", message="The message you want to send")
     async def send_message_command(self, interaction: discord.Interaction, trade_hash: str, account_name: str, message: str):
         await interaction.response.defer(ephemeral=True)
         payload = {"trade_hash": trade_hash, "account_name": account_name, "message": message}

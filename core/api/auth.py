@@ -1,6 +1,6 @@
 import time
 import logging
-from config import TOKEN_URL_NOONES, TOKEN_URL_PAXFUL
+from config import TOKEN_URL_NOONES
 from core.utils.token_cache import get_token_cache
 from core.utils.http_client import get_http_client
 
@@ -28,7 +28,7 @@ def fetch_token_with_retry(account, max_retries=3, force_refresh=False):
             return cached_token
     
     # Token not in cache or expired, fetch new one
-    token_url = TOKEN_URL_PAXFUL if "_Paxful" in account_name else TOKEN_URL_NOONES
+    token_url = TOKEN_URL_NOONES
     token_data = {
         "grant_type": "client_credentials",
         "client_id": account["key"],

@@ -2,9 +2,9 @@
     /* Professional Color Palette */
     --bg-gradient-start: #0a0e27;
     --bg-gradient-end: #0f1419;
-    --card-bg: rgba(26, 26, 42, 0.7);
-    --card-border: rgba(255, 255, 255, 0.1);
-    --card-hover-border: rgba(255, 255, 255, 0.2);
+    --card-bg: rgba(22, 24, 40, 0.82);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --card-hover-border: rgba(255, 255, 255, 0.22);
     
     /* Text Colors */
     --text-primary: #F9FAFB;
@@ -58,6 +58,22 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     overflow-x: hidden;
+}
+
+/* Subtle dot-grid texture overlay */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.dashboard-container, .header, .toast-container {
+    position: relative;
+    z-index: 1;
 }
 
 /* Smooth Scrolling */
@@ -183,10 +199,10 @@ h4 {
 /* Card Redesign with Glassmorphism */
 .card {
     background: var(--card-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 16px;
-    padding: 28px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 14px;
+    padding: 24px;
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow-lg);
     display: flex;
@@ -221,20 +237,21 @@ h4 {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 2px;
     background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-    opacity: 0;
+    opacity: 0.25;
     transition: opacity var(--transition-base);
+    border-radius: 16px 16px 0 0;
 }
 
 .card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-xl);
     border-color: var(--card-hover-border);
 }
 
 .card:hover::before {
-    opacity: 1;
+    opacity: 0.8;
 }
 
 .card-control {
@@ -710,8 +727,7 @@ tr {
 }
 
 tbody tr:hover {
-    background: rgba(99, 102, 241, 0.1);
-    transform: scale(1.01);
+    background: rgba(99, 102, 241, 0.08);
 }
 
 /* Account Select Dropdown */
@@ -1583,4 +1599,151 @@ tr.status-disputed:hover {
         padding: 4px 8px !important;
         font-size: 0.7rem !important;
     }
+}
+
+/* ========================================
+   UTILITY: NAV BUTTON - Header Links
+   ======================================== */
+
+.nav-btn {
+    padding: 9px 18px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    transition: all var(--transition-base);
+    white-space: nowrap;
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: var(--card-hover-border);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+/* ========================================
+   UTILITY: STAT CARD - Trades View Tiles
+   ======================================== */
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0.2;
+    transition: opacity var(--transition-base);
+}
+
+.stat-card:hover {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: var(--card-hover-border);
+    transform: translateY(-1px);
+}
+
+.stat-card:hover::before {
+    opacity: 0.7;
+}
+
+.stat-card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stat-card-value.green {
+    background: linear-gradient(135deg, var(--success-color), var(--success-hover));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.stat-card-value.yellow {
+    background: linear-gradient(135deg, var(--warning-color), var(--warning-hover));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.stat-card-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.trades-view-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.trades-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.trades-card-header h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.trades-card-header h2::after {
+    display: none;
+}
+
+.refresh-btn {
+    padding: 9px 18px;
+    border: none;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.875rem;
+    font-family: inherit;
+    transition: all var(--transition-base);
+}
+
+.refresh-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }

@@ -23,11 +23,6 @@ def get_crypto_in_open_trades(account):
     """
     Calculates the total amount of cryptocurrency locked in open trades for a specific account.
     """
-    # SKIP ALL PAXFUL ACCOUNTS
-    if "paxful" in account.get("name", "").lower():
-        logger.info(f"Skipping get_crypto_in_open_trades for Paxful account: {account.get('name')}")
-        return {}
-    
     total_crypto_locked = {}
     access_token = fetch_token_with_retry(account)
     if not access_token:
@@ -75,21 +70,15 @@ def check_wallet_balances_and_alert():
         logger.info("Wallet alerts are disabled. Skipping balance check.")
         return
     
-    logger.info("--- Running Low Balance Check ---")
+    logger.debug("--- Running Low Balance Check ---")
     balances = get_wallet_balances()
     if not balances:
-        logger.info("No balances found to check.")
+        logger.debug("No balances found to check.")
         return
 
     for account in PLATFORM_ACCOUNTS:
         account_name = account.get("name", "Unknown")
-        
-        # SKIP ALL PAXFUL ACCOUNTS
-        if "paxful" in account_name.lower():
-            logger.info(f"Skipping Paxful account: {account_name}")
-            continue
-        
-        logger.info(f"Processing account: {account_name}")
+        logger.debug(f"Processing account: {account_name}")
 
         balance_data = balances.get(account_name, {})
         if "error" in balance_data:
@@ -107,7 +96,7 @@ def check_wallet_balances_and_alert():
         for currency, amount in crypto_in_trades.items():
             effective_balances[currency] = effective_balances.get(
                 currency, 0) + amount
-            logger.info(
+            logger.debug(
                 f"Adjusted {currency} balance for {account_name} by {amount} from open trades.")
 
         total_balance_usd = 0
@@ -141,10 +130,8 @@ def check_wallet_balances_and_alert():
                 logger.error(
                     f"  Could not process balance for {currency} in {account_name}: Invalid amount '{amount}' - {e}")
 
-        logger.info(
-            f"--- TOTAL EFFECTIVE BALANCE FOR {account_name}: ${total_balance_usd:,.2f} USD ---")
-        logger.info(
-            f"Comparing to threshold: ${LOW_BALANCE_THRESHOLD_USD:,.2f} USD")
+        logger.debug(
+            f"TOTAL EFFECTIVE BALANCE FOR {account_name}: ${total_balance_usd:,.2f} USD (threshold: ${LOW_BALANCE_THRESHOLD_USD:,.2f})")
 
         if total_balance_usd < LOW_BALANCE_THRESHOLD_USD:
             logger.warning(
@@ -174,6 +161,6 @@ def check_wallet_balances_and_alert():
                 balance_details_for_alert
             )
         else:
-            logger.info(
+            logger.debug(
                 f"No alert needed for {account_name}. Balance is sufficient.")
-    logger.info("--- Low Balance Check Finished ---")
+    logger.debug("Low balance check finished.")

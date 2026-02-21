@@ -16,7 +16,7 @@ from collections import Counter
 import pandas as pd
 
 from core.api.auth import fetch_token_with_retry
-from config import PLATFORM_ACCOUNTS, TRADE_COMPLETED_URL_NOONES, TRADE_COMPLETED_URL_PAXFUL, TRADE_HISTORY_DIR
+from config import PLATFORM_ACCOUNTS, TRADE_COMPLETED_URL_NOONES, TRADE_HISTORY_DIR
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.basicConfig(level=logging.DEBUG)
@@ -27,14 +27,8 @@ ALL_TRADES = []
 LOCK = Lock()
 
 def fetch_completed_trades(account, limit=1000):
-    # --- ADDED TEMPORARY CHECK ---
-    if "_Paxful" in account.get("name", ""):
-        logging.warning(f"Temporarily skipping trade history fetching for Paxful account: {account['name']}")
-        return
-    # --- END OF CHECK ---
 
-    platform = "Paxful" if "_Paxful" in account["name"] else "Noones"
-    base_url = TRADE_COMPLETED_URL_PAXFUL if platform == "Paxful" else TRADE_COMPLETED_URL_NOONES
+    base_url = TRADE_COMPLETED_URL_NOONES
 
     token = fetch_token_with_retry(account)
     if not token:
