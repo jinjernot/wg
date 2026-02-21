@@ -111,7 +111,8 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
                 
                 logger.info(f"Found {len(filtered_offers)} matching offers after filtering.")
 
-                # 4. Always return the filtered list, regardless of payload structure
+                # Cache and return the filtered list
+                response_cache.set("public_offers", filtered_offers, ttl_seconds=120, params=cache_params)
                 return filtered_offers
                 # --- END OF NEW FILTER LOGIC ---
 
@@ -124,18 +125,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
             
     except Exception as e:
         logger.error(f"An exception occurred fetching public offers: {e}")
-        return None # <-- MODIFIED: Return None on failure
-    finally:
-        # Cache successful results only (2 minute TTL)
-        # Check if either filtered_offers or payload_data was successfully populated
-        result = None
-        if 'filtered_offers' in locals():
-            result = locals()['filtered_offers']
-        elif 'payload_data' in locals() and isinstance(locals()['payload_data'], dict) and 'offers' in locals()['payload_data']:
-            result = locals()['payload_data']
-
-        if result is not None:
-            response_cache.set("public_offers", result, ttl_seconds=120, params=cache_params)
+        return None
 
 
 def get_all_offers():
