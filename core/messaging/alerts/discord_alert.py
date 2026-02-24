@@ -239,8 +239,7 @@ def create_new_trade_embed(trade_data, platform, send=True):
     template = NEW_TRADE_EMBED
     embed = {
         "title": template["title_format"].format(platform_emoji=platform_emoji, owner_username=owner_username),
-        "url": trade_url,
-        "color": embed_color,
+        "color": COLORS[template["color"]],
         "description": template["description_format"].format(
             buyer_line=buyer_line,
             amount_formatted=amount_formatted,
@@ -311,7 +310,7 @@ def create_attachment_embed(trade_hash, owner_username, author, image_path, plat
 
     embed = {
         "title": template["title_format"].format(owner_username=owner_username),
-        "color": embed_color,
+        "color": COLORS[template["color"]],
         "description": description,
         "fields": [],
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -385,13 +384,7 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
     else:
         template = CHAT_MESSAGE_EMBEDS["buyer"]
 
-    # Get color
-    if template["color_type"] == "info":
-        embed_color = COLORS["info"]
-    elif template["color_type"] == "platform":
-        embed_color = COLORS["NOONES_GREEN"]
-    else:
-        embed_color = COLORS["info"]
+    embed_color = COLORS[template["color"]]
 
     # Truncate long messages
     message_preview = message if len(message) <= 900 else message[:900] + "..."
@@ -402,16 +395,16 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
         "description": template["description_format"].format(
             trade_hash=trade_hash,
             owner_username=owner_username,
-            message=message_preview
+            message=message_preview,
+            author=author
         ),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "footer": {"text": "🤖 WillGang Bot • View Trade"}
+        "footer": {"text": "🤖 WillGang Bot"}
     }
     
-    # Add title and URL for bot owner messages
+    # Add title for bot owner messages
     if is_bot_owner:
         embed['title'] = template["title"]
-        embed['url'] = trade_url
          
     send_discord_embed(embed, alert_type="chat_log", trade_hash=trade_hash)
 
