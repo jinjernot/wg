@@ -206,7 +206,7 @@ def create_new_trade_embed(trade_data, platform, send=True):
     
     # Platform-specific details
     embed_color = COLORS["NOONES_GREEN"]
-    platform_emoji = "💠"
+    platform_emoji = "🔔"
     trade_url = f"https://noones.com/trade/{trade_hash}"
 
     # Get buyer info with stats
@@ -241,17 +241,13 @@ def create_new_trade_embed(trade_data, platform, send=True):
         "title": template["title_format"].format(platform_emoji=platform_emoji, owner_username=owner_username),
         "url": trade_url,
         "color": embed_color,
-        "description": template["description_format"].format(buyer_line=buyer_line, trade_hash=trade_hash),
-        "fields": [
-            {"name": field["name"], "value": field.get("value") or field.get("value_format", "").format(
-                amount_formatted=amount_formatted,
-                payment_method=trade_data.get('payment_method_name', 'N/A'),
-                owner_username=owner_username,
-                trade_hash=trade_hash,
-                trade_url=trade_url
-            ), "inline": field["inline"]}
-            for field in template["fields"]
-        ],
+        "description": template["description_format"].format(
+            buyer_line=buyer_line,
+            amount_formatted=amount_formatted,
+            payment_method=trade_data.get('payment_method_name', 'N/A'),
+            trade_hash=trade_hash
+        ),
+        "fields": [],
         "timestamp": timestamp.isoformat(),
         "footer": {"text": template["footer"]}
     }
@@ -263,11 +259,10 @@ def create_new_trade_embed(trade_data, platform, send=True):
 
 
 def create_trade_status_update_embed(trade_hash, owner_username, new_status, platform):
-    """Creates and sends a Discord embed for a trade status change with improved formatting."""
+    """Creates and sends a Discord embed for a trade status change."""
     
     trade_url = f"https://noones.com/trade/{trade_hash}"
 
-    # Determine template based on status
     if new_status == 'Paid':
         template = STATUS_UPDATE_EMBEDS["paid"]
     elif new_status == 'Successful':
@@ -277,11 +272,10 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
     else:
         template = STATUS_UPDATE_EMBEDS["other"]
 
-    # Build embed
     if "title_format" in template:
-        title = template["title_format"].format(status=new_status)
+        title = template["title_format"].format(status=new_status, owner_username=owner_username)
     else:
-        title = template["title"]
+        title = template["title"].format(owner_username=owner_username)
 
     embed = {
         "title": title,
@@ -298,35 +292,28 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
 
 
 def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
-    """Creates and sends a Discord embed for a new attachment with improved formatting."""
-    
+    """Creates and sends a Discord embed for a new attachment."""
+
     embed_color = COLORS["NOONES_GREEN"]
-
     template = ATTACHMENT_EMBED
-    
-    # Build fields
-    fields = []
-    
-    # Add bank identifier if available
-    if bank_name:
-        fields.append({
-            "name": template["bank_field"]["name"],
-            "value": template["bank_field"]["value"].format(bank_name=bank_name),
-            "inline": template["bank_field"]["inline"]
-        })
-    
-    # Add image field
-    fields.append(template["image_field"])
 
-    embed = {
-        "title": template["title"],
-        "color": embed_color,
-        "description": template["description_format"].format(
+    if bank_name:
+        description = template["description_format"].format(
             trade_hash=trade_hash,
             author=author,
-            owner_username=owner_username
-        ),
-        "fields": fields,
+            bank_name=bank_name
+        )
+    else:
+        description = template["description_no_bank_format"].format(
+            trade_hash=trade_hash,
+            author=author
+        )
+
+    embed = {
+        "title": template["title_format"].format(owner_username=owner_username),
+        "color": embed_color,
+        "description": description,
+        "fields": [],
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {"text": "🤖 WillGang Bot"}
     }

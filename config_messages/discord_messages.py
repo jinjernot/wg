@@ -23,12 +23,8 @@ def format_currency(amount, currency=""):
 # --- New Trade Notification ---
 NEW_TRADE_EMBED = {
     "title_format": "{platform_emoji} NEW TRADE — {owner_username}",
-    "description_format": "👤 {buyer_line}\n🔑 `{trade_hash}`",
-    "fields": [
-        {"name": "💰 Amount", "value_format": "**{amount_formatted}**", "inline": True},
-        {"name": "💳 Method", "value_format": "{payment_method}", "inline": True},
-        {"name": "🏦 Account", "value_format": "{owner_username}", "inline": True}
-    ],
+    "description_format": "👤 {buyer_line}\n💰 **{amount_formatted}**\n💳 {payment_method}\n🔑 `{trade_hash}`",
+    "fields": [],
     "footer": "🤖 WillGang Bot"
 }
 
@@ -36,52 +32,51 @@ NEW_TRADE_EMBED = {
 CHAT_MESSAGE_EMBEDS = {
     "automated": {
         "title": "🤖 AUTOMATED MESSAGE",
-        "author_format": "FROM: {author}",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\n\"{message}\"",
+        "author_format": "{author}",
+        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
         "color_type": "info"
     },
     "manual": {
         "title": "📤 MESSAGE SENT",
-        "author_format": "FROM: {author}",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\n\"{message}\"",
+        "author_format": "{author}",
+        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
         "color_type": "info"
     },
     "buyer": {
-        "title": "💬 CHAT MESSAGE",
-        "author_format": "FROM: {author}",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\n\"{message}\"",
+        "title": "💬 NEW MESSAGE",
+        "author_format": "{author}",
+        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
         "color_type": "platform"
     }
 }
 
 # --- Attachment Notifications ---
 ATTACHMENT_EMBED = {
-    "title": "📎 PAYMENT RECEIPT",
-    "description_format": "**TRADE:** {trade_hash}\n**FROM:** {author} → {owner_username}",
-    "bank_field": {"name": "**BANK:**", "value": "{bank_name}", "inline": False},
-    "image_field": {"name": "📸 Receipt Image", "value": "Review Required", "inline": False}
+    "title_format": "📎 RECEIPT — {owner_username}",
+    "description_format": "👤 {author}\n🏦 {bank_name}\n🔑 `{trade_hash}`",
+    "description_no_bank_format": "👤 {author}\n🔑 `{trade_hash}`"
 }
 
 # --- Trade Status Updates ---
 STATUS_UPDATE_EMBEDS = {
     "paid": {
-        "title": "💰 TRADE PAID",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\nStatus: **PAID** ✅",
+        "title": "💰 TRADE PAID — {owner_username}",
+        "description_format": "🔑 `{trade_hash}`",
         "color": "warning"
     },
     "successful": {
-        "title": "✅ TRADE COMPLETED",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\nStatus: **COMPLETED** ✅",
+        "title": "✅ TRADE COMPLETED — {owner_username}",
+        "description_format": "🔑 `{trade_hash}`",
         "color": "success"
     },
     "disputed": {
-        "title": "⚠️ TRADE DISPUTED",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\nStatus: **DISPUTE** ⚠️",
+        "title": "⚠️ TRADE DISPUTED — {owner_username}",
+        "description_format": "🔑 `{trade_hash}`",
         "color": "error"
     },
     "other": {
-        "title_format": "🔄 STATUS UPDATE: {status}",
-        "description_format": "**TRADE:** {trade_hash} • **{owner_username}**\n\nStatus: **{status}**",
+        "title_format": "🔄 {status} — {owner_username}",
+        "description_format": "🔑 `{trade_hash}`",
         "color": "info"
     }
 }
