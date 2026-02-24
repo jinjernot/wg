@@ -22,14 +22,12 @@ def format_currency(amount, currency=""):
 
 # --- New Trade Notification ---
 NEW_TRADE_EMBED = {
-    "title_format": "{platform_emoji} NEW TRADE STARTED",
-    "description_format": "══════════════════════════════\n\n**BUYER**\n{buyer_line}",
+    "title_format": "{platform_emoji} NEW TRADE — {owner_username}",
+    "description_format": "👤 {buyer_line}\n🔑 `{trade_hash}`",
     "fields": [
-        {"name": "\u200b", "value": "**TRADE DETAILS**", "inline": False},
         {"name": "💰 Amount", "value_format": "**{amount_formatted}**", "inline": True},
-        {"name": "💳 Method", "value_format": "**{payment_method}**", "inline": True},
-        {"name": "🏦 Account", "value_format": "**{owner_username}**", "inline": True},
-        {"name": "\u200b", "value_format": "**TRADE ID**\n[{trade_hash}]({trade_url})", "inline": False}
+        {"name": "💳 Method", "value_format": "{payment_method}", "inline": True},
+        {"name": "🏦 Account", "value_format": "{owner_username}", "inline": True}
     ],
     "footer": "🤖 WillGang Bot"
 }
@@ -230,68 +228,51 @@ SEND_MESSAGE_EMBEDS = {
 # --- Amount and Email Validation Embeds ---
 AMOUNT_VALIDATION_EMBEDS = {
     "matched": {
-        "title": "✅ PAYMENT VERIFIED",
+        "title": "✅ PAYMENT VERIFIED — {owner_username}",
         "fields": [
-            {"name": "**ACCOUNT:**", "value": "{owner_username}", "inline": False},
-            {"name": "\u200b", "value": "**AMOUNT CHECK**", "inline": False},
-            {"name": "Expected", "value": "**{expected:.2f} {currency}** ✓", "inline": True},
-            {"name": "Received", "value": "**{found:.2f} {currency}** ✓", "inline": True},
-            {"name": "\u200b", "value": "Status: **MATCH** ✓", "inline": False}
+            {"name": "Expected", "value": "**{expected:.2f} {currency}**", "inline": True},
+            {"name": "Received", "value": "**{found:.2f} {currency}** ✓", "inline": True}
         ]
     },
     "mismatch": {
-        "title": "❌ AMOUNT MISMATCH",
-        "description": "⚠️ **REVIEW REQUIRED** ⚠️",
+        "title": "❌ AMOUNT MISMATCH — {owner_username}",
+        "description": "⚠️ Review Required",
         "fields": [
-            {"name": "**ACCOUNT:**", "value": "{owner_username}", "inline": False},
-            {"name": "\u200b", "value": "**AMOUNT CHECK**", "inline": False},
             {"name": "Expected", "value": "**{expected:.2f} {currency}**", "inline": True},
             {"name": "Found", "value": "**{found:.2f} {currency}** ❌", "inline": True}
         ]
     },
     "not_found": {
-        "title": "⚠️ AMOUNT NOT FOUND",
-        "fields": [
-            {"name": "**ACCOUNT:**", "value": "{owner_username}", "inline": False},
-            {"name": "**OCR RESULT:**", "value": "Could not extract amount from receipt", "inline": False}
-        ]
+        "title": "⚠️ AMOUNT NOT FOUND — {owner_username}",
+        "description": "Could not extract amount from receipt",
+        "fields": []
     }
 }
 
 
 EMAIL_VALIDATION_EMBEDS = {
     "success": {
-        "title": "✅ EMAIL PAYMENT VERIFIED",
-        "description": "**Status:** CONFIRMED ✓",
-        "fields": [
-            {"name": "**VALIDATED IN:**", "value": "{account_name}", "inline": False}
-        ]
+        "title": "✅ EMAIL VERIFIED — {account_name}",
+        "description": "Status: CONFIRMED ✓",
+        "fields": []
     },
     "failure": {
-        "title": "❌ EMAIL NOT FOUND",
-        "description": "**Status:** NOT FOUND",
-        "fields": [
-            {"name": "**SEARCHED IN:**", "value": "{account_name}", "inline": False},
-            {"name": "**ACTION:**", "value": "Manual verification required", "inline": False}
-        ]
+        "title": "❌ EMAIL NOT FOUND — {account_name}",
+        "description": "Status: NOT FOUND\nAction: Manual verification required",
+        "fields": []
     }
 }
 
 NAME_VALIDATION_EMBEDS = {
     "success": {
-        "title": "✅ NAME VERIFIED",
-        "description": "**Status:** MATCH ✓",
-        "fields": [
-            {"name": "**Account Verified:**", "value": "{account_name}", "inline": False}
-        ]
+        "title": "✅ NAME VERIFIED — {account_name}",
+        "description": "Status: MATCH ✓",
+        "fields": []
     },
     "failure": {
-        "title": "❌ NAME NOT FOUND",
-        "description": "⚠️ **MANUAL REVIEW REQUIRED** ⚠️",
-        "fields": [
-            {"name": "**Expected Account:**", "value": "{account_name}", "inline": False},
-            {"name": "**Issue:**", "value": "Account name not found on receipt", "inline": False}
-        ]
+        "title": "❌ NAME NOT FOUND — {account_name}",
+        "description": "Issue: Name not found on receipt\n⚠️ Manual review required",
+        "fields": []
     }
 }
 
