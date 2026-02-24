@@ -109,6 +109,7 @@ class Trade:
         if is_new:
             self.handle_new_trade()
         self.check_status_change()
+        self.check_for_completion_message()
         # self.check_for_email_confirmation()  # EMAIL MODULE DISABLED
         self.check_chat_and_attachments()
         self.check_for_afk()
@@ -153,16 +154,24 @@ class Trade:
                 self.trade_hash, self.owner_username, current_status, self.platform
             )
 
-            # API returns 'Released' for successfully completed trades (not 'Successful')
-            if current_status in ['Released', 'Successful'] and not self.trade_state.get('completion_message_sent'):
-                logger.info(f"Trade {self.trade_hash} completed with status '{current_status}'. Sending completion message.")
-                send_trade_completion_message(
-                    self.trade_hash, self.account, self.headers)
-                self.trade_state['completion_message_sent'] = True
-            elif current_status == 'Paid':
+            if current_status == 'Paid':
                 self.handle_paid_status()
             self.trade_state.setdefault(
                 'status_history', []).append(current_status)
+
+    def check_for_completion_message(self):
+        """Sends the completion message whenever the trade is Released/Successful and not yet sent.
+        This runs every cycle independently of status_history so it retries if the first cycle was missed."""
+        if self.trade_state.get('completion_message_sent'):
+            return
+        current_status = self.trade_state.get("trade_status")
+        if current_status in ['Released', 'Successful']:
+            logger.info(
+                f"Trade {self.trade_hash} is '{current_status}'. Sending completion message.")
+            send_trade_completion_message(
+                self.trade_hash, self.account, self.headers)
+            self.trade_state['completion_message_sent'] = True
+            self.save()
 
     def handle_paid_status(self):
         """Handles the logic when a trade is marked as paid."""
