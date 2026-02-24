@@ -48,19 +48,19 @@ CHAT_MESSAGE_EMBEDS = {
     "automated": {
         "title": "🤖 AUTOMATED MESSAGE",
         "author_format": "{author}",
-        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
+        "description_format": "💬 **{author}** › {owner_username}\n\n{message}",
         "color": "bot_msg"
     },
     "manual": {
         "title": "📤 MESSAGE SENT",
         "author_format": "{author}",
-        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
+        "description_format": "💬 **{author}** › {owner_username}\n\n{message}",
         "color": "bot_msg"
     },
     "buyer": {
         "title": "💬 NEW MESSAGE",
         "author_format": "{author}",
-        "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
+        "description_format": "💬 **{author}** › {owner_username}\n\n{message}",
         "color": "buyer_msg"
     }
 }
@@ -68,8 +68,8 @@ CHAT_MESSAGE_EMBEDS = {
 # --- Attachment Notifications ---
 ATTACHMENT_EMBED = {
     "title_format": "📎 RECEIPT — {owner_username}",
-    "description_format": "👤 {author}\n🏦 {bank_name}\n🔑 `{trade_hash}`",
-    "description_no_bank_format": "👤 {author}\n🔑 `{trade_hash}`",
+    "description_format": "👤 {author}\n🏦 {bank_name}",
+    "description_no_bank_format": "👤 {author}",
     "color": "receipt"
 }
 
@@ -77,22 +77,22 @@ ATTACHMENT_EMBED = {
 STATUS_UPDATE_EMBEDS = {
     "paid": {
         "title": "💰 TRADE PAID — {owner_username}",
-        "description_format": "🔑 `{trade_hash}`",
+        "description_format": "",
         "color": "paid"
     },
     "successful": {
         "title": "✅ TRADE COMPLETED — {owner_username}",
-        "description_format": "🔑 `{trade_hash}`",
+        "description_format": "",
         "color": "completed"
     },
     "disputed": {
         "title": "⚠️ TRADE DISPUTED — {owner_username}",
-        "description_format": "🔑 `{trade_hash}`",
+        "description_format": "",
         "color": "disputed"
     },
     "other": {
         "title_format": "🔄 {status} — {owner_username}",
-        "description_format": "🔑 `{trade_hash}`",
+        "description_format": "",
         "color": "info"
     }
 }
@@ -304,8 +304,8 @@ DUPLICATE_RECEIPT_EMBEDS = {
         "title": "🚨 DUPLICATE RECEIPT 🚨",
         "description": "⚠️ **IMMEDIATE ACTION REQUIRED** ⚠️\n\nThis receipt has been used before",
         "fields": [
-            {"name": "**CURRENT TRADE:**", "value": "{trade_hash} ({owner_username})", "inline": True},
-            {"name": "**PREVIOUS TRADE:**", "value": "{previous_trade_hash} ({previous_owner})", "inline": True}
+            {"name": "**CURRENT TRADE:**", "value": "{owner_username}", "inline": True},
+            {"name": "**PREVIOUS TRADE:**", "value": "{previous_owner}", "inline": True}
         ]
     }
 }
