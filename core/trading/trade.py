@@ -11,7 +11,7 @@ from config import (
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
 from core.api.trade_chat import get_all_messages_from_chat, download_attachment
-from core.validation.email import check_for_payment_email, get_gmail_service
+# from core.validation.email import check_for_payment_email, get_gmail_service  # EMAIL MODULE DISABLED
 from core.validation.ocr import (
     extract_text_from_image,
     find_amount_in_text,
@@ -40,7 +40,7 @@ from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
     send_attachment_alert,
     send_amount_validation_alert,
-    send_email_validation_alert,
+    # send_email_validation_alert,  # EMAIL MODULE DISABLED
     send_name_validation_alert,
     send_chat_message_alert,
     send_duplicate_receipt_alert
@@ -50,13 +50,13 @@ from core.messaging.alerts.discord_alert import (
     create_trade_status_update_embed,
     create_attachment_embed,
     create_amount_validation_embed,
-    create_email_validation_embed,
+    # create_email_validation_embed,  # EMAIL MODULE DISABLED
     create_name_validation_embed,
     create_chat_message_embed,
     create_duplicate_receipt_embed
 )
 from core.messaging.alerts.discord_thread_manager import create_trade_thread
-from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS
+# from config_messages.email_validation_details import EMAIL_ACCOUNT_DETAILS  # EMAIL MODULE DISABLED
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class Trade:
         if is_new:
             self.handle_new_trade()
         self.check_status_change()
-        self.check_for_email_confirmation()
+        # self.check_for_email_confirmation()  # EMAIL MODULE DISABLED
         self.check_chat_and_attachments()
         self.check_for_afk()
         self.check_for_extended_afk()
@@ -183,9 +183,9 @@ class Trade:
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
 
-            # IMMEDIATE EMAIL CHECK when marked as Paid
-            logger.info(f"Trade {self.trade_hash} marked as Paid. Triggering immediate email check.")
-            self.check_for_email_confirmation()
+            # IMMEDIATE EMAIL CHECK when marked as Paid  # EMAIL MODULE DISABLED
+            # logger.info(f"Trade {self.trade_hash} marked as Paid. Triggering immediate email check.")
+            # self.check_for_email_confirmation()
 
     def check_for_paid_without_attachment(self):
         """If a trade is paid, and some time has passed, check for an attachment and send a reminder if needed."""
@@ -283,120 +283,10 @@ class Trade:
         logger.debug(f"Total accounts to check for email: {len(account_names)}")
         return account_names
 
-    def check_for_email_confirmation(self):
-        """Checks for payment confirmation emails if the trade is marked as Paid and has an attachment."""
-        logger.debug(f"--- Checking for Email Confirmation: {self.trade_hash} ---")
-        is_paid = self.trade_state.get("trade_status") == 'Paid'
-        is_relevant = self.trade_state.get("payment_method_slug", "").lower() in [
-            "oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
-        is_pending = not self.trade_state.get(
-            'email_verified') and not self.trade_state.get('email_check_timed_out')
-
-        logger.debug(f"[EMAIL CHECK] Trade {self.trade_hash} - is_paid: {is_paid}, is_relevant: {is_relevant}, is_pending: {is_pending}")
-        logger.debug(f"[EMAIL CHECK] Payment method: {self.trade_state.get('payment_method_slug')}")
-        logger.debug(f"[EMAIL CHECK] Email verified: {self.trade_state.get('email_verified')}, Timed out: {self.trade_state.get('email_check_timed_out')}")
-
-        if not (is_paid and is_relevant and is_pending):
-            if not is_paid:
-                logger.debug(f"[EMAIL CHECK] Skipping - trade not paid")
-            elif not is_relevant:
-                logger.debug(f"[EMAIL CHECK] Skipping - payment method '{self.trade_state.get('payment_method_slug')}' doesn't require email validation")
-            elif not is_pending:
-                logger.debug(f"[EMAIL CHECK] Skipping - email already verified or check timed out")
-            return
-
-        # Get ALL accounts to check (selected first, then others)
-        credential_identifiers = self.get_all_credential_identifiers_for_trade()
-        if not credential_identifiers:
-            logger.warning(
-                f"Could not determine credential identifiers for trade {self.trade_hash}. Skipping email check.")
-            return
-
-        paid_timestamp = self.trade_state.get('paid_timestamp')
-        if not paid_timestamp:
-            # Trade is Paid but has no paid_timestamp - initialize it now
-            logger.warning(
-                f"[EMAIL CHECK] Trade {self.trade_hash} is 'Paid' but missing 'paid_timestamp'. Initializing now.")
-            self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
-            paid_timestamp = self.trade_state['paid_timestamp']
-            self.save()
-
-        elapsed_time = datetime.now(timezone.utc).timestamp() - paid_timestamp
-        
-        # Check if within the retry window (EMAIL_CHECK_DURATION = 900 seconds = 15 minutes)
-        if elapsed_time < EMAIL_CHECK_DURATION:
-            logger.debug(f"Email check for {self.trade_hash}: Elapsed {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
-            
-            # Try each account until we find a match
-            success = False
-            details = None
-            matched_account = None
-            expected_account = credential_identifiers[0] if credential_identifiers else None
-            
-            for credential_identifier in credential_identifiers:
-                logger.debug(f"Checking email in account: {credential_identifier}")
-                
-                gmail_service = get_gmail_service(credential_identifier)
-                if not gmail_service:
-                    logger.warning(f"Could not get Gmail service for {credential_identifier}, skipping")
-                    continue
-                
-                success, details = check_for_payment_email(gmail_service, self.trade_state, self.platform, credential_identifier)
-                
-                if success:
-                    matched_account = credential_identifier
-                    logger.info(f"✅ Email found in account: {credential_identifier}")
-                    
-                    # Alert if payment went to unexpected account
-                    if credential_identifier != expected_account:
-                        logger.warning(f"⚠️ PAYMENT DEPOSITED TO UNEXPECTED ACCOUNT!")
-                        logger.warning(f"   Expected: {expected_account}")
-                        logger.warning(f"   Found in: {credential_identifier}")
-                    break
-                else:
-                    logger.debug(f"No matching email found in {credential_identifier}")
-            
-            if success:
-                # SUCCESS - Email found!
-                logger.info(
-                    f"✅ PAYMENT VERIFIED via email for trade {self.trade_hash} in '{matched_account}' account.")
-                if not self.trade_state.get('email_validation_alert_sent'):
-                    send_email_validation_alert(
-                        self.trade_hash, success=True, account_name=matched_account, details=details)
-                    
-                    create_email_validation_embed(
-                        self.trade_hash, success=True, account_name=matched_account, details=details)
-                    
-                    self.trade_state['email_validation_alert_sent'] = True
-                    self.save()
-                self.trade_state['email_verified'] = True
-                self.trade_state['email_verified_account'] = matched_account  # Track which account received payment
-                
-                # Alert if payment went to wrong account
-                if matched_account != expected_account:
-                    logger.warning(
-                        f"⚠️ Trade {self.trade_hash}: Payment deposited to '{matched_account}' instead of '{expected_account}'")
-            else:
-                # Email not found YET in ANY account - will retry on next cycle (don't send alert yet)
-                logger.info(
-                    f"Email not found yet in any account for {self.trade_hash}. Will retry. Elapsed: {elapsed_time:.0f}s / {EMAIL_CHECK_DURATION}s")
-        else:
-            # TRUE TIMEOUT - Exceeded EMAIL_CHECK_DURATION, now send failure alert
-            if not self.trade_state.get('email_check_timed_out'):
-                logger.warning(
-                    f"❌ Email check TIMED OUT for trade {self.trade_hash} after {EMAIL_CHECK_DURATION}s ({EMAIL_CHECK_DURATION/60:.0f} minutes)")
-                logger.warning(f"   Checked {len(credential_identifiers)} account(s): {', '.join(credential_identifiers)}")
-                if not self.trade_state.get('email_validation_alert_sent'):
-                    expected_account = credential_identifiers[0] if credential_identifiers else "unknown"
-                    send_email_validation_alert(
-                        self.trade_hash, success=False, account_name=expected_account)
-                    
-                    create_email_validation_embed(
-                        self.trade_hash, success=False, account_name=expected_account)
-                    
-                    self.trade_state['email_validation_alert_sent'] = True
-                    self.save()
-                self.trade_state['email_check_timed_out'] = True
+    # --- EMAIL MODULE DISABLED ---
+    # def check_for_email_confirmation(self):
+    #     """Checks for payment confirmation emails if the trade is marked as Paid and has an attachment."""
+    #     (entire method commented out — re-enable when email module is fixed)
 
     def check_chat_and_attachments(self):
         """Fetches the entire chat history and processes any unprocessed messages or attachments."""
@@ -478,8 +368,9 @@ class Trade:
             self.trade_state['attachment_message_sent'] = True
 
         credential_identifier = self.get_credential_identifier_for_trade()
-        account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)
-        expected_names = account_config.get("name_receipt", []) if account_config else []
+        # account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)  # EMAIL MODULE DISABLED
+        # expected_names = account_config.get("name_receipt", []) if account_config else []
+        expected_names = []  # Email module disabled — name validation skipped
 
         for attachment in new_attachments_to_process:
             path, author, url = attachment['path'], attachment['author'], attachment['url']
