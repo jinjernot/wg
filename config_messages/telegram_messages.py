@@ -13,10 +13,11 @@ def format_currency(amount, currency=""):
 # --- New Trade Template ---
 # First line shows in the mobile notification preview → account name visible immediately
 NOONES_ALERT_MESSAGE = """\
-🦜 *NEW TRADE* — {owner_username}
+🔔 *NEW TRADE* — {owner_username}
 
 👤 {buyer_line}
-💰 *{amount_formatted}*  •  💳 {payment_method_name}
+💰 *{amount_formatted}*
+💳 {payment_method_name}
 🔑 `{trade_hash}`
 """
 
