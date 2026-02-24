@@ -235,17 +235,18 @@ def create_new_trade_embed(trade_data, platform, send=True):
         timestamp = datetime.now(timezone.utc)
 
     # Build embed from template
+    owner_username = trade_data.get('owner_username', 'N/A')
     template = NEW_TRADE_EMBED
     embed = {
-        "title": template["title_format"].format(platform_emoji=platform_emoji),
+        "title": template["title_format"].format(platform_emoji=platform_emoji, owner_username=owner_username),
         "url": trade_url,
         "color": embed_color,
-        "description": template["description_format"].format(buyer_line=buyer_line),
+        "description": template["description_format"].format(buyer_line=buyer_line, trade_hash=trade_hash),
         "fields": [
             {"name": field["name"], "value": field.get("value") or field.get("value_format", "").format(
                 amount_formatted=amount_formatted,
                 payment_method=trade_data.get('payment_method_name', 'N/A'),
-                owner_username=trade_data.get('owner_username', 'N/A'),
+                owner_username=owner_username,
                 trade_hash=trade_hash,
                 trade_url=trade_url
             ), "inline": field["inline"]}
@@ -338,16 +339,16 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     """Builds and sends an amount validation embed using templates."""
     if found is None:
         template = AMOUNT_VALIDATION_EMBEDS["not_found"]
-        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username)} for f in template["fields"]]
+        fields = []
     elif float(expected) == float(found):
         template = AMOUNT_VALIDATION_EMBEDS["matched"]
-        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(expected=float(expected), found=found, currency=currency), "inline": f.get("inline", True)} for f in template["fields"]]
     else:
         template = AMOUNT_VALIDATION_EMBEDS["mismatch"]
-        fields = [{"name": f["name"], "value": f["value"].format(owner_username=owner_username, expected=float(expected), found=found, currency=currency)} for f in template["fields"]]
+        fields = [{"name": f["name"], "value": f["value"].format(expected=float(expected), found=found, currency=currency), "inline": f.get("inline", True)} for f in template["fields"]]
 
     embed = {
-        "title": template["title"],
+        "title": template["title"].format(owner_username=owner_username),
         "color": COLORS["success"] if "✅" in template["title"] else (COLORS["warning"] if "⚠️" in template["title"] else COLORS["error"]),
         "description": template.get("description", ""),
         "fields": fields,
@@ -357,28 +358,23 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
 
 def create_email_validation_embed(trade_hash, success, account_name, details=None):
     """Builds and sends an email validation embed using templates."""
-    # Debug logging
     logger.info(f"[EMAIL EMBED DEBUG] Creating email validation embed - success: {success}, details: {details}")
     
     template = EMAIL_VALIDATION_EMBEDS["success"] if success else EMAIL_VALIDATION_EMBEDS["failure"]
 
-    formatted_fields = [
-        {"name": field["name"], "value": field["value"].format(account_name=account_name)}
-        for field in template["fields"]
-    ]
-
+    formatted_fields = []
     if success and details:
         logger.info(f"[EMAIL EMBED DEBUG] Adding bank identifier fields - validator: {details.get('validator')}")
-        formatted_fields.append({"name": "🏦 Bank Found", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
-        formatted_fields.append({"name": "💰 Amount Found", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
-        formatted_fields.append({"name": "👤 Name Found", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
+        formatted_fields.append({"name": "🏦 Bank", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
+        formatted_fields.append({"name": "💰 Amount", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
+        formatted_fields.append({"name": "👤 Name", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
     else:
         logger.warning(f"[EMAIL EMBED DEBUG] Bank identifier fields NOT added - success: {success}, details present: {details is not None}")
 
     logger.info(f"[EMAIL EMBED DEBUG] Total fields in embed: {len(formatted_fields)}")
     
     embed = {
-        "title": template["title"],
+        "title": template["title"].format(account_name=account_name),
         "color": COLORS["success"] if success else COLORS["error"],
         "description": template.get("description", ""),
         "fields": formatted_fields,
@@ -437,16 +433,11 @@ def create_name_validation_embed(trade_hash, success, account_name):
     """Builds and sends a name validation embed using templates."""
     template = NAME_VALIDATION_EMBEDS["success"] if success else NAME_VALIDATION_EMBEDS["failure"]
 
-    formatted_fields = [
-        {"name": field["name"], "value": field["value"].format(account_name=account_name)}
-        for field in template["fields"]
-    ]
-
     embed = {
-        "title": template["title"],
+        "title": template["title"].format(account_name=account_name),
         "color": COLORS["success"] if success else COLORS["error"],
         "description": template.get("description", ""),
-        "fields": formatted_fields,
+        "fields": [],
         "footer": {"text": f"Trade: {trade_hash}"}
     }
     send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)

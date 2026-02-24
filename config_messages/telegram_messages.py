@@ -11,156 +11,107 @@ def format_currency(amount, currency=""):
 
 
 # --- New Trade Template ---
-NOONES_ALERT_MESSAGE = """💠 *NEW TRADE*
+# First line shows in the mobile notification preview → put account + amount there
+NOONES_ALERT_MESSAGE = """💠 *NEW TRADE* — {owner_username}
 
-*BUYER*
-{buyer_line}
+👤 {buyer_line}
+💰 *{amount_formatted}*
+💳 {payment_method_name}
 
-*TRADE DETAILS*
-💰 Amount: *{amount_formatted}*
-💳 Method: *{payment_method_name}*
-🏦 Account: *{owner_username}*
-
-*TRADE ID*
-`{trade_hash}`
+🔑 `{trade_hash}`
 """
 
 # --- Chat Message Template ---
-NEW_CHAT_ALERT_MESSAGE = """*FROM:* {author}
-*TRADE:* `{trade_hash}` • *{owner_username}*
+NEW_CHAT_ALERT_MESSAGE = """💬 *{author}* → {owner_username}
+`{trade_hash}`
 
-"{chat_message}"
+{chat_message}
 """
 
 # --- Attachment Templates ---
-NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE = """📎 *PAYMENT RECEIPT*
+NEW_ATTACHMENT_WITH_BANK_ALERT_MESSAGE = """📎 *RECEIPT* — {owner_username}
+{author} • {bank_name}
+`{trade_hash}`
 
-*TRADE:* `{trade_hash}`
-*FROM:* {author} → {owner_username}
-
-*BANK:* {bank_name}
-
-📸 Receipt Image
-Review Required
+📸 Review Required
 """
 
-NEW_ATTACHMENT_ALERT_MESSAGE = """📎 *PAYMENT RECEIPT*
+NEW_ATTACHMENT_ALERT_MESSAGE = """📎 *RECEIPT* — {owner_username}
+{author}
+`{trade_hash}`
 
-*TRADE:* `{trade_hash}`
-*FROM:* {author} → {owner_username}
-
-📸 Receipt Image
-Review Required
+📸 Review Required
 """
 
 # --- Amount Validation Templates ---
-AMOUNT_VALIDATION_MATCH_ALERT = """✅ *PAYMENT VERIFIED*
-
-*ACCOUNT:* `{owner_username}`
-
-*AMOUNT CHECK*
-Expected: *{expected_amount} {currency}* ✓
+AMOUNT_VALIDATION_MATCH_ALERT = """✅ *VERIFIED* — {owner_username}
+Expected: *{expected_amount} {currency}*
 Received: *{found_amount} {currency}* ✓
-
-Status: *MATCH* ✓
 """
 
-AMOUNT_VALIDATION_MISMATCH_ALERT = """❌ *AMOUNT MISMATCH*
-
-⚠️ *REVIEW REQUIRED* ⚠️
-
-*ACCOUNT:* `{owner_username}`
-
-*AMOUNT CHECK*
+AMOUNT_VALIDATION_MISMATCH_ALERT = """❌ *MISMATCH* — {owner_username}
 Expected: *{expected_amount} {currency}*
 Found: *{found_amount} {currency}* ❌
+
+⚠️ Review Required
 """
 
-AMOUNT_VALIDATION_NOT_FOUND_ALERT = """⚠️ *AMOUNT NOT FOUND*
+AMOUNT_VALIDATION_NOT_FOUND_ALERT = """⚠️ *AMOUNT NOT FOUND* — {owner_username}
 
-*ACCOUNT:* `{owner_username}`
-
-*OCR RESULT:*
 Could not extract amount from receipt
 """
 
 # --- Email Validation Templates ---
-EMAIL_VALIDATION_SUCCESS_ALERT = """✅ *EMAIL PAYMENT VERIFIED*
-
-*Status:* CONFIRMED ✓
-
-*VALIDATED IN:* `{account_name}`
+EMAIL_VALIDATION_SUCCESS_ALERT = """✅ *EMAIL VERIFIED* — {account_name}
+Status: CONFIRMED ✓
 """
 
-EMAIL_VALIDATION_FAILURE_ALERT = """❌ *EMAIL NOT FOUND*
-
-*Status:* NOT FOUND
-
-*SEARCHED IN:* `{account_name}`
-*ACTION:* Manual verification required
+EMAIL_VALIDATION_FAILURE_ALERT = """❌ *EMAIL NOT FOUND* — {account_name}
+Status: NOT FOUND
+Action: Manual verification required
 """
 
 # --- Name Validation Templates ---
-NAME_VALIDATION_SUCCESS_ALERT = """✅ *NAME VERIFIED*
-
-*Status:* MATCH ✓
-
-*Account Verified:* {account_name}
+NAME_VALIDATION_SUCCESS_ALERT = """✅ *NAME VERIFIED* — {account_name}
+Status: MATCH ✓
 """
 
-NAME_VALIDATION_FAILURE_ALERT = """❌ *NAME NOT FOUND*
-
-⚠️ *MANUAL REVIEW REQUIRED* ⚠️
-
-*Expected Account:* {account_name}
-*Issue:* Account name not found on receipt
+NAME_VALIDATION_FAILURE_ALERT = """❌ *NAME NOT FOUND* — {account_name}
+Issue: Name not found on receipt
+⚠️ Manual review required
 """
 
 # --- Low Balance Alert ---
 LOW_BALANCE_ALERT_MESSAGE = (
-    "⚠️ *Low Balance Alert* ⚠️\n\n"
-    "The total balance for `{account_name}` is below the threshold.\n\n"
-    "*Total Balance:* `${total_balance_usd}`\n"
-    "*Threshold:* `${threshold}`\n\n"
-    "*Balance Details:*\n{balance_details}"
+    "⚠️ *LOW BALANCE* — `{account_name}`\n"
+    "Balance: `${total_balance_usd}` (threshold: `${threshold}`)\n\n"
+    "{balance_details}"
 )
 
 # --- Duplicate Receipt Template ---
-DUPLICATE_RECEIPT_ALERT_MESSAGE = """🚨 *DUPLICATE RECEIPT* 🚨
+DUPLICATE_RECEIPT_ALERT_MESSAGE = """🚨 *DUPLICATE RECEIPT* — {owner_username}
+`{trade_hash}`
 
-⚠️ *IMMEDIATE ACTION REQUIRED* ⚠️
+Previously used in:
+`{previous_trade_hash}` ({previous_owner})
 
-This receipt has been used before
-
-*CURRENT TRADE:* `{trade_hash}` ({owner_username})
-*PREVIOUS TRADE:* `{previous_trade_hash}` ({previous_owner})
+⚠️ Immediate action required
 """
 
 # --- Status Update Templates ---
-STATUS_UPDATE_PAID = """💰 *TRADE PAID*
-
-*TRADE:* `{trade_hash}` • *{owner_username}*
-
-Status: *PAID* ✅
+STATUS_UPDATE_PAID = """💰 *PAID* — {owner_username}
+`{trade_hash}`
 """
 
-STATUS_UPDATE_SUCCESSFUL = """✅ *TRADE COMPLETED*
-
-*TRADE:* `{trade_hash}` • *{owner_username}*
-
-Status: *COMPLETED* ✅
+STATUS_UPDATE_SUCCESSFUL = """✅ *COMPLETED* — {owner_username}
+`{trade_hash}`
 """
 
-STATUS_UPDATE_DISPUTED = """⚠️ *TRADE DISPUTED*
-
-*TRADE:* `{trade_hash}` • *{owner_username}*
-
-Status: *DISPUTE* ⚠️
+STATUS_UPDATE_DISPUTED = """⚠️ *DISPUTED* — {owner_username}
+`{trade_hash}`
+Action required
 """
 
-STATUS_UPDATE_OTHER = """🔄 *STATUS UPDATE: {status}*
-
-*TRADE:* `{trade_hash}` • *{owner_username}*
-
-Status: *{status}*
+STATUS_UPDATE_OTHER = """🔄 *{status}* — {owner_username}
+`{trade_hash}`
 """
