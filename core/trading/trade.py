@@ -167,7 +167,19 @@ class Trade:
     def handle_paid_status(self):
         """Handles the logic when a trade is marked as paid."""
         logger.debug(f"--- Handling 'Paid' status for {self.trade_hash} ---")
-        send_payment_received_message(self.trade_hash, self.account, self.headers)
+
+        # Check if buyer already uploaded a receipt before we ask for one
+        all_messages = self._get_chat_messages()
+        has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in (all_messages or []))
+
+        if has_attachment:
+            logger.info(
+                f"Trade {self.trade_hash} marked Paid but attachment already present — "
+                f"skipping receipt request message."
+            )
+        else:
+            send_payment_received_message(self.trade_hash, self.account, self.headers)
+
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
 
