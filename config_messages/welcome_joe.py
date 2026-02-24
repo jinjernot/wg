@@ -1,5 +1,7 @@
 WELCOME_MESSAGES_JOE = {
     "bank-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💳  Method: Bank Transfer (SPEI)\n"
@@ -9,6 +11,8 @@ WELCOME_MESSAGES_JOE = {
         "📋  Payment details coming shortly."
     ),
     "domestic-wire-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💳  Method: Bank Transfer (SPEI)\n"
@@ -18,6 +22,8 @@ WELCOME_MESSAGES_JOE = {
         "📋  Payment details coming shortly."
     ),
     "spei-sistema-de-pagos-electronicos-interbancarios": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💳  Method: SPEI Transfer\n"
@@ -27,6 +33,8 @@ WELCOME_MESSAGES_JOE = {
         "📋  Payment details coming shortly."
     ),
     "oxxo": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💳  Method: OXXO Cash Deposit\n"
@@ -34,6 +42,8 @@ WELCOME_MESSAGES_JOE = {
         "📋  Payment details coming shortly."
     ),
     "amazon-gift-card": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🎁  GIFT CARD TRADE STARTED\n"
         "────────────────────\n"
         "📦  Physical Amazon cards only\n"
@@ -46,12 +56,16 @@ WELCOME_MESSAGES_JOE = {
         "Upload your photos to get started. ✅"
     ),
     "other-bank-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💵  This is a small amount trade (200 MXN).\n\n"
         "For larger amounts, please request a new offer."
     ),
     "default": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "Please follow the offer terms as specified.\n\n"
@@ -61,6 +75,8 @@ WELCOME_MESSAGES_JOE = {
 
 WELCOME_NIGHT_MESSAGES_JOE = {
     "bank-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -73,6 +89,8 @@ WELCOME_NIGHT_MESSAGES_JOE = {
         "🙏  Thanks for your patience."
     ),
     "domestic-wire-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -85,6 +103,8 @@ WELCOME_NIGHT_MESSAGES_JOE = {
         "🙏  Thanks for your patience."
     ),
     "spei-sistema-de-pagos-electronicos-interbancarios": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -97,6 +117,8 @@ WELCOME_NIGHT_MESSAGES_JOE = {
         "🙏  Thanks for your patience."
     ),
     "oxxo": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -109,6 +131,8 @@ WELCOME_NIGHT_MESSAGES_JOE = {
         "🙏  Thanks for your patience."
     ),
     "amazon-gift-card": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -120,12 +144,16 @@ WELCOME_NIGHT_MESSAGES_JOE = {
         "🙏  Thanks for your patience."
     ),
     "other-bank-transfer": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
         "🙏  Thanks for your patience."
     ),
     "default": (
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
         "🌙  CURRENTLY OFFLINE\n"
         "────────────────────\n"
         "I'll be back in the morning (8AM CST).\n\n"
@@ -135,61 +163,110 @@ WELCOME_NIGHT_MESSAGES_JOE = {
 
 WELCOME_AFK_MESSAGES_JOE = {
     "bank-transfer": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n"
         "────────────────────\n"
         "💳  Bank transfers only\n"
         "✅  Third-party OK  |  ❌  No OXXO\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "domestic-wire-transfer": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n"
         "────────────────────\n"
         "💳  Bank transfers only\n"
         "✅  Third-party OK  |  ❌  No OXXO\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "spei-sistema-de-pagos-electronicos-interbancarios": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n"
         "────────────────────\n"
         "💳  SPEI only\n"
         "✅  Third-party OK  |  ❌  No OXXO\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "oxxo": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n"
         "────────────────────\n"
         "💳  OXXO cash deposit\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "amazon-gift-card": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to upload your gift card while I am away,\n"
+        "you are agreeing to wait for me to return and verify it.\n"
+        "Please do NOT open a dispute — your card will be processed.\n"
         "────────────────────\n"
         "📦  Physical Amazon cards only ($300 min)\n"
         "⚠️  E-codes have a different rate\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "other-bank-transfer": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n"
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n"
         "────────────────────\n"
         "💵  Quick trade: 200 MXN only\n\n"
-        "📋  Payment details coming next."
+        "�  Thank you for your understanding."
     ),
     "default": (
-        "⏸️  TEMPORARILY AWAY\n"
+        "🏦  WILL GANG TRADING\n"
+        "════════════════════\n"
+        "🔴  TEMPORARILY UNAVAILABLE\n"
         "────────────────────\n"
-        "I'll be back shortly.\n\n"
-        "📋  Payment details coming next."
+        "I am currently away and not actively monitoring trades.\n"
+        "I will attend to this trade as soon as I return.\n\n"
+        "⚠️  IMPORTANT NOTICE:\n"
+        "If you choose to send your payment while I am away,\n"
+        "you are agreeing to wait for me to return and process it.\n"
+        "Please do NOT open a dispute — your payment will be honored.\n\n"
+        "🙏  Thank you for your understanding."
     )
 }
