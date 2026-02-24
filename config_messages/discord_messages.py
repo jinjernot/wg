@@ -1,11 +1,25 @@
 # --- Color Codes for Different Alert Types ---
 COLORS = {
-    "info": 3447003, 
-    "success": 3066993,
-    "warning": 15105570, 
-    "error": 15158332,  
-    "chat": 8359053,  
-    "NOONES_GREEN": 2044896
+    # Core status colors
+    "success": 5763207,    # #57F287 bright green
+    "warning": 16766720,   # #FFD700 gold
+    "error": 15548485,     # #ED4245 red
+    "info": 5793266,       # #5865F2 Discord blurple
+
+    # Per-event colors
+    "new_trade": 16766720,   # #FFD700 gold  — stands out immediately
+    "receipt": 16744448,     # #FF8C00 orange — payment action needed
+    "buyer_msg": 5793266,    # #5865F2 blurple — buyer talking
+    "bot_msg": 10066069,     # #99AAB5 gray   — automated/bot output
+    "paid": 16766720,        # #FFD700 gold   — money moving
+    "completed": 5763207,    # #57F287 green  — all done
+    "disputed": 15548485,    # #ED4245 red    — alert
+    "duplicate": 15548485,   # #ED4245 red    — alert
+    "low_balance": 16744448, # #FF8C00 orange — warning
+
+    # Legacy keys (kept for compatibility)
+    "chat": 5793266,
+    "NOONES_GREEN": 5763207
 }
 
 # --- Helper Function ---
@@ -25,6 +39,7 @@ NEW_TRADE_EMBED = {
     "title_format": "{platform_emoji} NEW TRADE — {owner_username}",
     "description_format": "👤 {buyer_line}\n💰 **{amount_formatted}**\n💳 {payment_method}\n🔑 `{trade_hash}`",
     "fields": [],
+    "color": "new_trade",
     "footer": "🤖 WillGang Bot"
 }
 
@@ -34,19 +49,19 @@ CHAT_MESSAGE_EMBEDS = {
         "title": "🤖 AUTOMATED MESSAGE",
         "author_format": "{author}",
         "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
-        "color_type": "info"
+        "color": "bot_msg"
     },
     "manual": {
         "title": "📤 MESSAGE SENT",
         "author_format": "{author}",
         "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
-        "color_type": "info"
+        "color": "bot_msg"
     },
     "buyer": {
         "title": "💬 NEW MESSAGE",
         "author_format": "{author}",
         "description_format": "💬 **{author}** › {owner_username}\n🔑 `{trade_hash}`\n\n{message}",
-        "color_type": "platform"
+        "color": "buyer_msg"
     }
 }
 
@@ -54,7 +69,8 @@ CHAT_MESSAGE_EMBEDS = {
 ATTACHMENT_EMBED = {
     "title_format": "📎 RECEIPT — {owner_username}",
     "description_format": "👤 {author}\n🏦 {bank_name}\n🔑 `{trade_hash}`",
-    "description_no_bank_format": "👤 {author}\n🔑 `{trade_hash}`"
+    "description_no_bank_format": "👤 {author}\n🔑 `{trade_hash}`",
+    "color": "receipt"
 }
 
 # --- Trade Status Updates ---
@@ -62,17 +78,17 @@ STATUS_UPDATE_EMBEDS = {
     "paid": {
         "title": "💰 TRADE PAID — {owner_username}",
         "description_format": "🔑 `{trade_hash}`",
-        "color": "warning"
+        "color": "paid"
     },
     "successful": {
         "title": "✅ TRADE COMPLETED — {owner_username}",
         "description_format": "🔑 `{trade_hash}`",
-        "color": "success"
+        "color": "completed"
     },
     "disputed": {
         "title": "⚠️ TRADE DISPUTED — {owner_username}",
         "description_format": "🔑 `{trade_hash}`",
-        "color": "error"
+        "color": "disputed"
     },
     "other": {
         "title_format": "🔄 {status} — {owner_username}",
