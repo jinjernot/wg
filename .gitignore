@@ -18,3 +18,4 @@ trade_history/
 .env
 payment_accounts
 binance_config.py
+__init__.py
