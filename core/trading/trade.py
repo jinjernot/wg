@@ -21,7 +21,7 @@ from core.validation.ocr import (
     hash_image,
     is_duplicate_receipt
 )
-from core.messaging.welcome_message import send_welcome_message
+from core.messaging.welcome_message import send_welcome_message, is_afk_mode_enabled
 from core.messaging.payment_details import send_payment_details_message
 from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
@@ -442,9 +442,14 @@ class Trade:
             self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
     
     def handle_online_query(self, new_messages):
-        """Checks for messages asking if the user is online and sends a reply."""
+        """Checks for messages asking if the user is online and sends a reply.
+        Replies at most once every 10 minutes to prevent spamming back."""
         logger.debug(f"--- Checking for Online Query: {self.trade_hash} ---")
-        if self.trade_state.get('online_reply_sent'):
+
+        cooldown_seconds = 5 * 60
+        last_sent = self.trade_state.get('online_reply_last_sent_ts')
+        if last_sent and (datetime.now(timezone.utc).timestamp() - last_sent) < cooldown_seconds:
+            logger.debug(f"Online reply on cooldown for {self.trade_hash}. Skipping.")
             return
 
         for msg in new_messages:
@@ -456,7 +461,7 @@ class Trade:
             if any(keyword in message_text for keyword in ONLINE_QUERY_KEYWORDS):
                 logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
                 send_online_reply_message(self.trade_hash, self.account, self.headers)
-                self.trade_state['online_reply_sent'] = True
+                self.trade_state['online_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
                 self.save()
                 break
 
@@ -501,9 +506,14 @@ class Trade:
                         break
 
     def handle_release_query(self, new_messages):
-        """Checks if a user asks about release."""
+        """Checks if a user asks about release.
+        Replies at most once every 10 minutes to prevent spamming back."""
         logger.debug(f"--- Checking for Release Query: {self.trade_hash} ---")
-        if self.trade_state.get('release_reply_sent'):
+
+        cooldown_seconds = 5 * 60
+        last_sent = self.trade_state.get('release_reply_last_sent_ts')
+        if last_sent and (datetime.now(timezone.utc).timestamp() - last_sent) < cooldown_seconds:
+            logger.debug(f"Release reply on cooldown for {self.trade_hash}. Skipping.")
             return
 
         for msg in new_messages:
@@ -512,13 +522,16 @@ class Trade:
                 if isinstance(message_text, str) and "release" in message_text.lower():
                     logger.info(f"Release query detected for trade {self.trade_hash}. Sending reply.")
                     send_release_message(self.trade_hash, self.account, self.headers)
-                    self.trade_state['release_reply_sent'] = True
+                    self.trade_state['release_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
                     self.save()
                     break
 
     def check_for_afk(self):
         """Checks if the buyer has sent multiple messages without a response."""
         logger.debug(f"--- Checking for AFK: {self.trade_hash} ---")
+        if not is_afk_mode_enabled():
+            logger.debug(f"AFK mode is disabled. Skipping AFK check for {self.trade_hash}.")
+            return
         if self.trade_state.get('afk_message_sent'):
             return
 
@@ -592,6 +605,9 @@ class Trade:
     def check_for_extended_afk(self):
         """Checks for extended inactivity from the buyer and sends a specific message."""
         logger.debug(f"--- Checking for Extended AFK: {self.trade_hash} ---")
+        if not is_afk_mode_enabled():
+            logger.debug(f"AFK mode is disabled. Skipping extended AFK check for {self.trade_hash}.")
+            return
         if self.trade_state.get('extended_afk_message_sent') or not self.trade_state.get('afk_message_sent'):
             return
 
