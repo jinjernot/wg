@@ -177,6 +177,19 @@ if (generateClientReportBtn) {
         });
     }
 
+    // Helper to save a setting to the server
+    async function saveSetting(key, isEnabled) {
+        const response = await fetch('/update_setting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: key, enabled: isEnabled })
+        });
+        return response.json();
+    }
+
+    // Keys that are mutually exclusive (only one can be on at a time)
+    const exclusiveKeys = ['night_mode_enabled', 'afk_mode_enabled'];
+
     // Consolidated handler for all settings toggles
     settingToggles.forEach(toggle => {
         toggle.addEventListener('change', async () => {
@@ -184,17 +197,28 @@ if (generateClientReportBtn) {
             const isEnabled = toggle.checked;
 
             try {
-                const response = await fetch('/update_setting', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: key, enabled: isEnabled })
-                });
-                const result = await response.json();
+                const result = await saveSetting(key, isEnabled);
                 if (!result.success) {
                     alert(`Error: ${result.error}`);
                     toggle.checked = !isEnabled; // Revert on error
-                } else {
-                    console.log(result.message);
+                    return;
+                }
+                console.log(result.message);
+
+                // If this is one of the exclusive toggles and it was just turned ON,
+                // turn the other one OFF in both the UI and the server.
+                if (isEnabled && exclusiveKeys.includes(key)) {
+                    for (const otherKey of exclusiveKeys) {
+                        if (otherKey === key) continue;
+                        const otherToggle = document.querySelector(`.setting-toggle[data-key="${otherKey}"]`);
+                        if (otherToggle && otherToggle.checked) {
+                            otherToggle.checked = false;
+                            const otherResult = await saveSetting(otherKey, false);
+                            if (!otherResult.success) {
+                                console.error(`Failed to disable ${otherKey}: ${otherResult.error}`);
+                            }
+                        }
+                    }
                 }
             } catch (error) {
                 console.error(`Failed to update setting ${key}:`, error);
