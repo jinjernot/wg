@@ -506,25 +506,26 @@ table {
 }
 
 thead tr {
-    border-bottom: 1px solid var(--border);
+    background: rgba(99, 102, 241, 0.08);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 th {
-    padding: 10px 14px;
+    padding: 11px 16px;
     text-align: left;
     font-size: 0.72rem;
     font-weight: 700;
-    color: var(--text-3);
+    color: var(--text-2);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     white-space: nowrap;
 }
 
 td {
-    padding: 12px 14px;
+    padding: 13px 16px;
     font-size: 0.875rem;
-    color: var(--text-2);
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-1);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
     vertical-align: middle;
 }
 
@@ -532,21 +533,21 @@ tbody tr {
     transition: background var(--ease);
 }
 tbody tr:hover {
-    background: rgba(99, 102, 241, 0.06);
+    background: rgba(99, 102, 241, 0.07);
 }
 tbody tr:last-child td { border-bottom: none; }
 
-/* Trade status row colours */
-tr.status-new               { background: var(--blue-dim); border-left: 3px solid var(--blue); }
-tr.status-new:hover         { background: rgba(59,130,246,0.25); }
-tr.status-paid              { background: var(--green-dim); border-left: 3px solid var(--green); }
-tr.status-paid:hover        { background: rgba(34,197,94,0.22); }
-tr.status-paid-no-attachment { background: rgba(251,146,60,0.14); border-left: 3px solid #FB923C; }
-tr.status-paid-no-attachment:hover { background: rgba(251,146,60,0.22); }
-tr.status-paid-old          { background: rgba(5,150,105,0.15); border-left: 3px solid #059669; }
-tr.status-paid-old:hover    { background: rgba(5,150,105,0.22); }
-tr.status-disputed          { background: var(--red-dim); border-left: 3px solid var(--red); }
-tr.status-disputed:hover    { background: rgba(239,68,68,0.22); }
+/* Trade status row colours — vivid left border + tinted bg */
+tr.status-new                { background: rgba(59,130,246,0.12); border-left: 3px solid var(--blue); }
+tr.status-new:hover          { background: rgba(59,130,246,0.2); }
+tr.status-paid               { background: rgba(34,197,94,0.1); border-left: 3px solid var(--green); }
+tr.status-paid:hover         { background: rgba(34,197,94,0.18); }
+tr.status-paid-no-attachment { background: rgba(251,146,60,0.1); border-left: 3px solid #FB923C; }
+tr.status-paid-no-attachment:hover { background: rgba(251,146,60,0.18); }
+tr.status-paid-old           { background: rgba(5,150,105,0.1); border-left: 3px solid #059669; }
+tr.status-paid-old:hover     { background: rgba(5,150,105,0.18); }
+tr.status-disputed           { background: rgba(239,68,68,0.1); border-left: 3px solid var(--red); }
+tr.status-disputed:hover     { background: rgba(239,68,68,0.18); }
 
 /* suppress old NEW badge */
 .status-new::after { content: none !important; display: none !important; }
