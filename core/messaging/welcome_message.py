@@ -4,7 +4,7 @@ import os
 from core.messaging.message_sender import send_message_with_retry
 from config_messages.welcome_david import *
 from config_messages.welcome_joe import *
-from config import *
+from config import APP_SETTINGS_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +13,10 @@ def is_night_mode_enabled():
     Checks the settings file to see if nighttime messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    settings_file = os.path.join("data", "settings.json")
-    if not os.path.exists(settings_file):
+    if not os.path.exists(APP_SETTINGS_FILE):
         return False
     try:
-        with open(settings_file, "r") as f:
+        with open(APP_SETTINGS_FILE, "r") as f:
             settings = json.load(f)
         return settings.get("night_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
@@ -29,11 +28,10 @@ def is_afk_mode_enabled():
     Checks the settings file to see if AFK messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    settings_file = os.path.join("data", "settings.json")
-    if not os.path.exists(settings_file):
+    if not os.path.exists(APP_SETTINGS_FILE):
         return False
     try:
-        with open(settings_file, "r") as f:
+        with open(APP_SETTINGS_FILE, "r") as f:
             settings = json.load(f)
         return settings.get("afk_mode_enabled", False)
     except (json.JSONDecodeError, Exception) as e:
