@@ -4,7 +4,7 @@ import os
 from core.messaging.message_sender import send_message_with_retry
 from config_messages.welcome_david import *
 from config_messages.welcome_joe import *
-from config import APP_SETTINGS_FILE
+from config import APP_SETTINGS_FILE, CHAT_URL_NOONES
 
 logger = logging.getLogger(__name__)
 
