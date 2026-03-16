@@ -517,6 +517,13 @@ if (generateClientReportBtn) {
             } else if (trade.trade_status === 'Dispute open') {
                 row.classList.add('status-disputed');
             }
+
+            // High-value trade highlight: >5000 MXN
+            const amount = parseFloat(trade.fiat_amount_requested);
+            if (!isNaN(amount) && amount > 5000 && (trade.fiat_currency_code || '').toUpperCase() === 'MXN') {
+                row.classList.add('high-value');
+            }
+
             tbody.appendChild(row);
         });
         tradesContainer.appendChild(table);

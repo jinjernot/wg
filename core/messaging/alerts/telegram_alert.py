@@ -18,6 +18,7 @@ from config_messages.telegram_messages import (
     NAME_VALIDATION_FAILURE_ALERT,
     LOW_BALANCE_ALERT_MESSAGE,
     DUPLICATE_RECEIPT_ALERT_MESSAGE,
+    HIGH_VALUE_TRADE_ALERT_MESSAGE,
     format_currency,
     STATUS_UPDATE_PAID,
     STATUS_UPDATE_SUCCESSFUL,
@@ -150,6 +151,32 @@ def send_telegram_alert(trade, platform):
     }
     
     message = message_template.format(**formatted_data)
+    _send_text_alert(message, disable_web_page_preview=True)
+
+def send_high_value_trade_alert(trade, platform):
+    """Sends a high-priority Telegram alert when a trade exceeds 5000 MXN."""
+    if isinstance(trade, str):
+        try:
+            trade = json.loads(trade)
+        except json.JSONDecodeError:
+            logger.error("Error: Trade data is not a valid JSON string.")
+            return
+    if not isinstance(trade, dict):
+        logger.error("Error: Trade data is not a dictionary.")
+        return
+
+    amount = trade.get('fiat_amount_requested', '0')
+    currency = trade.get('fiat_currency_code', '')
+    amount_formatted = format_currency(amount, currency)
+
+    buyer_username = trade.get('responder_username', 'N/A')
+    message = HIGH_VALUE_TRADE_ALERT_MESSAGE.format(
+        owner_username=escape_markdown(trade.get('owner_username', 'N/A')),
+        buyer_username=escape_markdown(buyer_username),
+        amount_formatted=escape_markdown(amount_formatted),
+        payment_method_name=escape_markdown(trade.get('payment_method_name', 'N/A')),
+        trade_hash=escape_markdown(trade.get('trade_hash', 'N/A'))
+    )
     _send_text_alert(message, disable_web_page_preview=True)
 
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):

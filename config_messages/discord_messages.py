@@ -16,6 +16,7 @@ COLORS = {
     "disputed": 15548485,    # #ED4245 red    — alert
     "duplicate": 15548485,   # #ED4245 red    — alert
     "low_balance": 16744448, # #FF8C00 orange — warning
+    "high_value": 16737095,  # #FF6F17 bold orange-gold — high-value trade
 
     # Legacy keys (kept for compatibility)
     "chat": 5793266,
@@ -41,6 +42,15 @@ NEW_TRADE_EMBED = {
     "fields": [],
     "color": "new_trade",
     "footer": "🤖 WillGang Bot"
+}
+
+# --- High-Value Trade Notification (>5000 MXN) ---
+HIGH_VALUE_TRADE_EMBED = {
+    "title_format": "🚨💰 HIGH VALUE TRADE — {owner_username}",
+    "description_format": "👤 {buyer_line}\n💰 **{amount_formatted}**\n💳 {payment_method}\n🔑 `{trade_hash}`",
+    "fields": [],
+    "color": "high_value",
+    "footer": "🤖 WillGang Bot — High Value Alert"
 }
 
 # --- Chat Messages ---

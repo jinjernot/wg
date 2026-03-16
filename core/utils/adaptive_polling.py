@@ -53,8 +53,8 @@ class AdaptivePoller:
             # Increase interval if no trades found
             self.consecutive_empty_polls += 1
             
-            # After 5 consecutive empty polls, switch to quiet interval
-            if self.consecutive_empty_polls >= 5 and self.current_interval == self.base_interval:
+            # After 10 consecutive empty polls, switch to quiet interval
+            if self.consecutive_empty_polls >= 10 and self.current_interval == self.base_interval:
                 self.current_interval = self.quiet_interval
                 logger.info(f"No activity detected, increasing interval to {self.quiet_interval}s")
     

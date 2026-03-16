@@ -116,3 +116,13 @@ STATUS_UPDATE_OTHER = """\
 🔄 *{status}* — {owner_username}
 🔑 `{trade_hash}`
 """
+
+# --- High-Value Trade Alert (>5000 MXN) ---
+HIGH_VALUE_TRADE_ALERT_MESSAGE = """\
+🚨💰 *HIGH VALUE TRADE* — {owner_username}
+
+👤 {buyer_username}
+💰 *{amount_formatted}*
+💳 {payment_method_name}
+🔑 `{trade_hash}`
+"""

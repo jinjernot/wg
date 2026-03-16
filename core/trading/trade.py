@@ -38,6 +38,7 @@ from core.messaging.trade_lifecycle_messages import (
 )
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
+    send_high_value_trade_alert,
     send_attachment_alert,
     send_amount_validation_alert,
     # send_email_validation_alert,  # EMAIL MODULE DISABLED
@@ -47,6 +48,7 @@ from core.messaging.alerts.telegram_alert import (
 )
 from core.messaging.alerts.discord_alert import (
     create_new_trade_embed,
+    create_high_value_trade_embed,
     create_trade_status_update_embed,
     create_attachment_embed,
     create_amount_validation_embed,
@@ -130,6 +132,17 @@ class Trade:
         
         if new_trade_embed_data:
             create_trade_thread(self.trade_hash, new_trade_embed_data)
+
+        # High-value alert: fire an extra notification for trades >5000 MXN
+        try:
+            amount = float(self.trade_state.get('fiat_amount_requested', 0))
+            currency = (self.trade_state.get('fiat_currency_code') or '').upper()
+            if amount > 5000 and currency == 'MXN':
+                logger.info(f"High-value trade detected ({amount} {currency}) for {self.trade_hash}. Sending priority alerts.")
+                send_high_value_trade_alert(self.trade_state, self.platform)
+                create_high_value_trade_embed(self.trade_state, self.platform)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Could not evaluate amount for high-value check on {self.trade_hash}: {e}")
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
