@@ -524,11 +524,6 @@ if (generateClientReportBtn) {
                 row.classList.add('high-value');
             }
 
-            // Trusted trader highlight: >5 trades
-            if (trade.partner && trade.partner.count_trades > 5) {
-                row.classList.add('trusted-trader');
-            }
-
             tbody.appendChild(row);
         });
         tradesContainer.appendChild(table);
