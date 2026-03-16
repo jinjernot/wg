@@ -578,6 +578,34 @@ tr.high-value td:nth-child(4)::after {
     letter-spacing: 0.07em;
     padding: 2px 7px;
     border-radius: 10px;
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
+/* ── Trusted Trader (>5 trades) ────────────────────────────────── */
+tr.trusted-trader {
+    border-left: 3px solid #6366F1 !important;  /* indigo */
+    box-shadow: inset 4px 0 12px rgba(99, 102, 241, 0.08);
+}
+tr.trusted-trader:hover {
+    box-shadow: inset 4px 0 20px rgba(99, 102, 241, 0.14);
+}
+
+/* Indigo badge injected after the username (2nd td, normally an a tag is inside) */
+tr.trusted-trader td:nth-child(2) {
+    position: relative;
+}
+tr.trusted-trader td:nth-child(2)::after {
+    content: '★ TRUSTED';
+    margin-left: 8px;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #818CF8;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    padding: 2px 7px;
+    border-radius: 10px;
     vertical-align: middle;
 }
 

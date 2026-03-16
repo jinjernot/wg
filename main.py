@@ -65,7 +65,7 @@ def main():
     check_wallet_balances_and_alert()
 
     scheduler = BackgroundScheduler(timezone='America/Mexico_City')
-    scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=0)
+    scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
     scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
     scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
     scheduler.start()
