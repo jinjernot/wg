@@ -518,9 +518,9 @@ if (generateClientReportBtn) {
                 row.classList.add('status-disputed');
             }
 
-            // High-value trade highlight: >5000 MXN
+            // High-value trade highlight: >3000 MXN
             const amount = parseFloat(trade.fiat_amount_requested);
-            if (!isNaN(amount) && amount > 5000 && (trade.fiat_currency_code || '').toUpperCase() === 'MXN') {
+            if (!isNaN(amount) && amount > 3000 && (trade.fiat_currency_code || '').toUpperCase() === 'MXN') {
                 row.classList.add('high-value');
             }
 
