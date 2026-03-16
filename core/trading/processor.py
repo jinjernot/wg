@@ -14,9 +14,9 @@ def process_trades(account):
     """
     # Initialize adaptive poller for this account
     poller = AdaptivePoller(
-        base_interval=60,      # Active period: 60s
-        quiet_interval=120,    # Quiet period: 120s (50% reduction)
-        off_hours_interval=300 # Off-hours: 300s (80% reduction)
+        base_interval=15,      # Active period: 15s — fast new-trade detection
+        quiet_interval=30,     # Quiet period: 30s (still very responsive)
+        off_hours_interval=60  # Off-hours (2-7 AM): 60s max
     )
     
     failed_auth_attempts = 0

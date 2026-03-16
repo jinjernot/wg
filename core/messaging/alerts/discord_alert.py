@@ -14,6 +14,7 @@ from config_messages.discord_messages import (
     COLORS,
     format_currency,
     NEW_TRADE_EMBED,
+    HIGH_VALUE_TRADE_EMBED,
     CHAT_MESSAGE_EMBEDS,
     ATTACHMENT_EMBED,
     STATUS_UPDATE_EMBEDS
@@ -255,6 +256,46 @@ def create_new_trade_embed(trade_data, platform, send=True):
         send_discord_embed(embed, alert_type="trades")
     else:
         return embed
+
+
+def create_high_value_trade_embed(trade_data, platform):
+    """Creates and sends a high-priority Discord embed for trades over 5000 MXN."""
+    trade_hash = trade_data.get('trade_hash')
+
+    buyer_username = trade_data.get('responder_username', 'N/A')
+    buyer_line = f"**{buyer_username}**"
+
+    if buyer_username != 'N/A':
+        profile_data = generate_user_profile(buyer_username)
+        if profile_data:
+            trades_count = profile_data.get('successful_trades', 0)
+            volume = profile_data.get('total_volume', 0.0)
+            currency = trade_data.get('fiat_currency_code', '')
+            volume_formatted = format_currency(volume, currency)
+            buyer_line = f"**{buyer_username}** • {trades_count} trades • ${volume_formatted} volume"
+
+    amount = trade_data.get('fiat_amount_requested', '0')
+    currency = trade_data.get('fiat_currency_code', '')
+    amount_formatted = format_currency(amount, currency)
+
+    owner_username = trade_data.get('owner_username', 'N/A')
+    template = HIGH_VALUE_TRADE_EMBED
+
+    embed = {
+        "title": template["title_format"].format(owner_username=owner_username),
+        "color": COLORS[template["color"]],
+        "description": template["description_format"].format(
+            buyer_line=buyer_line,
+            amount_formatted=amount_formatted,
+            payment_method=trade_data.get('payment_method_name', 'N/A'),
+            trade_hash=trade_hash
+        ),
+        "fields": [],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "footer": {"text": template["footer"]}
+    }
+
+    send_discord_embed(embed, alert_type="trades")
 
 
 def create_trade_status_update_embed(trade_hash, owner_username, new_status, platform):

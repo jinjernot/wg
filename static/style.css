@@ -552,6 +552,35 @@ tr.status-disputed:hover     { background: rgba(239,68,68,0.18); }
 /* suppress old NEW badge */
 .status-new::after { content: none !important; display: none !important; }
 
+/* ── High-value trade (>5000 MXN) ──────────────────────────────── */
+tr.high-value {
+    border-left: 3px solid #FBBF24 !important;  /* gold — overrides status colour */
+    box-shadow: inset 4px 0 12px rgba(251, 191, 36, 0.08);
+}
+tr.high-value:hover {
+    box-shadow: inset 4px 0 20px rgba(251, 191, 36, 0.14);
+}
+
+/* Gold badge injected before the amount text (4th td) */
+tr.high-value td:nth-child(4) {
+    font-weight: 700;
+    color: #FCD34D;
+    position: relative;
+}
+tr.high-value td:nth-child(4)::after {
+    content: '★ HIGH';
+    margin-left: 8px;
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #FBBF24;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    padding: 2px 7px;
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
 /* Message cell */
 .message-cell {
     display: flex;
