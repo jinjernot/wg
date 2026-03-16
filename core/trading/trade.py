@@ -137,7 +137,7 @@ class Trade:
         try:
             amount = float(self.trade_state.get('fiat_amount_requested', 0))
             currency = (self.trade_state.get('fiat_currency_code') or '').upper()
-            if amount > 5000 and currency == 'MXN':
+            if amount > 3000 and currency == 'MXN':
                 logger.info(f"High-value trade detected ({amount} {currency}) for {self.trade_hash}. Sending priority alerts.")
                 send_high_value_trade_alert(self.trade_state, self.platform)
                 create_high_value_trade_embed(self.trade_state, self.platform)
