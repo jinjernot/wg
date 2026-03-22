@@ -36,6 +36,22 @@ def format_status_for_discord_code_block(status, has_attachment=True):
     return f"`{status}`"
 
 
+def _format_trade_age(started_at_str):
+    """Returns a human-readable trade age string."""
+    if not started_at_str:
+        return ""
+    try:
+        started_at = isoparse(started_at_str)
+        delta = datetime.datetime.now(datetime.timezone.utc) - started_at
+        total_minutes = int(delta.total_seconds() / 60)
+        if total_minutes < 60:
+            return f"⏱️ {total_minutes}m ago"
+        hours, mins = divmod(total_minutes, 60)
+        return f"⏱️ {hours}h {mins}m ago"
+    except Exception:
+        return ""
+
+
 def create_trade_field(trade, show_account=True):
     """Creates a formatted dictionary for an embed field representing a single trade."""
     trade_hash = trade.get('trade_hash', 'N/A')
@@ -59,6 +75,8 @@ def create_trade_field(trade, show_account=True):
 
     status_text_block = format_status_for_discord_code_block(status, has_attachment)
 
+    age_str = _format_trade_age(trade.get('started_at'))
+
     # Improvement 3: New buyer flag instead of "0 trades ($0.00 MXN)"
     profile_data = trade.get('buyer_profile')
     buyer_stats_line = ""
@@ -79,7 +97,8 @@ def create_trade_field(trade, show_account=True):
         f"{buyer_stats_line}"
         f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
         f"{account_line}"
-        f"{status_text_block}"
+        f"{age_str}\n"
+        f"{status_text_block}\n\u200b"
     )
 
     return {
