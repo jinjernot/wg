@@ -9,6 +9,7 @@ import datetime
 import logging
 import re
 import asyncio
+from dateutil.parser import isoparse
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
@@ -24,7 +25,8 @@ MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 def format_status_for_discord_code_block(status, has_attachment=True):
     """Formats the trade status with color coding for Discord embeds using code blocks."""
     if 'Paid' in status and not has_attachment:
-        return f"```diff\n- {status} (No Proof)\n```"
+        # Improvement 6: More aggressive no-proof highlight
+        return "```diff\n- ⚠️  PAID — NO RECEIPT\n```"
     if 'Paid' in status:
         return f"```diff\n+ {status}\n```"
     if 'Dispute' in status:
@@ -33,15 +35,31 @@ def format_status_for_discord_code_block(status, has_attachment=True):
         return f"```ini\n[{status}]\n```"
     return f"`{status}`"
 
-def create_trade_field(trade):
+def _format_trade_age(started_at_str):
+    """Returns a human-readable trade age string from an ISO timestamp."""
+    if not started_at_str:
+        return ""
+    try:
+        started_at = isoparse(started_at_str)
+        delta = datetime.datetime.now(datetime.timezone.utc) - started_at
+        total_minutes = int(delta.total_seconds() / 60)
+        if total_minutes < 60:
+            return f"⏱️ {total_minutes}m ago"
+        hours, mins = divmod(total_minutes, 60)
+        return f"⏱️ {hours}h {mins}m ago"
+    except Exception:
+        return ""
+
+
+def create_trade_field(trade, show_account=True):
     """Creates a formatted dictionary for an embed field representing a single trade."""
     trade_hash = trade.get('trade_hash', 'N/A')
     account_name = trade.get('account_name_source', 'N/A')
-    
+
     # Remove platform suffix (e.g., "Noones") since we only use one platform now
     if ' ' in account_name:
-        account_name = account_name.split()[0]  # Keep only the first part (e.g., "Davidvs" from "Davidvs Noones")
-    
+        account_name = account_name.split()[0]
+
     # Determine the status emoji
     status = trade.get('trade_status', 'N/A')
     has_attachment = trade.get('has_attachment', True)
@@ -54,27 +72,36 @@ def create_trade_field(trade):
     else:
         status_emoji = "⏳"
 
-    # Use the function to get the colored code block for the status
     status_text_block = format_status_for_discord_code_block(status, has_attachment)
 
+    # Improvement 2: Trade age
+    age_str = _format_trade_age(trade.get('started_at'))
+
+    # Improvement 3: New buyer flag instead of "0 trades ($0.00 MXN)"
     profile_data = trade.get('buyer_profile')
     buyer_stats_line = ""
     if profile_data:
         successful_trades = profile_data.get('successful_trades', 0)
         total_volume = profile_data.get('total_volume', 0.0)
         currency_code = trade.get('fiat_currency_code', '')
-        buyer_stats_line = f"**Stats:** {successful_trades} trades (${total_volume:,.2f} {currency_code})\n"
+        if successful_trades == 0:
+            buyer_stats_line = "🆕 **New Buyer**\n"
+        else:
+            buyer_stats_line = f"**Stats:** {successful_trades} trades (${total_volume:,.2f} {currency_code})\n"
+
+    # Improvement 5: Only show Account line when multiple accounts are in play
+    account_line = f"**Account:** {account_name}\n" if show_account else ""
 
     field_value = (
         f"**Buyer:** {trade.get('responder_username', 'N/A')}\n"
-        f"{buyer_stats_line}"  # <-- Add the new line here
+        f"{buyer_stats_line}"
         f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
-        f"**Account:** {account_name}\n"
-        f"{status_text_block}" # Display the status code block
+        f"{account_line}"
+        f"{age_str}\n"
+        f"{status_text_block}"
     )
 
     return {
-        # Removed the URL from the name for a cleaner look
         "name": f"{status_emoji} Trade `{trade_hash}`",
         "value": field_value,
         "inline": True
@@ -205,14 +232,28 @@ class TradeCommands(commands.Cog):
         if not trades:
             embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
         else:
+            # Improvement 4: Summary description with totals
+            from collections import defaultdict
+            totals = defaultdict(float)
+            for t in trades:
+                try:
+                    totals[t.get('fiat_currency_code', 'MXN')] += float(t.get('fiat_amount_requested', 0))
+                except (ValueError, TypeError):
+                    pass
+            total_str = '  +  '.join(f'**${v:,.0f} {k}**' for k, v in totals.items())
+            summary = f"💵 {total_str} across {len(trades)} trade{'s' if len(trades) != 1 else ''}"
+
+            # Improvement 5: Only show account if multiple accounts
+            unique_accounts = {t.get('account_name_source', '') for t in trades}
+            show_account = len(unique_accounts) > 1
+
             embed = discord.Embed(
                 title=f"📊 Active Trades ({len(trades)})",
                 color=COLORS.get("info", 0x5865F2),
-                description="( ͡° ͜ʖ ͡°)"
+                description=summary
             )
-            # Add trades as fields, max 25 fields per embed
             for trade in trades[:25]:
-                field = create_trade_field(trade) # trade object now contains 'buyer_profile'
+                field = create_trade_field(trade, show_account=show_account)
                 embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
         
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
@@ -250,15 +291,28 @@ class TradeCommands(commands.Cog):
                     trade['buyer_profile'] = profile_cache.get(username)
             # --- END MODIFICATION ---
 
+            # Improvement 4: Summary description with totals
+            from collections import defaultdict
+            totals = defaultdict(float)
+            for t in trades:
+                try:
+                    totals[t.get('fiat_currency_code', 'MXN')] += float(t.get('fiat_amount_requested', 0))
+                except (ValueError, TypeError):
+                    pass
+            total_str = '  +  '.join(f'**${v:,.0f} {k}**' for k, v in totals.items())
+            summary = f"💵 {total_str} across {len(trades)} trade{'s' if len(trades) != 1 else ''}"
+
+            # Improvement 5: Only show account if multiple accounts
+            unique_accounts = {t.get('account_name_source', '') for t in trades}
+            show_account = len(unique_accounts) > 1
+
             embed = discord.Embed(
                 title=f"📊 Active Trades ({len(trades)})",
                 color=COLORS.get("info", 0x5865F2),
-                description="A summary of your ongoing trades."
+                description=summary
             )
-
-            # Add trades as fields, max 10 for ephemeral messages for readability
             for trade in trades[:10]:
-                field = create_trade_field(trade) # trade object now contains 'buyer_profile'
+                field = create_trade_field(trade, show_account=show_account)
                 embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
 
             await interaction.followup.send(embed=embed, ephemeral=True)
