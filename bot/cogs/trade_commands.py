@@ -82,21 +82,23 @@ def create_trade_field(trade):
 
 
 class ConfirmationView(discord.ui.View):
-    def __init__(self, trade_hash: str, account_name: str, amount: str):
+    def __init__(self, trade_hash: str, account_name: str, amount: str, thread_channel=None, original_message=None):
         super().__init__(timeout=60)
         self.trade_hash = trade_hash
         self.account_name = account_name
         self.amount = amount
+        self.thread_channel = thread_channel  # Used to post public confirmation (improvement 4)
+        self.original_message = original_message  # Used for timeout edit (improvement 3)
 
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="Confirm Release", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         payload = {"trade_hash": self.trade_hash, "account_name": self.account_name}
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "http://127.0.0.1:5001/release_trade", 
-                    json=payload, 
+                    "http://127.0.0.1:5001/release_trade",
+                    json=payload,
                     timeout=aiohttp.ClientTimeout(total=15)
                 ) as response:
                     data = await response.json()
@@ -105,12 +107,31 @@ class ConfirmationView(discord.ui.View):
                         embed_data["description"] = embed_data["description"].format(
                             trade_hash=self.trade_hash)
                         embed = discord.Embed.from_dict(embed_data)
+                        await interaction.followup.send(embed=embed, ephemeral=True)
+
+                        # Improvement 4: Post a public record in the thread
+                        if self.thread_channel:
+                            public_embed = discord.Embed(
+                                title="✅ Crypto Released",
+                                description=(
+                                    f"Trade `{self.trade_hash}` was released."
+                                    f"\n**Amount:** {self.amount}"
+                                    f"\n**Released by:** {interaction.user.mention}"
+                                ),
+                                color=discord.Color.green(),
+                                timestamp=datetime.datetime.now(datetime.timezone.utc)
+                            )
+                            public_embed.set_footer(text="WillGang Bot")
+                            try:
+                                await self.thread_channel.send(embed=public_embed)
+                            except discord.Forbidden:
+                                logger.warning(f"Could not post public release confirmation to thread {self.thread_channel.id}")
                     else:
                         embed_data = RELEASE_TRADE_EMBEDS["error"].copy()
                         embed_data["description"] = embed_data["description"].format(
                             error=data.get("error", "An unknown error occurred."))
                         embed = discord.Embed.from_dict(embed_data)
-                    await interaction.followup.send(embed=embed, ephemeral=True)
+                        await interaction.followup.send(embed=embed, ephemeral=True)
         except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
         self.stop()
@@ -119,6 +140,19 @@ class ConfirmationView(discord.ui.View):
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Release cancelled.", ephemeral=True)
         self.stop()
+
+    # Improvement 3: Handle view timeout gracefully
+    async def on_timeout(self):
+        if self.original_message:
+            try:
+                timeout_embed = discord.Embed(
+                    title="⏱️ Release Timed Out",
+                    description="No response received. Release was automatically cancelled.",
+                    color=discord.Color.dark_gray()
+                )
+                await self.original_message.edit(embed=timeout_embed, view=None)
+            except Exception:
+                pass  # Message may have been deleted, that's fine
 
 
 class TradeCommands(commands.Cog):
@@ -314,7 +348,7 @@ class TradeCommands(commands.Cog):
                     inferred_trade_hash = match.group(1)
                     if not trade_hash:
                         trade_hash = inferred_trade_hash
-                    
+
                     try:
                         async with aiohttp.ClientSession() as session:
                             async with session.get("http://127.0.0.1:5001/get_active_trades", timeout=aiohttp.ClientTimeout(total=10)) as response:
@@ -344,17 +378,51 @@ class TradeCommands(commands.Cog):
             await interaction.followup.send("Could not determine the trade_hash and/or account_name.", ephemeral=True)
             return
 
+        # --- Build richer confirmation embed (improvements 1 & 2) ---
+        has_attachment = True
+        buyer_username = "N/A"
+        payment_method = "N/A"
         amount = "N/A"
+
         if trade_info:
             amount = f"{trade_info.get('fiat_amount_requested', 'N/A')} {trade_info.get('fiat_currency_code', '')}"
+            buyer_username = trade_info.get('responder_username', 'N/A')
+            payment_method = trade_info.get('payment_method_name', 'N/A')
+            has_attachment = trade_info.get('has_attachment', True)
+
+        no_proof = not has_attachment
+
+        embed_color = discord.Color.red() if no_proof else discord.Color.orange()
+        embed_title = "⚠️ WARNING — No Proof Uploaded!" if no_proof else "🔒 Confirm Trade Release"
+
+        description_lines = [
+            f"**Trade:** `{trade_hash}`",
+            f"**Buyer:** {buyer_username}",
+            f"**Amount:** {amount}",
+            f"**Payment Method:** {payment_method}",
+        ]
+
+        if no_proof:
+            description_lines.append(
+                "\n🚨 **No receipt has been uploaded for this trade.**"
+                "\nAre you sure you want to release without verifying proof of payment?"
+            )
+        else:
+            description_lines.append("\n✅ Receipt uploaded. Confirm release below.")
 
         confirmation_embed = discord.Embed(
-            title="Confirm Trade Release",
-            description=f"Please confirm you want to release the trade `{trade_hash}` for the amount of **{amount}**.",
-            color=discord.Color.orange()
+            title=embed_title,
+            description="\n".join(description_lines),
+            color=embed_color,
+            timestamp=datetime.datetime.now(datetime.timezone.utc)
         )
-        view = ConfirmationView(trade_hash, account_name, amount)
-        await interaction.followup.send(embed=confirmation_embed, view=view, ephemeral=True)
+        confirmation_embed.set_footer(text="This confirmation will expire in 60 seconds.")
+
+        # Pass the thread channel for the public post (improvement 4)
+        thread_channel = interaction.channel if isinstance(interaction.channel, discord.Thread) else None
+        view = ConfirmationView(trade_hash, account_name, amount, thread_channel=thread_channel)
+        msg = await interaction.followup.send(embed=confirmation_embed, view=view, ephemeral=True)
+        view.original_message = msg  # Needed for timeout edit (improvement 3)
 
 
 async def setup(bot: commands.Bot):
