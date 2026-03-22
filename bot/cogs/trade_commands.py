@@ -97,7 +97,7 @@ def create_trade_field(trade, show_account=True):
         f"{buyer_stats_line}"
         f"**Amount:** `{trade.get('fiat_amount_requested', 'N/A')} {trade.get('fiat_currency_code', '')}`\n"
         f"{account_line}"
-        f"{age_str}\n"
+        f"{age_str + chr(10) if age_str else ''}"
         f"{status_text_block}\n\u200b"
     )
 
