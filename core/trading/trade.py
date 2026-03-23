@@ -330,7 +330,13 @@ class Trade:
                 new_messages = all_messages[last_index + 1:]
         else:
             new_messages = all_messages
-        
+
+        # Stamp the cursor NOW — before any processing or saves — so that every
+        # intermediate self.save() inside this function persists the correct value
+        # and the next cycle never re-sends the same messages.
+        if all_messages:
+            self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
+
         # Process new text messages
         for msg in new_messages:
             # Check if the message is NOT an attachment upload notification before processing as a text message
@@ -380,8 +386,6 @@ class Trade:
         self.trade_state['processed_attachments'] = processed_attachments
 
         if not new_attachments_to_process:
-            if all_messages:
-                self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
             return
 
         if not self.trade_state.get('attachment_message_sent'):
@@ -450,9 +454,6 @@ class Trade:
                 logger.debug(f"Marked attachment {url} as alerts_sent=True")
                 
             self.save()
-
-        if all_messages:
-            self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
     
     def handle_online_query(self, new_messages):
         """Checks for messages asking if the user is online and sends a reply.
