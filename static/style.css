@@ -914,3 +914,192 @@ tr.high-value td:nth-child(4)::after {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ============================================================
+   RELEASE CONFIRMATION MODAL
+   ============================================================ */
+#release-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.release-modal {
+    background: rgba(14, 17, 30, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    width: 420px;
+    max-width: 92vw;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    animation: modalSlideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.release-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.release-modal-header.danger {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.release-modal-icon { font-size: 1.4rem; }
+
+.release-modal-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-1);
+    margin: 0;
+}
+
+.release-modal-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.release-modal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.875rem;
+    padding: 8px 12px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+}
+
+.release-modal-row span {
+    color: var(--text-3);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.release-modal-row code {
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--text-2);
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 5px;
+}
+
+.release-modal-warning {
+    margin-top: 4px;
+    padding: 12px 14px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 9px;
+    font-size: 0.83rem;
+    color: #FCA5A5;
+    line-height: 1.5;
+}
+
+.release-modal-ok {
+    margin-top: 4px;
+    padding: 10px 14px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 9px;
+    font-size: 0.83rem;
+    color: var(--green);
+}
+
+.release-modal-footer {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.release-modal-cancel,
+.release-modal-confirm {
+    flex: 1;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--ease);
+}
+
+.release-modal-cancel {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--text-2);
+}
+.release-modal-cancel:hover { background: rgba(255,255,255,0.1); color: var(--text-1); }
+
+.release-modal-confirm {
+    background: linear-gradient(135deg, #16a34a, var(--green));
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.release-modal-confirm:hover { box-shadow: 0 6px 20px var(--green-glow); transform: translateY(-1px); }
+
+.release-modal-confirm.danger {
+    background: linear-gradient(135deg, #dc2626, var(--red));
+}
+.release-modal-confirm.danger:hover { box-shadow: 0 6px 20px var(--red-glow); }
+
+/* ============================================================
+   NO RECEIPT BADGE
+   ============================================================ */
+.no-receipt-badge {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 2px 8px;
+    background: rgba(251, 146, 60, 0.15);
+    border: 1px solid rgba(251, 146, 60, 0.35);
+    color: #FB923C;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   TRADES TABLE — LAST UPDATED COUNTER
+   ============================================================ */
+.trades-table-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.trades-last-updated {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    letter-spacing: 0.02em;
+}
+

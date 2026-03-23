@@ -35,6 +35,10 @@
                 <div class="stat-card-label">Paid</div>
             </div>
             <div class="stat-card">
+                <div class="stat-card-value" style="color: #FB923C;" id="no-receipt-count">0</div>
+                <div class="stat-card-label">No Receipt</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-card-value yellow" id="disputed-count">0</div>
                 <div class="stat-card-label">Disputed</div>
             </div>
@@ -51,7 +55,7 @@
                 <button class="refresh-btn" onclick="loadTrades()">Refresh</button>
             </div>
             <div id="active-trades-container">
-                <p>Loading...</p>
+                <div class="skeleton skeleton-card"></div>
             </div>
         </div>
     </div>
@@ -66,8 +70,9 @@
                 // Update stats
                 document.getElementById('total-count').textContent = trades.length;
                 document.getElementById('paid-count').textContent = trades.filter(t => t.trade_status === 'Paid').length;
+                document.getElementById('no-receipt-count').textContent = trades.filter(t => t.trade_status === 'Paid' && !t.has_attachment).length;
                 document.getElementById('disputed-count').textContent = trades.filter(t => t.trade_status === 'Dispute open').length;
-                document.getElementById('active-count').textContent = trades.length - trades.filter(t => t.trade_status === 'Paid').length - trades.filter(t => t.trade_status === 'Dispute open').length;
+                document.getElementById('active-count').textContent = trades.filter(t => t.trade_status !== 'Paid' && t.trade_status !== 'Dispute open').length;
 
                 // Use the existing updateTradesTable function from script.js
                 if (typeof updateTradesTable === 'function') {
