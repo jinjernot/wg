@@ -3,7 +3,7 @@ import json
 import re
 import os
 import logging
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
 from config_messages.telegram_messages import (
     NOONES_ALERT_MESSAGE,
     NEW_CHAT_ALERT_MESSAGE,
@@ -46,7 +46,7 @@ def escape_markdown(text):
     # Use negative lookbehind to avoid double escaping
     return re.sub(f'(?<!\\\\)([{re.escape(escape_chars)}])', r'\\\1', text)
 
-def _send_text_alert(message, disable_web_page_preview=True):
+def _send_text_alert(message, disable_web_page_preview=True, thread_id=None):
     """Internal helper function to send a text message to Telegram."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("Telegram Bot Token or Chat ID is not configured.")
@@ -60,6 +60,8 @@ def _send_text_alert(message, disable_web_page_preview=True):
         "parse_mode": "MarkdownV2",
         "disable_web_page_preview": disable_web_page_preview
     }
+    if thread_id is not None:
+        payload["message_thread_id"] = thread_id
     try:
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code == 200:
@@ -69,7 +71,7 @@ def _send_text_alert(message, disable_web_page_preview=True):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending Telegram request: {e}")
 
-def _send_photo_alert(caption_text, image_path):
+def _send_photo_alert(caption_text, image_path, thread_id=None):
     """Internal helper function to send a photo message to Telegram."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("Telegram Bot Token or Chat ID is not configured.")
@@ -78,7 +80,7 @@ def _send_photo_alert(caption_text, image_path):
     if not os.path.exists(image_path):
         logger.error(f"Error: Image path does not exist: {image_path}")
         # Fallback to a text alert if the image is missing
-        _send_text_alert(f"⚠️ Image File Not Found ⚠️\n{caption_text}\n(Expected at: {image_path})")
+        _send_text_alert(f"⚠️ Image File Not Found ⚠️\n{caption_text}\n(Expected at: {image_path})", thread_id=thread_id)
         return
     caption_text = re.sub(r'(?<!\\)([\.\(\)\-\|])', r'\\\1', caption_text)
 
@@ -88,6 +90,8 @@ def _send_photo_alert(caption_text, image_path):
         "caption": caption_text,
         "parse_mode": "MarkdownV2"
     }
+    if thread_id is not None:
+        data["message_thread_id"] = thread_id
 
     try:
         with open(image_path, 'rb') as photo_file:
@@ -151,7 +155,7 @@ def send_telegram_alert(trade, platform):
     }
     
     message = message_template.format(**formatted_data)
-    _send_text_alert(message, disable_web_page_preview=True)
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("trades"))
 
 def send_high_value_trade_alert(trade, platform):
     """Sends a high-priority Telegram alert when a trade exceeds 5000 MXN."""
@@ -177,7 +181,7 @@ def send_high_value_trade_alert(trade, platform):
         payment_method_name=escape_markdown(trade.get('payment_method_name', 'N/A')),
         trade_hash=escape_markdown(trade.get('trade_hash', 'N/A'))
     )
-    _send_text_alert(message, disable_web_page_preview=True)
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("trades"))
 
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     """Sends a Telegram alert for a new chat message."""
@@ -188,7 +192,7 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
         "owner_username": escape_markdown(owner_username)
     }
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
-    _send_text_alert(message, disable_web_page_preview=True)
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("system"))
 
 def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_name=None):
     """Sends a Telegram alert for a new attachment."""
@@ -209,7 +213,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             author=escape_markdown(author)
         )
     
-    _send_photo_alert(caption_text, image_path)
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("trades"))
 
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     """Sends a Telegram alert for amount validation."""
@@ -251,7 +255,7 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
          logger.error(f"Amount validation message could not be formatted for trade {trade_hash}")
          return
 
-    _send_text_alert(message)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"))
 
 def send_email_validation_alert(trade_hash, success, account_name, details=None):
     """Sends a Telegram alert about the email validation result."""
@@ -268,7 +272,7 @@ def send_email_validation_alert(trade_hash, success, account_name, details=None)
     else:
         message = EMAIL_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
     
-    _send_text_alert(message)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"))
 
 def send_name_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the OCR name validation result."""
@@ -277,7 +281,7 @@ def send_name_validation_alert(trade_hash, success, account_name):
     else:
         message = NAME_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
 
-    _send_text_alert(message)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"))
 
 def send_status_update_alert(trade_hash, owner_username, new_status):
     """Sends a Telegram alert for trade status changes."""
@@ -296,7 +300,7 @@ def send_status_update_alert(trade_hash, owner_username, new_status):
         status=escape_markdown(new_status)
     )
     
-    _send_text_alert(message)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("system"))
 
 def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
     """Builds and sends a Telegram alert for low wallet balance using a template."""
@@ -320,7 +324,7 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
         balance_details=details_str
     )
     
-    _send_text_alert(message)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("system"))
 
 def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previous_trade_info):
     """Sends a Telegram alert for a duplicate receipt."""
@@ -334,4 +338,4 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
         previous_owner=escape_markdown(previous_owner)
     )
     
-    _send_photo_alert(caption_text, image_path)
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("disputes"))
