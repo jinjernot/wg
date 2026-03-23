@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from config import (
     CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
     EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
-    ONLINE_QUERY_KEYWORDS
+    ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
 from core.api.trade_chat import get_all_messages_from_chat, download_attachment
@@ -348,7 +348,7 @@ class Trade:
             self.handle_third_party_query(new_messages)
             self.handle_release_query(new_messages)
             for msg in reversed(new_messages):
-                 if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+                 if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
                     break
 
@@ -402,7 +402,7 @@ class Trade:
                 logger.debug(f"Alerts already sent for attachment {url}, skipping.")
                 continue
                 
-            if author not in ["davidvs", "JoeWillgang"]:
+            if author not in BOT_OWNER_USERNAMES:
                 logger.debug(f"Processing new attachment by {author} for {self.trade_hash}.")
                 
                 # Check for duplicate receipt
@@ -489,7 +489,7 @@ class Trade:
             return
 
         for msg in new_messages:
-            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
                 message_text = msg.get("text", "")
                 if isinstance(message_text, str) and "oxxo" in message_text.lower():
                     logger.info(f"OXXO keyword detected in bank transfer trade {self.trade_hash}. Sending redirect message.")
@@ -507,7 +507,7 @@ class Trade:
         third_party_keywords = ["3rd party", "third party"]
 
         for msg in new_messages:
-            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
                 message_text = msg.get("text", "")
                 if isinstance(message_text, str):
                     message_lower = message_text.lower()
@@ -530,7 +530,7 @@ class Trade:
             return
 
         for msg in new_messages:
-            if msg.get("author") not in ["davidvs", "JoeWillgang", None]:
+            if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
                 message_text = msg.get("text", "")
                 if isinstance(message_text, str) and "release" in message_text.lower():
                     logger.info(f"Release query detected for trade {self.trade_hash}. Sending reply.")
@@ -553,7 +553,7 @@ class Trade:
         if not all_messages:
             return
 
-        owner_usernames = ["davidvs", "JoeWillgang"]
+        owner_usernames = BOT_OWNER_USERNAMES
         
         # Find the timestamp of the last message from the owner
         last_owner_message_ts = None
@@ -628,7 +628,7 @@ class Trade:
         if not all_messages:
             return
 
-        owner_usernames = ["davidvs", "JoeWillgang"]
+        owner_usernames = BOT_OWNER_USERNAMES
         last_buyer_message_ts = None
         for msg in reversed(all_messages):
             if msg.get("author") not in owner_usernames:
