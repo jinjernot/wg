@@ -3,13 +3,13 @@
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-import requests
 import aiohttp
 import datetime
 import logging
 import re
 import asyncio
 from dateutil.parser import isoparse
+from collections import defaultdict
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
     NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
@@ -191,6 +191,39 @@ class TradeCommands(commands.Cog):
     def cog_unload(self):
         self.refresh_live_trades_channel.cancel()
 
+    async def _attach_buyer_profiles(self, trades: list) -> None:
+        """Fetches buyer profiles from disk (in a thread) and attaches them to each trade dict."""
+        profile_cache = {}
+        for trade in trades:
+            username = trade.get('responder_username')
+            if username and username not in profile_cache:
+                profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
+            trade['buyer_profile'] = profile_cache.get(username)
+
+    def _build_trades_embed(self, trades: list) -> discord.Embed:
+        """Builds and returns the active-trades embed from a list of trade dicts."""
+        totals = defaultdict(float)
+        for t in trades:
+            try:
+                totals[t.get('fiat_currency_code', 'MXN')] += float(t.get('fiat_amount_requested', 0))
+            except (ValueError, TypeError):
+                pass
+        total_str = '  +  '.join(f'**${v:,.0f} {k}**' for k, v in totals.items())
+        summary = f"💵 {total_str} across {len(trades)} trade{'s' if len(trades) != 1 else ''}"
+
+        unique_accounts = {t.get('account_name_source', '') for t in trades}
+        show_account = len(unique_accounts) > 1
+
+        embed = discord.Embed(
+            title=f"📊 Active Trades ({len(trades)})",
+            color=COLORS.get("info", 0x5865F2),
+            description=summary
+        )
+        for trade in trades[:25]:
+            field = create_trade_field(trade, show_account=show_account)
+            embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
+        return embed
+
     @tasks.loop(seconds=60)
     async def refresh_live_trades_channel(self):
         """Fetches active trades and posts a summary only if there are changes."""
@@ -200,9 +233,13 @@ class TradeCommands(commands.Cog):
             return
         
         try:
-            response = requests.get("http://127.0.0.1:5001/get_active_trades", timeout=10)
-            trades = response.json() if response.status_code == 200 else []
-        except requests.exceptions.RequestException as e:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "http://127.0.0.1:5001/get_active_trades",
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    trades = await response.json() if response.status == 200 else []
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
             return
 
@@ -213,54 +250,20 @@ class TradeCommands(commands.Cog):
 
         logger.info("Change detected in active trades. Refreshing channel.")
 
-        # --- MODIFIED SECTION: Fetch profile data ---
-        # Fetch profile data for all unique buyers in the trade list
-        profile_cache = {}
-        if trades:
-            for trade in trades:
-                username = trade.get('responder_username')
-                if username and username not in profile_cache:
-                    # This function reads from disk, so we run it in a thread to avoid blocking
-                    profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
-                
-                # Attach the profile (or None) to the trade object
-                trade['buyer_profile'] = profile_cache.get(username)
-        # --- END MODIFICATION ---
+        await self._attach_buyer_profiles(trades)
 
         await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
 
         if not trades:
             embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
         else:
-            # Improvement 4: Summary description with totals
-            from collections import defaultdict
-            totals = defaultdict(float)
-            for t in trades:
-                try:
-                    totals[t.get('fiat_currency_code', 'MXN')] += float(t.get('fiat_amount_requested', 0))
-                except (ValueError, TypeError):
-                    pass
-            total_str = '  +  '.join(f'**${v:,.0f} {k}**' for k, v in totals.items())
-            summary = f"💵 {total_str} across {len(trades)} trade{'s' if len(trades) != 1 else ''}"
+            embed = self._build_trades_embed(trades)
 
-            # Improvement 5: Only show account if multiple accounts
-            unique_accounts = {t.get('account_name_source', '') for t in trades}
-            show_account = len(unique_accounts) > 1
-
-            embed = discord.Embed(
-                title=f"📊 Active Trades ({len(trades)})",
-                color=COLORS.get("info", 0x5865F2),
-                description=summary
-            )
-            for trade in trades[:25]:
-                field = create_trade_field(trade, show_account=show_account)
-                embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
-        
         embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
         embed.set_footer(text="Last updated")
-        
+
         await channel.send(embed=embed)
-        
+
         self.last_known_trades_state = current_trades_state
         logger.info("Successfully refreshed the active trades channel with new data.")
 
@@ -281,39 +284,18 @@ class TradeCommands(commands.Cog):
                 await interaction.followup.send(embed=discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED), ephemeral=True)
                 return
 
-            # --- MODIFIED SECTION: Fetch profile data ---
-            profile_cache = {}
-            if trades:
-                for trade in trades:
-                    username = trade.get('responder_username')
-                    if username and username not in profile_cache:
-                        profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
-                    trade['buyer_profile'] = profile_cache.get(username)
-            # --- END MODIFICATION ---
-
-            # Improvement 4: Summary description with totals
-            from collections import defaultdict
-            totals = defaultdict(float)
-            for t in trades:
-                try:
-                    totals[t.get('fiat_currency_code', 'MXN')] += float(t.get('fiat_amount_requested', 0))
-                except (ValueError, TypeError):
-                    pass
-            total_str = '  +  '.join(f'**${v:,.0f} {k}**' for k, v in totals.items())
-            summary = f"💵 {total_str} across {len(trades)} trade{'s' if len(trades) != 1 else ''}"
-
-            # Improvement 5: Only show account if multiple accounts
-            unique_accounts = {t.get('account_name_source', '') for t in trades}
-            show_account = len(unique_accounts) > 1
-
-            embed = discord.Embed(
-                title=f"📊 Active Trades ({len(trades)})",
-                color=COLORS.get("info", 0x5865F2),
-                description=summary
-            )
-            for trade in trades[:10]:
-                field = create_trade_field(trade, show_account=show_account)
-                embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
+            await self._attach_buyer_profiles(trades)
+            embed = self._build_trades_embed(trades)
+            # /trades command shows fewer trades than the live feed (10 vs 25)
+            # trim the embed fields down if needed
+            if len(embed.fields) > 10:
+                # rebuild with 10-trade cap
+                embed.clear_fields()
+                unique_accounts = {t.get('account_name_source', '') for t in trades}
+                show_account = len(unique_accounts) > 1
+                for trade in trades[:10]:
+                    field = create_trade_field(trade, show_account=show_account)
+                    embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
 
             await interaction.followup.send(embed=embed, ephemeral=True)
         except (aiohttp.ClientError, asyncio.TimeoutError):

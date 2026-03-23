@@ -10,7 +10,7 @@ from config import (
     ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
-from core.api.trade_chat import get_all_messages_from_chat, download_attachment
+from core.api.trade_chat import download_attachment
 # from core.validation.email import check_for_payment_email, get_gmail_service  # EMAIL MODULE DISABLED
 from core.validation.ocr import (
     extract_text_from_image,
@@ -215,8 +215,8 @@ class Trade:
             paid_timestamp = self.trade_state.get('paid_timestamp')
             if paid_timestamp:
                 if (datetime.now(timezone.utc).timestamp() - paid_timestamp) > 120:
-                    all_messages = get_all_messages_from_chat(self.trade_hash, self.account, self.headers)
-                    has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in all_messages)
+                    all_messages = self._get_chat_messages()
+                    has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in (all_messages or []))
 
                     if not has_attachment:
                         logger.info(f"Trade {self.trade_hash} is 'Paid' for over 2 minutes with no attachment. Sending a reminder.")
