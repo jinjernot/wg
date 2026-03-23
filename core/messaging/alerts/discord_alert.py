@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
-from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID
+from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID, BOT_OWNER_USERNAMES
 from config_messages.discord_messages import (
     AMOUNT_VALIDATION_EMBEDS,
     EMAIL_VALIDATION_EMBEDS,
@@ -414,7 +414,7 @@ def create_chat_message_embed(trade_hash, owner_username, author, message, platf
     """Creates and sends a visually improved Discord embed for a new chat message."""
     
     trade_url = f"https://noones.com/trade/{trade_hash}"
-    is_bot_owner = author in ["davidvs", "JoeWillgang"]
+    is_bot_owner = author in BOT_OWNER_USERNAMES
     is_automated = message in AUTOMATED_MESSAGES
 
     # Determine message type and get template
