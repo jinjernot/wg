@@ -24,11 +24,59 @@ function showToast(title, message, type = 'info') {
 
     container.appendChild(toast);
 
-    // Auto remove after 4 seconds
     setTimeout(() => {
         toast.classList.add('removing');
         setTimeout(() => toast.remove(), 300);
     }, 4000);
+}
+
+// ===========================
+// Release Confirmation Modal
+// ===========================
+function showReleaseModal({ tradeHash, accountName, buyer, amount, hasAttachment }) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('release-modal-overlay');
+        if (existing) existing.remove();
+
+        const noProof = !hasAttachment;
+        const overlay = document.createElement('div');
+        overlay.id = 'release-modal-overlay';
+        overlay.innerHTML = `
+            <div class="release-modal">
+                <div class="release-modal-header ${noProof ? 'danger' : ''}">
+                    <span class="release-modal-icon">${noProof ? '⚠️' : '🔒'}</span>
+                    <h3>${noProof ? 'WARNING — No Proof Uploaded' : 'Confirm Trade Release'}</h3>
+                </div>
+                <div class="release-modal-body">
+                    <div class="release-modal-row"><span>Trade</span><code>${tradeHash}</code></div>
+                    <div class="release-modal-row"><span>Buyer</span><strong>${buyer || 'N/A'}</strong></div>
+                    <div class="release-modal-row"><span>Amount</span><strong>${amount || 'N/A'}</strong></div>
+                    ${noProof
+                        ? `<p class="release-modal-warning">🚨 No receipt has been uploaded. Are you sure you want to release without verifying proof of payment?</p>`
+                        : `<p class="release-modal-ok">✅ Receipt uploaded. Confirm release below.</p>`
+                    }
+                </div>
+                <div class="release-modal-footer">
+                    <button class="release-modal-cancel">Cancel</button>
+                    <button class="release-modal-confirm ${noProof ? 'danger' : ''}">Confirm Release</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('.release-modal-cancel').addEventListener('click', () => {
+            overlay.remove();
+            resolve(false);
+        });
+        overlay.querySelector('.release-modal-confirm').addEventListener('click', () => {
+            overlay.remove();
+            resolve(true);
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) { overlay.remove(); resolve(false); }
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,16 +89,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const offersCheckbox = document.getElementById('offers-checkbox');
     const settingToggles = document.querySelectorAll('.setting-toggle');
     const offersContainer = document.getElementById('offers-container');
-    const generateChartsBtn = document.getElementById('generate-charts-btn'); 
-    // --- NEW ---
+    const generateChartsBtn = document.getElementById('generate-charts-btn');
     const generateMarketReportBtn = document.getElementById('generate-market-report-btn');
-    // --- END NEW ---
     const balancesContainer = document.getElementById('wallet-balances-container');
     const toggleOffersBtn = document.getElementById('toggle-offers-visibility-btn');
 
-    // --- Initial State ---
+    // --- Offers panel: persist visibility in localStorage ---
+    const OFFERS_VISIBLE_KEY = 'offersVisible';
     if (offersContainer) {
-        offersContainer.style.display = 'none';
+        const savedVisible = localStorage.getItem(OFFERS_VISIBLE_KEY) === 'true';
+        offersContainer.style.display = savedVisible ? 'block' : 'none';
+        if (toggleOffersBtn) toggleOffersBtn.textContent = savedVisible ? 'Hide' : 'Show All';
     }
 
     // --- Event Listeners ---
@@ -65,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if(stopBtn) {
+    if (stopBtn) {
         stopBtn.addEventListener('click', async () => {
             stopBtn.classList.add('loading');
             const response = await fetch('/stop_trading', { method: 'POST' });
@@ -80,100 +129,88 @@ document.addEventListener('DOMContentLoaded', () => {
         generateChartsBtn.addEventListener('click', async () => {
             generateChartsBtn.disabled = true;
             generateChartsBtn.textContent = 'Generating...';
-
             try {
                 const response = await fetch('/generate_charts', { method: 'POST' });
                 const result = await response.json();
-
                 if (result.success) {
-                    alert('Reports generated and saved successfully on the server!');
+                    showToast('Reports Generated', 'Reports saved successfully on the server.', 'success');
                 } else {
-                    alert(`Error generating reports: ${result.error || 'Unknown error'}`);
+                    showToast('Error', result.error || 'Unknown error generating reports.', 'error');
                 }
             } catch (error) {
                 console.error('Failed to generate reports:', error);
-                alert('An unexpected error occurred while generating reports.');
+                showToast('Error', 'An unexpected error occurred while generating reports.', 'error');
             } finally {
                 generateChartsBtn.disabled = false;
-                generateChartsBtn.textContent = 'Generate Reports';
+                generateChartsBtn.textContent = '📊 Reports';
             }
         });
     }
 
-// Generate Client Profitability Report Button
-const generateClientReportBtn = document.getElementById('generate-client-report-btn');
-if (generateClientReportBtn) {
-    generateClientReportBtn.addEventListener('click', async () => {
-        generateClientReportBtn.disabled = true;
-        generateClientReportBtn.textContent = 'Generating Report...';
-
-        try {
-            const response = await fetch('/generate_client_report', { method: 'POST' });
-            const result = await response.json();
-
-            if (result.success) {
-                alert('Client Profitability Report generated! Your download will begin.');
-                const downloadUrl = `/charts/${result.filename}`;
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.setAttribute('download', result.filename);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } else {
-                alert(`Error generating report: ${result.error || 'Unknown error'}`);
-            }
-        } catch (error) {
-            console.error('Failed to generate client profitability report:', error);
-            alert('An unexpected error occurred while generating the report.');
-        } finally {
-            generateClientReportBtn.disabled = false;
-            generateClientReportBtn.textContent = 'Download Client Profitability Report';
-        }
-    });
-}
-
-
-    // --- NEW LISTENER ---
-    if (generateMarketReportBtn) {
-        generateMarketReportBtn.addEventListener('click', async () => {
-            generateMarketReportBtn.disabled = true;
-            generateMarketReportBtn.textContent = 'Generating Report... (this may take a minute)';
-
+    // Generate Client Profitability Report Button
+    const generateClientReportBtn = document.getElementById('generate-client-report-btn');
+    if (generateClientReportBtn) {
+        generateClientReportBtn.addEventListener('click', async () => {
+            generateClientReportBtn.disabled = true;
+            generateClientReportBtn.textContent = 'Generating...';
             try {
-                // Set a long timeout, as this request can take a while
-                const response = await fetch('/generate_market_report', { method: 'POST' });
+                const response = await fetch('/generate_client_report', { method: 'POST' });
                 const result = await response.json();
-
                 if (result.success) {
-                    alert('Report generated! Your download will begin.');
-                    // Create a temporary link to trigger the download
-                    const downloadUrl = `/charts/${result.filename}`;
+                    showToast('Report Ready', 'Client Profitability Report generated.', 'success');
                     const link = document.createElement('a');
-                    link.href = downloadUrl;
-                    link.setAttribute('download', result.filename); // This forces download
+                    link.href = `/charts/${result.filename}`;
+                    link.setAttribute('download', result.filename);
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                 } else {
-                    alert(`Error generating report: ${result.error || 'Unknown error'}`);
+                    showToast('Error', result.error || 'Unknown error generating report.', 'error');
                 }
             } catch (error) {
-                console.error('Failed to generate market report:', error);
-                alert('An unexpected error occurred while generating the report.');
+                console.error('Failed to generate client profitability report:', error);
+                showToast('Error', 'An unexpected error occurred.', 'error');
             } finally {
-                generateMarketReportBtn.disabled = false;
-                generateMarketReportBtn.textContent = 'Download MXN Market Report';
+                generateClientReportBtn.disabled = false;
+                generateClientReportBtn.textContent = 'Download Client Profitability Report';
             }
         });
     }
-    // --- END NEW LISTENER ---
+
+    if (generateMarketReportBtn) {
+        generateMarketReportBtn.addEventListener('click', async () => {
+            generateMarketReportBtn.disabled = true;
+            generateMarketReportBtn.textContent = 'Generating... (this may take a minute)';
+            try {
+                const response = await fetch('/generate_market_report', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Report Ready', 'MXN Market Report generated. Downloading now.', 'success');
+                    const link = document.createElement('a');
+                    link.href = `/charts/${result.filename}`;
+                    link.setAttribute('download', result.filename);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    showToast('Error', result.error || 'Unknown error generating report.', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to generate market report:', error);
+                showToast('Error', 'An unexpected error occurred.', 'error');
+            } finally {
+                generateMarketReportBtn.disabled = false;
+                generateMarketReportBtn.textContent = '📈 MXN Market Report';
+            }
+        });
+    }
 
     if (toggleOffersBtn) {
         toggleOffersBtn.addEventListener('click', () => {
             const isHidden = offersContainer.style.display === 'none';
             offersContainer.style.display = isHidden ? 'block' : 'none';
             toggleOffersBtn.textContent = isHidden ? 'Hide' : 'Show All';
+            localStorage.setItem(OFFERS_VISIBLE_KEY, isHidden ? 'true' : 'false');
         });
     }
 
@@ -195,18 +232,14 @@ if (generateClientReportBtn) {
         toggle.addEventListener('change', async () => {
             const key = toggle.dataset.key;
             const isEnabled = toggle.checked;
-
             try {
                 const result = await saveSetting(key, isEnabled);
                 if (!result.success) {
-                    alert(`Error: ${result.error}`);
-                    toggle.checked = !isEnabled; // Revert on error
+                    showToast('Error', result.error, 'error');
+                    toggle.checked = !isEnabled;
                     return;
                 }
-                console.log(result.message);
 
-                // If this is one of the exclusive toggles and it was just turned ON,
-                // turn the other one OFF in both the UI and the server.
                 if (isEnabled && exclusiveKeys.includes(key)) {
                     for (const otherKey of exclusiveKeys) {
                         if (otherKey === key) continue;
@@ -222,8 +255,8 @@ if (generateClientReportBtn) {
                 }
             } catch (error) {
                 console.error(`Failed to update setting ${key}:`, error);
-                alert('An unexpected error occurred.');
-                toggle.checked = !isEnabled; // Revert on error
+                showToast('Error', 'An unexpected error occurred.', 'error');
+                toggle.checked = !isEnabled;
             }
         });
     });
@@ -240,15 +273,15 @@ if (generateClientReportBtn) {
                 });
                 const result = await response.json();
                 if (!result.success) {
-                    alert(`Error: ${result.message}`);
+                    showToast('Error', result.message, 'error');
                     offersCheckbox.checked = !isEnabled;
                 } else {
-                    alert(result.message);
-                    fetchOffers(); // Refresh the individual offers list
+                    showToast('Offers Updated', result.message, 'success');
+                    fetchOffers();
                 }
             } catch (error) {
                 console.error('Failed to update offers status:', error);
-                alert('An unexpected error occurred.');
+                showToast('Error', 'An unexpected error occurred.', 'error');
                 offersCheckbox.checked = !isEnabled;
             }
         });
@@ -260,15 +293,13 @@ if (generateClientReportBtn) {
             const selections = [];
             forms.forEach(form => {
                 const formData = new FormData(form);
-                const data = {
+                selections.push({
                     filename: formData.get('filename'),
                     owner_username: formData.get('owner_username'),
                     payment_method: formData.get('payment_method'),
                     selected_id: formData.get('selected_id')
-                };
-                selections.push(data);
+                });
             });
-
             try {
                 const response = await fetch('/update_all_selections', {
                     method: 'POST',
@@ -277,19 +308,20 @@ if (generateClientReportBtn) {
                 });
                 const result = await response.json();
                 if (result.success) {
-                    alert('All selections saved successfully!');
+                    showToast('Saved', 'All account selections saved successfully.', 'success');
                 } else {
-                    alert(`Error: ${result.error}`);
+                    showToast('Error', result.error, 'error');
                 }
             } catch (error) {
                 console.error('Failed to save all selections:', error);
-                alert('An unexpected error occurred while saving selections.');
+                showToast('Error', 'An unexpected error occurred while saving selections.', 'error');
             }
         });
     }
-    
+
     if (tradesContainer) {
         tradesContainer.addEventListener('click', async (event) => {
+            // --- Send Manual Message ---
             if (event.target.classList.contains('send-manual-message-btn')) {
                 const button = event.target;
                 const tradeHash = button.dataset.tradeHash;
@@ -298,7 +330,7 @@ if (generateClientReportBtn) {
                 const message = input.value.trim();
 
                 if (!message) {
-                    alert('Please type a message to send.');
+                    showToast('Missing Message', 'Please type a message to send.', 'warning');
                     return;
                 }
 
@@ -309,36 +341,35 @@ if (generateClientReportBtn) {
                     const response = await fetch('/send_manual_message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            trade_hash: tradeHash,
-                            account_name: accountName,
-                            message: message
-                        })
+                        body: JSON.stringify({ trade_hash: tradeHash, account_name: accountName, message })
                     });
-
                     const result = await response.json();
-
                     if (result.success) {
-                        alert(result.message);
-                        input.value = ''; // Clear input on success
+                        showToast('Message Sent', result.message, 'success');
+                        input.value = '';
                     } else {
-                        alert(`Error: ${result.error}`);
+                        showToast('Error', result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Failed to send manual message:', error);
-                    alert('An unexpected error occurred.');
+                    showToast('Error', 'An unexpected error occurred.', 'error');
                 } finally {
                     button.disabled = false;
                     button.textContent = 'Send';
                 }
-            } else if (event.target.classList.contains('release-trade-btn')) {
+            }
+
+            // --- Release Trade (styled modal) ---
+            if (event.target.classList.contains('release-trade-btn')) {
                 const button = event.target;
                 const tradeHash = button.dataset.tradeHash;
                 const accountName = button.dataset.accountName;
+                const buyer = button.dataset.buyer;
+                const amount = button.dataset.amount;
+                const hasAttachment = button.dataset.hasAttachment === 'true';
 
-                if (!confirm(`Are you sure you want to release the trade ${tradeHash}?`)) {
-                    return;
-                }
+                const confirmed = await showReleaseModal({ tradeHash, accountName, buyer, amount, hasAttachment });
+                if (!confirmed) return;
 
                 button.disabled = true;
                 button.textContent = '...';
@@ -347,23 +378,18 @@ if (generateClientReportBtn) {
                     const response = await fetch('/release_trade', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            trade_hash: tradeHash,
-                            account_name: accountName
-                        })
+                        body: JSON.stringify({ trade_hash: tradeHash, account_name: accountName })
                     });
-
                     const result = await response.json();
-
                     if (result.success) {
-                        alert(result.message);
-                        fetchActiveTrades(); // Refresh the trades table
+                        showToast('Released', result.message, 'success');
+                        fetchActiveTrades();
                     } else {
-                        alert(`Error: ${result.error}`);
+                        showToast('Error', result.error, 'error');
                     }
                 } catch (error) {
                     console.error('Failed to release trade:', error);
-                    alert('An unexpected error occurred.');
+                    showToast('Error', 'An unexpected error occurred.', 'error');
                 } finally {
                     button.disabled = false;
                     button.textContent = 'Release';
@@ -379,34 +405,27 @@ if (generateClientReportBtn) {
                 const offerHash = checkbox.dataset.offerHash;
                 const accountName = checkbox.dataset.accountName;
                 const isEnabled = checkbox.checked;
-
                 const statusCell = checkbox.closest('tr').querySelector('.status-indicator');
 
                 checkbox.disabled = true;
-
                 try {
                     const response = await fetch('/offer/toggle_single', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            offer_hash: offerHash,
-                            account_name: accountName,
-                            enabled: isEnabled
-                        })
+                        body: JSON.stringify({ offer_hash: offerHash, account_name: accountName, enabled: isEnabled })
                     });
                     const result = await response.json();
                     if (!result.success) {
-                        alert(`Error updating offer: ${result.error}`);
-                        checkbox.checked = !isEnabled; // Revert on error
+                        showToast('Error', result.error, 'error');
+                        checkbox.checked = !isEnabled;
                     } else {
-                        // Update status text and color on success
                         statusCell.textContent = isEnabled ? 'Enabled' : 'Disabled';
                         statusCell.className = `status-indicator ${isEnabled ? 'running' : 'stopped'}`;
                     }
                 } catch (error) {
                     console.error('Failed to toggle offer:', error);
-                    alert('An unexpected error occurred.');
-                    checkbox.checked = !isEnabled; // Revert on error
+                    showToast('Error', 'An unexpected error occurred.', 'error');
+                    checkbox.checked = !isEnabled;
                 } finally {
                     checkbox.disabled = false;
                 }
@@ -431,6 +450,21 @@ if (generateClientReportBtn) {
         }
     }
 
+    // "Last updated" counter
+    let lastTradesFetchTime = null;
+    let lastUpdatedInterval = null;
+
+    function startLastUpdatedCounter(labelEl) {
+        if (lastUpdatedInterval) clearInterval(lastUpdatedInterval);
+        lastTradesFetchTime = Date.now();
+        lastUpdatedInterval = setInterval(() => {
+            if (!lastTradesFetchTime) return;
+            const secs = Math.floor((Date.now() - lastTradesFetchTime) / 1000);
+            let text = secs < 60 ? `${secs}s ago` : `${Math.floor(secs / 60)}m ${secs % 60}s ago`;
+            if (labelEl) labelEl.textContent = `Last updated: ${text}`;
+        }, 1000);
+    }
+
     async function fetchActiveTrades() {
         try {
             const response = await fetch('/get_active_trades');
@@ -447,10 +481,22 @@ if (generateClientReportBtn) {
     function updateTradesTable(trades) {
         if (!tradesContainer) return;
         tradesContainer.innerHTML = '';
+
         if (!trades || trades.length === 0) {
             tradesContainer.innerHTML = '<p>No active trades found.</p>';
             return;
         }
+
+        // Header with "last updated" counter
+        const headerRow = document.createElement('div');
+        headerRow.className = 'trades-table-header';
+        const lastUpdatedEl = document.createElement('span');
+        lastUpdatedEl.className = 'trades-last-updated';
+        lastUpdatedEl.textContent = 'Last updated: just now';
+        headerRow.appendChild(lastUpdatedEl);
+        tradesContainer.appendChild(headerRow);
+        startLastUpdatedCounter(lastUpdatedEl);
+
         const table = document.createElement('table');
         table.innerHTML = `
             <thead>
@@ -467,48 +513,59 @@ if (generateClientReportBtn) {
             <tbody></tbody>
         `;
         const tbody = table.querySelector('tbody');
+
         trades.forEach(trade => {
             const row = document.createElement('tr');
-            
-            // Check if trade is newly created (within 30 minutes)
+
             const isNewTrade = () => {
                 if (trade.started_at) {
-                    const startedTime = new Date(trade.started_at);
-                    const now = new Date();
-                    const diffMinutes = (now - startedTime) / (1000 * 60);
+                    const diffMinutes = (new Date() - new Date(trade.started_at)) / (1000 * 60);
                     return diffMinutes <= 30;
                 }
                 return false;
             };
-            
-            row.innerHTML = `
-                <td>${trade.account_name_source || 'N/A'}</td>
-                <td>${trade.trade_hash || 'N/A'}</td>
-                <td>${trade.responder_username || 'N/A'}</td>
-                <td>${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}</td>
-                <td>${trade.payment_method_name || 'N/A'}</td>
-                <td>${trade.trade_status || 'N/A'}</td>
-                <td class="message-cell">
-                    <input type="text" class="manual-message-input" placeholder="Type a message...">
-                    <button class="send-manual-message-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Send</button>
-                    <button class="release-trade-btn" data-trade-hash="${trade.trade_hash}" data-account-name="${trade.account_name_source}">Release</button>
-                </td>
-            `;
-            // Check if paid trade is old (>3 hours)
+
             const isOldPaidTrade = () => {
                 if (trade.trade_status === 'Paid' && trade.started_at) {
-                    const startedTime = new Date(trade.started_at);
-                    const now = new Date();
-                    const diffHours = (now - startedTime) / (1000 * 60 * 60);
+                    const diffHours = (new Date() - new Date(trade.started_at)) / (1000 * 60 * 60);
                     return diffHours > 3;
                 }
                 return false;
             };
-            
-            // Apply color coding based on status (priority order)
+
+            // Status cell with optional "No Receipt" badge
+            const noReceipt = trade.trade_status === 'Paid' && !trade.has_attachment;
+            const statusBadge = noReceipt
+                ? `${trade.trade_status || 'N/A'} <span class="no-receipt-badge">⚠️ No Receipt</span>`
+                : (trade.trade_status || 'N/A');
+
+            const amountStr = `${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}`.trim();
+
+            row.innerHTML = `
+                <td>${trade.account_name_source || 'N/A'}</td>
+                <td>${trade.trade_hash || 'N/A'}</td>
+                <td>${trade.responder_username || 'N/A'}</td>
+                <td>${amountStr}</td>
+                <td>${trade.payment_method_name || 'N/A'}</td>
+                <td>${statusBadge}</td>
+                <td class="message-cell">
+                    <input type="text" class="manual-message-input" placeholder="Type a message...">
+                    <button class="send-manual-message-btn"
+                        data-trade-hash="${trade.trade_hash}"
+                        data-account-name="${trade.account_name_source}">Send</button>
+                    <button class="release-trade-btn"
+                        data-trade-hash="${trade.trade_hash}"
+                        data-account-name="${trade.account_name_source}"
+                        data-buyer="${trade.responder_username || ''}"
+                        data-amount="${amountStr}"
+                        data-has-attachment="${trade.has_attachment ? 'true' : 'false'}">Release</button>
+                </td>
+            `;
+
+            // Row colour coding
             if (isNewTrade() && trade.trade_status !== 'Paid' && trade.trade_status !== 'Dispute open') {
                 row.classList.add('status-new');
-            } else if (trade.trade_status === 'Paid' && !trade.has_attachment) {
+            } else if (noReceipt) {
                 row.classList.add('status-paid-no-attachment');
             } else if (trade.trade_status === 'Paid' && trade.has_attachment && isOldPaidTrade()) {
                 row.classList.add('status-paid-old');
@@ -518,7 +575,7 @@ if (generateClientReportBtn) {
                 row.classList.add('status-disputed');
             }
 
-            // High-value trade highlight: >3000 MXN
+            // High-value highlight
             const amount = parseFloat(trade.fiat_amount_requested);
             if (!isNaN(amount) && amount > 3000 && (trade.fiat_currency_code || '').toUpperCase() === 'MXN') {
                 row.classList.add('high-value');
@@ -526,6 +583,7 @@ if (generateClientReportBtn) {
 
             tbody.appendChild(row);
         });
+
         tradesContainer.appendChild(table);
     }
 
@@ -565,8 +623,8 @@ if (generateClientReportBtn) {
         `;
         const tbody = table.querySelector('tbody');
         offers.forEach(offer => {
-            const row = document.createElement('tr');
             const isEnabled = offer.enabled;
+            const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${offer.account_name || 'N/A'}</td>
                 <td>${offer.payment_method_name || 'N/A'}</td>
@@ -575,8 +633,8 @@ if (generateClientReportBtn) {
                 <td><span class="status-indicator ${isEnabled ? 'running' : 'stopped'}">${isEnabled ? 'Enabled' : 'Disabled'}</span></td>
                 <td>
                     <label class="switch">
-                        <input type="checkbox" 
-                               class="offer-toggle-checkbox" 
+                        <input type="checkbox"
+                               class="offer-toggle-checkbox"
                                data-offer-hash="${offer.offer_hash}"
                                data-account-name="${offer.account_name}"
                                ${isEnabled ? 'checked' : ''}>
@@ -589,7 +647,7 @@ if (generateClientReportBtn) {
         offersContainer.appendChild(table);
     }
 
-    // --- NEW FUNCTIONS FOR WALLET BALANCES ---
+    // --- Wallet Balances (dynamic — no hardcoded account names) ---
     async function fetchWalletBalances() {
         if (!balancesContainer) return;
         try {
@@ -602,72 +660,58 @@ if (generateClientReportBtn) {
         }
     }
 
-function updateBalancesDashboard(balances) {
+    function updateBalancesDashboard(balances) {
         const davidContainer = document.getElementById('david-balances-col');
         const joeContainer = document.getElementById('joe-balances-col');
-
         if (!davidContainer || !joeContainer) return;
 
-        // --- UPDATED: Clear previous content without adding titles ---
-        davidContainer.innerHTML = ''; 
+        davidContainer.innerHTML = '';
         joeContainer.innerHTML = '';
 
-        if (Object.keys(balances).length === 0) {
-            davidContainer.innerHTML += '<p>No balance data found.</p>';
-            joeContainer.innerHTML += '<p>No balance data found.</p>';
+        const accounts = Object.keys(balances).filter(
+            name => !name.toLowerCase().includes('paxful')
+        );
+
+        if (accounts.length === 0) {
+            davidContainer.innerHTML = '<p>No balance data found.</p>';
             return;
         }
-        
-        for (const accountName in balances) {
-            // Skip Paxful accounts
-            if (accountName.toLowerCase().includes('paxful')) {
-                continue;
-            }
-            
+
+        accounts.forEach((accountName, idx) => {
             const accountData = balances[accountName];
-            
             let content = `<div class="balance-account-container">`;
             content += `<h4 class="balance-account-name">${accountName.replace(/_/g, ' ')}</h4>`;
 
             if (accountData.error) {
                 content += `<p style="color: #e53e3e;">Error: ${accountData.error}</p>`;
             } else {
-                let hasPositiveBalance = false;
+                let hasBalance = false;
                 let balanceContent = '<ul class="balance-list">';
-                
-                if (Object.keys(accountData).length > 0) {
-                    for (const currency in accountData) {
-                        const balanceValue = parseFloat(accountData[currency]);
-                        if (balanceValue !== 0) {
-                            balanceContent += `<li><strong>${currency.toUpperCase()}:</strong> ${accountData[currency]}</li>`;
-                            hasPositiveBalance = true;
-                        }
+                for (const currency in accountData) {
+                    if (parseFloat(accountData[currency]) !== 0) {
+                        balanceContent += `<li><strong>${currency.toUpperCase()}</strong>${accountData[currency]}</li>`;
+                        hasBalance = true;
                     }
                 }
-
-                if (!hasPositiveBalance) {
-                    balanceContent += '<li>No active balances.</li>';
-                }
-                
+                if (!hasBalance) balanceContent += '<li>No active balances.</li>';
                 balanceContent += '</ul>';
                 content += balanceContent;
             }
-            content += `</div>`;
+            content += '</div>';
 
-            if (accountName.toLowerCase().startsWith('david')) {
-                davidContainer.innerHTML += content;
-            } else if (accountName.toLowerCase().startsWith('joe')) {
-                joeContainer.innerHTML += content;
-            }
-        }
+            // Distribute accounts across the two columns evenly by index
+            const target = idx % 2 === 0 ? davidContainer : joeContainer;
+            target.innerHTML += content;
+        });
     }
+
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
     fetchOffers();
-    fetchWalletBalances(); // Initial fetch
+    fetchWalletBalances();
     setInterval(updateStatus, 60000);
     setInterval(fetchActiveTrades, 60000);
-    setInterval(fetchOffers, 120000); 
+    setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
 });

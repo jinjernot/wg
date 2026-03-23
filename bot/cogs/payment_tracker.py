@@ -6,7 +6,9 @@ from datetime import datetime
 from typing import Optional
 
 from bot.utils.payment_database import PaymentDatabase
+from config import DISCORD_GUILD_ID
 
+MY_GUILD = discord.Object(id=DISCORD_GUILD_ID)
 logger = logging.getLogger(__name__)
 
 class PaymentTracker(commands.Cog):
@@ -33,6 +35,7 @@ class PaymentTracker(commands.Cog):
         except:
             return dt_str
     
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="amzn-record-payment", description="Record a customer payment")
     @app_commands.describe(
         customer="Customer name",
@@ -89,6 +92,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="amzn-payment-history", description="View payment history for a customer")
     @app_commands.describe(customer="Customer name")
     async def payment_history(
@@ -146,6 +150,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="amzn-payment-total", description="View total amount paid by a customer")
     @app_commands.describe(customer="Customer name")
     async def payment_total(
@@ -184,6 +189,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="amzn-all-payments", description="View all payment records")
     async def all_payments(self, interaction: discord.Interaction):
         """View all payment records across all customers."""
@@ -237,6 +243,7 @@ class PaymentTracker(commands.Cog):
                 ephemeral=True
             )
     
+    @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="amzn-payment-stats", description="View payment statistics")
     async def payment_stats(self, interaction: discord.Interaction):
         """View summary statistics across all payments."""

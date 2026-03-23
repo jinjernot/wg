@@ -200,7 +200,7 @@ class TradeCommands(commands.Cog):
                 profile_cache[username] = await asyncio.to_thread(generate_user_profile, username)
             trade['buyer_profile'] = profile_cache.get(username)
 
-    def _build_trades_embed(self, trades: list) -> discord.Embed:
+    def _build_trades_embed(self, trades: list, cap: int = 25) -> discord.Embed:
         """Builds and returns the active-trades embed from a list of trade dicts."""
         totals = defaultdict(float)
         for t in trades:
@@ -219,9 +219,12 @@ class TradeCommands(commands.Cog):
             color=COLORS.get("info", 0x5865F2),
             description=summary
         )
-        for trade in trades[:25]:
+        shown = min(len(trades), cap)
+        for trade in trades[:shown]:
             field = create_trade_field(trade, show_account=show_account)
             embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
+        if shown < len(trades):
+            embed.set_footer(text=f"Showing {shown} of {len(trades)} trades")
         return embed
 
     @tasks.loop(seconds=60)
@@ -285,18 +288,7 @@ class TradeCommands(commands.Cog):
                 return
 
             await self._attach_buyer_profiles(trades)
-            embed = self._build_trades_embed(trades)
-            # /trades command shows fewer trades than the live feed (10 vs 25)
-            # trim the embed fields down if needed
-            if len(embed.fields) > 10:
-                # rebuild with 10-trade cap
-                embed.clear_fields()
-                unique_accounts = {t.get('account_name_source', '') for t in trades}
-                show_account = len(unique_accounts) > 1
-                for trade in trades[:10]:
-                    field = create_trade_field(trade, show_account=show_account)
-                    embed.add_field(name=field["name"], value=field["value"], inline=field["inline"])
-
+            embed = self._build_trades_embed(trades, cap=10)
             await interaction.followup.send(embed=embed, ephemeral=True)
         except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
