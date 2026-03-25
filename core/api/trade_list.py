@@ -74,9 +74,13 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                                     five_minutes_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
                                     recently_completed = []
                                     for trade in completed_trades:
-                                        # API uses 'Released' status for completed trades
-                                        if trade.get("trade_status") in ["Released", "Successful"]:
-                                            completed_at_str = trade.get("completed_at")
+                                        # API uses 'status' = 'successful' or 'trade_status' = 'Released'
+                                        is_completed = (
+                                            str(trade.get("trade_status")).lower() in ["released", "successful"] or
+                                            str(trade.get("status")).lower() == "successful"
+                                        )
+                                        if is_completed:
+                                            completed_at_str = trade.get("completed_at") or trade.get("ended_at")
                                             if completed_at_str:
                                                 try:
                                                     completed_at = datetime.fromisoformat(completed_at_str.replace("Z", "+00:00"))

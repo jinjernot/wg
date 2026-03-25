@@ -177,12 +177,13 @@ class Trade:
         This runs every cycle independently of status_history so it retries if the first cycle was missed."""
         if self.trade_state.get('completion_message_sent'):
             return
-        current_status = self.trade_state.get("trade_status")
-        if current_status in ['Released', 'Successful']:
-            logger.info(
-                f"Trade {self.trade_hash} is '{current_status}'. Sending completion message.")
-            send_trade_completion_message(
-                self.trade_hash, self.account, self.headers)
+            
+        trade_status = str(self.trade_state.get("trade_status")).lower()
+        status = str(self.trade_state.get("status")).lower()
+        
+        if trade_status in ['released', 'successful'] or status == 'successful':
+            logger.info(f"Trade {self.trade_hash} is completed. Sending completion message.")
+            send_trade_completion_message(self.trade_hash, self.account, self.headers)
             self.trade_state['completion_message_sent'] = True
             self.save()
 
