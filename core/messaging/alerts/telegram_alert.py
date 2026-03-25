@@ -235,7 +235,7 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     }
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
     reply_to = get_message_id(trade_hash)
-    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("system"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_name=None):
     """Sends a Telegram alert for a new attachment."""
@@ -257,7 +257,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
         )
     
     reply_to = get_message_id(trade_hash)
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     """Sends a Telegram alert for amount validation."""
@@ -299,7 +299,8 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
          logger.error(f"Amount validation message could not be formatted for trade {trade_hash}")
          return
 
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("attachments"))
+    reply_to = get_message_id(trade_hash)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_email_validation_alert(trade_hash, success, account_name, details=None):
     """Sends a Telegram alert about the email validation result."""
@@ -317,7 +318,7 @@ def send_email_validation_alert(trade_hash, success, account_name, details=None)
         message = EMAIL_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
     
     reply_to = get_message_id(trade_hash)
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_name_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the OCR name validation result."""
@@ -326,7 +327,8 @@ def send_name_validation_alert(trade_hash, success, account_name):
     else:
         message = NAME_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
 
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("attachments"))
+    reply_to = get_message_id(trade_hash)
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_status_update_alert(trade_hash, owner_username, new_status):
     """Sends a Telegram alert for trade status changes."""
@@ -346,7 +348,7 @@ def send_status_update_alert(trade_hash, owner_username, new_status):
     )
     
     reply_to = get_message_id(trade_hash)
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("system"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
     """Builds and sends a Telegram alert for low wallet balance using a template."""
@@ -385,4 +387,4 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     )
     
     reply_to = get_message_id(trade_hash)
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
