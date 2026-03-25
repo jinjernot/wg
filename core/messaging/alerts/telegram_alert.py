@@ -48,19 +48,8 @@ def escape_markdown(text):
     return re.sub(f'(?<!\\\\)([{re.escape(escape_chars)}])', r'\\\1', text)
 
 def get_inline_keyboard(trade_hash):
-    """Generates an inline keyboard with an Open Trade button."""
-    if not trade_hash:
-        return None
-    return {
-        "inline_keyboard": [
-            [
-                {
-                    "text": "🔗 Open Trade",
-                    "url": f"https://noones.com/trade/{trade_hash}"
-                }
-            ]
-        ]
-    }
+    """Generates an inline keyboard (Currently disabled)."""
+    return None
 
 def _send_text_alert(message, disable_web_page_preview=True, thread_id=None, reply_to_message_id=None, reply_markup=None):
     """Internal helper function to send a text message to Telegram."""
