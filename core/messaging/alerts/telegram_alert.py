@@ -155,7 +155,7 @@ def send_telegram_alert(trade, platform):
     }
     
     message = message_template.format(**formatted_data)
-    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("trades"))
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("new_trades"))
 
 def send_high_value_trade_alert(trade, platform):
     """Sends a high-priority Telegram alert when a trade exceeds 5000 MXN."""
@@ -181,7 +181,7 @@ def send_high_value_trade_alert(trade, platform):
         payment_method_name=escape_markdown(trade.get('payment_method_name', 'N/A')),
         trade_hash=escape_markdown(trade.get('trade_hash', 'N/A'))
     )
-    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("trades"))
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("new_trades"))
 
 def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     """Sends a Telegram alert for a new chat message."""
@@ -213,7 +213,7 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             author=escape_markdown(author)
         )
     
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("trades"))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"))
 
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     """Sends a Telegram alert for amount validation."""
@@ -324,7 +324,7 @@ def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_d
         balance_details=details_str
     )
     
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("system"))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("low_balance"))
 
 def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previous_trade_info):
     """Sends a Telegram alert for a duplicate receipt."""
@@ -338,4 +338,4 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
         previous_owner=escape_markdown(previous_owner)
     )
     
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("disputes"))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"))
