@@ -5,7 +5,8 @@ from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
 from config import PLATFORM_ACCOUNTS, CHAT_URL_NOONES, TRADES_ACTIVE_DIR
-from core.api.trade_chat import get_all_messages_from_chat, release_trade
+from core.api.trade_chat import release_trade
+from core.state.trade_state_loader import load_processed_trades
 
 trades_bp = Blueprint('trades', __name__)
 logger = logging.getLogger(__name__)
@@ -30,34 +31,16 @@ def get_active_trades():
                         for trade in trades_list:
                             trade['account_name_source'] = account_name_source
                             
-                            # Check for attachments for ALL trades (not just Paid)
-                            # Use original filename for lookup (case-sensitive match)
-                            account_name_for_lookup = filename.replace("_trades.json", "")
-                            account = next(
-                                (acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name_for_lookup), None)
-                            if account:
-                                token = fetch_token_with_retry(account)
-                                if token:
-                                    headers = {"Authorization": f"Bearer {token}"}
-                                    all_messages = get_all_messages_from_chat(
-                                        trade.get("trade_hash"), account, headers)
-                                    
-                                    # Debug logging
-                                    logger.debug(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Got {len(all_messages) if all_messages else 0} messages")
-                                    
-                                    if all_messages:
-                                        attachment_messages = [msg for msg in all_messages if msg.get("type") == "trade_attach_uploaded"]
-                                        logger.debug(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Found {len(attachment_messages)} attachment messages")
-                                        trade['has_attachment'] = len(attachment_messages) > 0
-                                    else:
-                                        logger.warning(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: No messages returned!")
-                                        trade['has_attachment'] = False
-                                else:
-                                    logger.error(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Failed to get token")
-                                    trade['has_attachment'] = False
-                            else:
-                                logger.error(f"[ATTACHMENT CHECK] Trade {trade.get('trade_hash')}: Account not found")
-                                trade['has_attachment'] = False
+                            
+                            owner_username = trade.get("owner_username", "unknown_user")
+                            if "owner_states_cache" not in locals():
+                                owner_states_cache = {}
+                            if owner_username not in owner_states_cache:
+                                owner_states_cache[owner_username] = load_processed_trades(owner_username, "Noones")
+                                
+                            trade_state = owner_states_cache[owner_username].get(trade.get("trade_hash"), {})
+                            processed_attachments = trade_state.get("processed_attachments", {})
+                            trade['has_attachment'] = len(processed_attachments) > 0
                         active_trades_data.extend(trades_list)
             except Exception as e:
                 logger.error(
