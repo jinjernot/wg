@@ -255,7 +255,7 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
          logger.error(f"Amount validation message could not be formatted for trade {trade_hash}")
          return
 
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("attachments"))
 
 def send_email_validation_alert(trade_hash, success, account_name, details=None):
     """Sends a Telegram alert about the email validation result."""
@@ -281,7 +281,7 @@ def send_name_validation_alert(trade_hash, success, account_name):
     else:
         message = NAME_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
 
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("validation"))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get("attachments"))
 
 def send_status_update_alert(trade_hash, owner_username, new_status):
     """Sends a Telegram alert for trade status changes."""
