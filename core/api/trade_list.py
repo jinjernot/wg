@@ -80,7 +80,14 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                                             if completed_at_str:
                                                 try:
                                                     completed_at = datetime.fromisoformat(completed_at_str.replace("Z", "+00:00"))
+                                                    if completed_at.tzinfo is None:
+                                                        completed_at = completed_at.replace(tzinfo=timezone.utc)
+                                                        
                                                     if completed_at > five_minutes_ago:
+                                                        # /v1/trade/completed API omits owner_username, inject it directly
+                                                        if "owner_username" not in trade:
+                                                            trade["owner_username"] = account["name"].split("_")[0]
+                                                            
                                                         recently_completed.append(trade)
                                                         logger.info(f"Found recently completed trade: {trade.get('trade_hash')} at {completed_at_str}")
                                                 except (ValueError, TypeError) as e:
