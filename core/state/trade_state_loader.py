@@ -63,6 +63,11 @@ def save_processed_trade(trade_data, platform):
     # Load all trades to ensure we don't overwrite other trades in the file.
     all_trades = load_processed_trades(owner_username, platform)
     
+    # Check if the data has actually changed before doing heavy I/O
+    if all_trades.get(trade_hash) == trade_data:
+        logger.debug(f"Trade state for {trade_hash} has not changed. Skipping disk write.")
+        return
+    
     # Update the dictionary with the new, complete data for the specific trade.
     all_trades[trade_hash] = trade_data
 
