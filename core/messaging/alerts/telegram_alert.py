@@ -234,8 +234,7 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
         "owner_username": escape_markdown(owner_username)
     }
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
-    reply_to = get_message_id(trade_hash)
-    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("buyer_chats"), reply_markup=get_inline_keyboard(trade_hash))
 
 def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_name=None):
     """Sends a Telegram alert for a new attachment."""
@@ -256,8 +255,13 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
             author=escape_markdown(author)
         )
     
+    # 1. Send as a reply in the original trade thread
     reply_to = get_message_id(trade_hash)
     _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("new_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    
+    # 2. Dump a copy separately into the attachments folder (topic)
+    if TELEGRAM_TOPICS.get("attachments") is not None:
+        _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"), reply_markup=get_inline_keyboard(trade_hash))
 
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     """Sends a Telegram alert for amount validation."""
