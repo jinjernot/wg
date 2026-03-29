@@ -26,7 +26,10 @@ from config_messages.telegram_messages import (
     STATUS_UPDATE_OTHER
 )
 from core.utils.profile import generate_user_profile
-from .telegram_thread_manager import save_message_id, get_message_id
+from .telegram_thread_manager import (
+    save_message_id, get_message_id, 
+    save_chat_message_id, get_chat_message_id
+)
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +238,16 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
         "owner_username": escape_markdown(owner_username)
     }
     message = NEW_CHAT_ALERT_MESSAGE.format(**chat_data)
-    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("buyer_chats"), reply_markup=get_inline_keyboard(trade_hash))
+    
+    # Identify if a thread already exists for this trade's chats
+    reply_to = get_chat_message_id(trade_hash)
+    topic = TELEGRAM_TOPICS.get("buyer_chats")
+    
+    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=topic, reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    
+    # If this is the very first chat message, save its ID so all future messages become a thread under it
+    if msg_id and not reply_to:
+        save_chat_message_id(trade_hash, msg_id)
 
 def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_name=None):
     """Sends a Telegram alert for a new attachment."""
