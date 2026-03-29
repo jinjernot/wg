@@ -2,8 +2,9 @@ import logging
 import json
 import os
 # Remove the RotatingFileHandler import, we'll use the basic FileHandler
-from config import APP_SETTINGS_FILE, DISCORD_WEBHOOKS
+from config import APP_SETTINGS_FILE, DISCORD_WEBHOOKS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
 from core.messaging.alerts.discord_logging_handler import DiscordHandler
+from core.messaging.alerts.telegram_logging_handler import TelegramHandler
 
 def setup_logging():
     """Reads settings and configures the root logger."""
@@ -51,6 +52,18 @@ def setup_logging():
         logging.info("Discord error logging is enabled.")
     else:
         logging.warning("Webhook URL for 'logs' not found in DISCORD_WEBHOOKS. Discord error logging is disabled.")
+
+    # --- Telegram Handler for Errors ---
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        telegram_handler = TelegramHandler(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS.get("logs"))
+        telegram_handler.setLevel(logging.ERROR)
+        # Use a more concise format for Telegram (custom format already escapes markdown)
+        telegram_formatter = logging.Formatter('%(message)s')
+        telegram_handler.setFormatter(telegram_formatter)
+        logging.getLogger().addHandler(telegram_handler)
+        logging.info("Telegram error logging is enabled.")
+    else:
+        logging.warning("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not provided. Telegram error logging disabled.")
 
 
     logging.getLogger('googleapiclient').setLevel(logging.WARNING)
