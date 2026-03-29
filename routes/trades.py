@@ -42,6 +42,8 @@ def get_active_trades():
                             processed_attachments = trade_state.get("processed_attachments", {})
                             trade['has_attachment'] = len(processed_attachments) > 0
                         active_trades_data.extend(trades_list)
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON parsing error for {filename} (might be writing): {e}")
             except Exception as e:
                 logger.error(
                     f"Could not read or parse trades file {filename}: {e}")
