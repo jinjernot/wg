@@ -4,6 +4,10 @@ from requests.exceptions import RequestException, ConnectionError
 from http.client import RemoteDisconnected
 from urllib3.exceptions import ProtocolError
 
+import pytz
+from datetime import date
+from dateutil import parser
+
 from core.bitso.auth import generate_auth_headers_for_user
 import bitso_config
 
@@ -13,7 +17,7 @@ def save_raw_response(data, filename='bitso_raw_fundings.json'):
     # print(f"Raw API response saved to {filename}")
     pass
 
-def fetch_funding_transactions_for_user(user, api_key, api_secret, max_retries=5, backoff_factor=1.5):
+def fetch_funding_transactions_for_user(user, api_key, api_secret, max_retries=5, backoff_factor=1.5, year=None, month=None):
     endpoint = '/v3/fundings'
     url = bitso_config.BASE_URL + endpoint
 
@@ -71,6 +75,25 @@ def fetch_funding_transactions_for_user(user, api_key, api_secret, max_retries=5
         # print(f"Page {page_number} response for {user} saved to {raw_page_filename}")
 
         all_fundings.extend(fundings)
+
+        # Early exit if we have reached records older than the target month
+        if year is not None and month is not None:
+            stop_fetching = False
+            start_date = date(year, month, 1)
+            mexico_tz = pytz.timezone('America/Mexico_City')
+            last_record = fundings[-1]
+            created_str = last_record.get('created_at')
+            if created_str:
+                try:
+                    record_date = parser.isoparse(created_str).astimezone(mexico_tz).date()
+                    if record_date < start_date:
+                        print(f"Reached records older than {start_date} for {user}. Stopping early.")
+                        stop_fetching = True
+                except Exception as e:
+                    pass
+            
+            if stop_fetching:
+                break
 
         if len(fundings) < 100:
             print(f"Final page reached for {user} (fewer than 100 results).")

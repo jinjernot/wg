@@ -33,7 +33,7 @@ class BitsoCommands(commands.Cog):
                 async with session.get(
                     "http://127.0.0.1:5001/bitso_summary", 
                     params=params, 
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=120)
                 ) as response:
                     status_code = response.status
                     if status_code == 200:
