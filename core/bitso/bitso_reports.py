@@ -32,7 +32,7 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
         fundings = load_eduardo_fallback_data(year, month)
         used_fallback = len(fundings) > 0
     else:
-        fundings = fetch_funding_transactions_for_user(user, api_key, api_secret)
+        fundings = fetch_funding_transactions_for_user(user, api_key, api_secret, year=year, month=month)
     
     for f in fundings:
         f['account_user'] = user

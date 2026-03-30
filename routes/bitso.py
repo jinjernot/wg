@@ -37,7 +37,7 @@ def get_bitso_summary():
                 fundings = load_eduardo_fallback_data(year, month)
             else:
                 fundings = fetch_funding_transactions_for_user(
-                    user, api_key, api_secret)
+                    user, api_key, api_secret, year=year, month=month)
             
             all_fundings.extend(fundings)
 
