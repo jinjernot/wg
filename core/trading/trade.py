@@ -3,6 +3,7 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from config import (
     CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
@@ -62,6 +63,10 @@ from core.messaging.alerts.discord_thread_manager import create_trade_thread
 
 
 logger = logging.getLogger(__name__)
+
+# Shared thread pool for fire-and-forget notification sends (Telegram/Discord).
+# Keeps the main trade-processing loop from blocking on network I/O.
+_notification_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="notif")
 
 
 class Trade:
@@ -125,22 +130,28 @@ class Trade:
         """Handles logic for a trade seen for the first time."""
         logger.info(
             f"--- New trade found: {self.trade_hash}. Handling initial messages. ---")
-        send_telegram_alert(self.trade_state, self.platform)
 
-        new_trade_embed_data = create_new_trade_embed(
-            self.trade_state, self.platform, send=False)
-        
-        if new_trade_embed_data:
-            create_trade_thread(self.trade_hash, new_trade_embed_data)
+        # Snapshot immutable data for safe capture in background threads
+        trade_snapshot = dict(self.trade_state)
+        _trade_hash = self.trade_hash
+        _platform = self.platform
 
-        # High-value alert: fire an extra notification for trades >5000 MXN
+        def _send_new_trade_notifications():
+            send_telegram_alert(trade_snapshot, _platform)
+            embed_data = create_new_trade_embed(trade_snapshot, _platform, send=False)
+            if embed_data:
+                create_trade_thread(_trade_hash, embed_data)
+
+        _notification_executor.submit(_send_new_trade_notifications)
+
+        # High-value alert: fire an extra notification for trades >3000 MXN
         try:
             amount = float(self.trade_state.get('fiat_amount_requested', 0))
             currency = (self.trade_state.get('fiat_currency_code') or '').upper()
             if amount > 3000 and currency == 'MXN':
                 logger.info(f"High-value trade detected ({amount} {currency}) for {self.trade_hash}. Sending priority alerts.")
-                send_high_value_trade_alert(self.trade_state, self.platform)
-                create_high_value_trade_embed(self.trade_state, self.platform)
+                _notification_executor.submit(send_high_value_trade_alert, trade_snapshot, _platform)
+                _notification_executor.submit(create_high_value_trade_embed, trade_snapshot, _platform)
         except (ValueError, TypeError) as e:
             logger.warning(f"Could not evaluate amount for high-value check on {self.trade_hash}: {e}")
 
@@ -163,7 +174,8 @@ class Trade:
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
 
-            create_trade_status_update_embed(
+            _notification_executor.submit(
+                create_trade_status_update_embed,
                 self.trade_hash, self.owner_username, current_status, self.platform
             )
 
@@ -346,8 +358,12 @@ class Trade:
                 # Ensure that the message is a string before sending
                 if isinstance(message_text, str) and message_text:
                     msg_author = msg.get("author", "Unknown")
-                    send_chat_message_alert(message_text, self.trade_hash, self.owner_username, msg_author)
-                    create_chat_message_embed(self.trade_hash, self.owner_username, msg_author, message_text, self.platform)
+                    _notification_executor.submit(
+                        send_chat_message_alert, message_text, self.trade_hash, self.owner_username, msg_author
+                    )
+                    _notification_executor.submit(
+                        create_chat_message_embed, self.trade_hash, self.owner_username, msg_author, message_text, self.platform
+                    )
 
         if new_messages:
             self.handle_online_query(new_messages)
@@ -414,16 +430,22 @@ class Trade:
                 image_hash = hash_image(path)
                 is_duplicate, previous_trade_info = is_duplicate_receipt(image_hash, self.trade_hash, self.owner_username)
                 if is_duplicate:
-                    send_duplicate_receipt_alert(self.trade_hash, self.owner_username, path, previous_trade_info)
-                    
-                    create_duplicate_receipt_embed(self.trade_hash, self.owner_username, path, self.platform, previous_trade_info)
+                    _notification_executor.submit(
+                        send_duplicate_receipt_alert, self.trade_hash, self.owner_username, path, previous_trade_info
+                    )
+                    _notification_executor.submit(
+                        create_duplicate_receipt_embed, self.trade_hash, self.owner_username, path, self.platform, previous_trade_info
+                    )
 
                 text = extract_text_from_image(path)
                 identified_bank = identify_bank_from_text(text)
                 save_ocr_text(self.trade_hash, self.owner_username, text, identified_bank)
-                send_attachment_alert(self.trade_hash, self.owner_username, author, path, bank_name=identified_bank)
-                
-                create_attachment_embed(self.trade_hash, self.owner_username, author, path, self.platform, bank_name=identified_bank)
+                _notification_executor.submit(
+                    send_attachment_alert, self.trade_hash, self.owner_username, author, path, identified_bank
+                )
+                _notification_executor.submit(
+                    create_attachment_embed, self.trade_hash, self.owner_username, author, path, self.platform, identified_bank
+                )
 
                 if identified_bank:
                     self.trade_state['ocr_identified_bank'] = identified_bank
@@ -434,22 +456,26 @@ class Trade:
                 if not self.trade_state.get('amount_validation_alert_sent'):
                     expected = self.trade_state.get("fiat_amount_requested")
                     currency = self.trade_state.get("fiat_currency_code")
-                    send_amount_validation_alert(self.trade_hash, self.owner_username, expected, found_amount, currency)
-                    
-                    create_amount_validation_embed(self.trade_hash, self.owner_username, expected, found_amount, currency)
-                    
-                    self.trade_state['amount_validation_alert_sent'] = True
+                    self.trade_state['amount_validation_alert_sent'] = True  # Set flag before submit
+                    _notification_executor.submit(
+                        send_amount_validation_alert, self.trade_hash, self.owner_username, expected, found_amount, currency
+                    )
+                    _notification_executor.submit(
+                        create_amount_validation_embed, self.trade_hash, self.owner_username, expected, found_amount, currency
+                    )
 
                 if expected_names:
                     logger.debug(f"Performing name validation for {self.trade_hash}.")
                     is_name_found = find_name_in_text(text, expected_names)
                     if not self.trade_state.get('name_validation_alert_sent'):
-                        send_name_validation_alert(self.trade_hash, is_name_found, credential_identifier)
-                        
-                        create_name_validation_embed(self.trade_hash, is_name_found, credential_identifier)
-                        
-                        self.trade_state['name_validation_alert_sent'] = True
-                
+                        self.trade_state['name_validation_alert_sent'] = True  # Set flag before submit
+                        _notification_executor.submit(
+                            send_name_validation_alert, self.trade_hash, is_name_found, credential_identifier
+                        )
+                        _notification_executor.submit(
+                            create_name_validation_embed, self.trade_hash, is_name_found, credential_identifier
+                        )
+
                 # Mark alerts as sent for this attachment
                 processed_attachments[url]['alerts_sent'] = True
                 logger.debug(f"Marked attachment {url} as alerts_sent=True")

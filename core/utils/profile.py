@@ -1,14 +1,27 @@
 import os
+import time
 import json
 import logging
 from datetime import datetime, timezone
 from config import TRADES_STORAGE_DIR
 from dateutil import parser
 
+# Simple TTL cache — avoids re-scanning all trade JSON files on every new-trade alert
+_profile_cache: dict = {}   # { username_lower: (timestamp, profile_data) }
+_PROFILE_CACHE_TTL = 300    # seconds (5 minutes)
+
 logger = logging.getLogger(__name__)
 
 def generate_user_profile(username):
     """Scans all trade files to generate a trading profile for a specific user for the current month."""
+    cache_key = username.lower()
+    cached = _profile_cache.get(cache_key)
+    if cached:
+        ts, data = cached
+        if time.time() - ts < _PROFILE_CACHE_TTL:
+            logger.debug(f"[PROFILE CACHE] Hit for '{username}'")
+            return data
+
     stats = {
         "total_trades": 0,
         "successful_trades": 0,
@@ -84,6 +97,7 @@ def generate_user_profile(username):
                         stats["canceled_trades"] += 1
         
         if stats["total_trades"] == 0:
+            _profile_cache[cache_key] = (time.time(), None)
             return None
 
         if trade_dates:
@@ -91,6 +105,7 @@ def generate_user_profile(username):
             stats["first_trade_date"] = parser.isoparse(trade_dates[0]).strftime("%Y-%m-%d")
             stats["last_trade_date"] = parser.isoparse(trade_dates[-1]).strftime("%Y-%m-%d")
 
+        _profile_cache[cache_key] = (time.time(), stats)
         return stats
     except Exception as e:
         logger.error(f"Failed to generate user profile for {username}: {e}")
