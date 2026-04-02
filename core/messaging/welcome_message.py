@@ -8,35 +8,23 @@ from config import APP_SETTINGS_FILE, CHAT_URL_NOONES
 
 logger = logging.getLogger(__name__)
 
+from core.utils.web_utils import get_app_settings
+
 def is_night_mode_enabled():
     """
     Checks the settings file to see if nighttime messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    if not os.path.exists(APP_SETTINGS_FILE):
-        return False
-    try:
-        with open(APP_SETTINGS_FILE, "r") as f:
-            settings = json.load(f)
-        return settings.get("night_mode_enabled", False)
-    except (json.JSONDecodeError, Exception) as e:
-        logger.error(f"Could not read settings file: {e}")
-        return False
+    settings = get_app_settings()
+    return settings.get("night_mode_enabled", False)
 
 def is_afk_mode_enabled():
     """
     Checks the settings file to see if AFK messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    if not os.path.exists(APP_SETTINGS_FILE):
-        return False
-    try:
-        with open(APP_SETTINGS_FILE, "r") as f:
-            settings = json.load(f)
-        return settings.get("afk_mode_enabled", False)
-    except (json.JSONDecodeError, Exception) as e:
-        logger.error(f"Could not read settings file: {e}")
-        return False
+    settings = get_app_settings()
+    return settings.get("afk_mode_enabled", False)
 
 
 def send_welcome_message(trade, account, headers, max_retries=3):
