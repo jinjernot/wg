@@ -37,9 +37,25 @@ def get_app_settings():
         }
 
 def update_app_settings(new_settings):
-    """Writes the updated settings to the file."""
-    with open(APP_SETTINGS_FILE, "w") as f:
-        json.dump(new_settings, f, indent=4)
+    """Writes the updated settings to the file using an atomic replace to prevent corruption."""
+    import tempfile
+    
+    dirname = os.path.dirname(APP_SETTINGS_FILE)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname, exist_ok=True)
+        
+    fd, tmp_path = tempfile.mkstemp(dir=dirname, prefix="settings_", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(new_settings, f, indent=4)
+        os.replace(tmp_path, APP_SETTINGS_FILE)
+    except Exception as e:
+        logger.error(f"Failed to update settings file: {e}")
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 def get_payment_data():
     """Loads all payment method JSON files."""
