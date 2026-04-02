@@ -83,7 +83,15 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """
     if alert_type == "chat_log" and trade_hash:
         thread_id = get_thread_id(trade_hash)
-        channel_id = thread_id if thread_id else DISCORD_CHAT_LOG_CHANNEL_ID
+        if thread_id:
+            channel_id = thread_id
+        else:
+            logger.warning(
+                f"[chat_log] No thread ID found for trade {trade_hash}. "
+                f"Falling back to main channel {DISCORD_CHAT_LOG_CHANNEL_ID}. "
+                f"Check that discord_threads.json on the prod machine has this trade hash."
+            )
+            channel_id = DISCORD_CHAT_LOG_CHANNEL_ID
         if not channel_id:
             logger.error("No channel ID found for chat log alert.")
             return
@@ -116,7 +124,8 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                         if reaction_response.status_code == 204:
                             logger.info(f"Successfully added reaction to message {message_id}.")
                         else:
-                            logger.error(f"Failed to add reaction to message {message_id}: {reaction_response.status_code} - {reaction_response.text}")
+                            # Reactions are cosmetic — don't spam ERROR logs for rate limits
+                            logger.warning(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
             else:
                 logger.error(f"Failed to send chat message as bot: {response.status_code} - {response.text}")
 

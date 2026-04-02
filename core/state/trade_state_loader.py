@@ -1,11 +1,15 @@
 import json
 import os
+import shutil
 import time
+import threading
 import logging
 from functools import wraps
 from config import TRADES_STORAGE_DIR
 
 logger = logging.getLogger(__name__)
+
+_lock = threading.Lock()
 
 def retry_on_permission_error(max_retries=5, base_delay=0.1):
     """Decorator to retry file operations on Windows PermissionError with exponential backoff"""
@@ -80,8 +84,15 @@ def save_processed_trade(trade_data, platform):
             file.flush()
             os.fsync(file.fileno())
         
-        # Atomic replace - this is where PermissionError typically occurs
-        os.replace(temp_file_path, file_path)
+        # On Windows, os.replace() can raise PermissionError (WinError 5)
+        # if antivirus briefly holds a lock on the destination file.
+        try:
+            os.replace(temp_file_path, file_path)
+        except PermissionError:
+            # Fallback: delete target then move — less atomic but works on Windows
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            shutil.move(temp_file_path, file_path)
     except Exception as e:
         if os.path.exists(temp_file_path):
             try:
