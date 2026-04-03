@@ -28,10 +28,25 @@ def _save_thread_id(trade_hash, thread_id):
     with open(STATE_FILE_PATH, "w") as f:
         json.dump(current_state, f, indent=4)
 
-def get_thread_id(trade_hash):
-    """Gets a thread ID for a given trade hash."""
+def get_thread_id(trade_hash, wait=False, timeout=20):
+    """Gets a thread ID for a given trade hash. If wait is True, polls until timeout."""
     threads = _load_thread_ids()
-    return threads.get(trade_hash)
+    thread_id = threads.get(trade_hash)
+    if thread_id or not wait:
+        return thread_id
+
+    logger.info(f"Thread ID not found for {trade_hash}, waiting up to {timeout}s...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        time.sleep(2)
+        threads = _load_thread_ids()
+        thread_id = threads.get(trade_hash)
+        if thread_id:
+            logger.info(f"Thread ID for {trade_hash} found after waiting.")
+            return thread_id
+            
+    logger.warning(f"Timeout waiting for thread ID for {trade_hash}.")
+    return None
 
 def _make_request_with_retry(url, headers, payload, max_retries=3):
     """
