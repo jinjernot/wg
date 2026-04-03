@@ -82,7 +82,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     For others, it uses the webhook.
     """
     if alert_type == "chat_log" and trade_hash:
-        thread_id = get_thread_id(trade_hash)
+        thread_id = get_thread_id(trade_hash, wait=True)
         if thread_id:
             channel_id = thread_id
         else:
@@ -154,7 +154,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
         thread_id = None
 
         if trade_hash:
-            thread_id = get_thread_id(trade_hash)
+            thread_id = get_thread_id(trade_hash, wait=True)
             if thread_id:
                 webhook_url += f"?thread_id={thread_id}"
 
@@ -186,7 +186,7 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default", 
     thread_id = None
 
     if trade_hash:
-        thread_id = get_thread_id(trade_hash)
+        thread_id = get_thread_id(trade_hash, wait=True)
         if thread_id:
             webhook_url += f"?thread_id={thread_id}"
 
