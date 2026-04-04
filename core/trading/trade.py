@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 
 # Shared thread pool for fire-and-forget notification sends (Telegram/Discord).
 # Keeps the main trade-processing loop from blocking on network I/O.
-_notification_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="notif")
+_notification_executor = ThreadPoolExecutor(max_workers=30, thread_name_prefix="notif")
 
 
 class Trade:

@@ -59,9 +59,9 @@ def _send_discord_request(webhook_url, payload=None, files=None):
     
     try:
         if files:
-            response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files)
+            response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files, timeout=15)
         else:
-            response = requests.post(webhook_url, json=payload)
+            response = requests.post(webhook_url, json=payload, timeout=15)
 
         if response.status_code in [200, 204]:
             return True, "Success", None
