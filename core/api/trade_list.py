@@ -29,7 +29,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
             response = http_client.post(
                 TRADE_LIST_URL_NOONES,
                 headers=headers,
-                json=data,
+                data=data,
                 verify=certifi.where(),
                 timeout=10
             )
