@@ -7,6 +7,7 @@ from config import PLATFORM_ACCOUNTS, TRADES_STORAGE_DIR
 from core.api.offers import set_offer_status, send_scheduled_task_alert
 from core.utils.log_config import setup_logging
 from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
+from core.messaging.alerts.telegram_alert import send_bot_online_alert, send_bot_offline_alert
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -61,25 +62,45 @@ def main():
             f"Creating trade storage directory at: {TRADES_STORAGE_DIR}")
         os.makedirs(TRADES_STORAGE_DIR)
 
-    logger.info("Performing initial wallet balance check on startup...")
-    check_wallet_balances_and_alert()
+    try:
+        send_bot_online_alert()
+    except Exception as e:
+        logger.error(f"Failed to send bot online alert: {e}")
 
-    scheduler = BackgroundScheduler(timezone='America/Mexico_City')
-    scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
-    scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
-    scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
-    scheduler.start()
-    logger.info(
-        "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
+    try:
+        logger.info("Performing initial wallet balance check on startup...")
+        check_wallet_balances_and_alert()
 
-    threads = []
-    for account in PLATFORM_ACCOUNTS:
-        thread = threading.Thread(target=process_trades, args=(account,), daemon=True)
-        thread.start()
-        threads.append(thread)
+        scheduler = BackgroundScheduler(timezone='America/Mexico_City')
+        scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
+        scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
+        scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
+        scheduler.start()
+        logger.info(
+            "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
 
-    for thread in threads:
-        thread.join()
+        threads = []
+        for account in PLATFORM_ACCOUNTS:
+            thread = threading.Thread(target=process_trades, args=(account,), daemon=True)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user (KeyboardInterrupt).")
+        try:
+            send_bot_offline_alert(reason="Manual shutdown")
+        except Exception as e:
+            logger.error(f"Failed to send bot offline alert: {e}")
+    except Exception as e:
+        logger.critical(f"Bot crashed: {e}", exc_info=True)
+        try:
+            send_bot_offline_alert(reason=f"Crash: {e}")
+        except Exception as alert_err:
+            logger.error(f"Failed to send bot offline alert: {alert_err}")
+        raise
 
 
 if __name__ == "__main__":

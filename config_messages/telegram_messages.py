@@ -126,3 +126,30 @@ HIGH_VALUE_TRADE_ALERT_MESSAGE = """\
 💳 {payment_method_name}
 🔑 `{trade_hash}`
 """
+
+# --- Buyer Risk Flag Alert ---
+BUYER_RISK_FLAG_ALERT_MESSAGE = """\
+⚠️🔴 *RISK FLAG* — {owner_username}
+
+👤 {buyer_username} has dispute history\!
+💰 *{amount_formatted}*
+💳 {payment_method_name}
+🔑 `{trade_hash}`
+"""
+
+# --- Bot Status Alerts ---
+BOT_ONLINE_ALERT_MESSAGE = """\
+🟢 *BOT ONLINE*
+
+`Will Gang Trading` is now *active* and monitoring trades\.
+👥 Accounts: {accounts}
+⏱ Started at: {timestamp}
+"""
+
+BOT_OFFLINE_ALERT_MESSAGE = """\
+🔴 *BOT OFFLINE*
+
+`Will Gang Trading` has *stopped*\.
+⏱ Stopped at: {timestamp}
+🔎 Reason: {reason}
+"""

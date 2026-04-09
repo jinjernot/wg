@@ -101,8 +101,21 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
         payload = {"embeds": [embed_data]}
         
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=15)
-            if response.status_code == 200:
+            max_retries = 2
+            response = None
+            for attempt in range(max_retries):
+                response = requests.post(url, headers=headers, json=payload, timeout=15)
+                if response.status_code == 429:
+                    try:
+                        retry_after = response.json().get("retry_after", 1.0)
+                    except (json.JSONDecodeError, AttributeError):
+                        retry_after = 1.0
+                    logger.warning(f"Rate limited by Discord (attempt {attempt + 1}/{max_retries}). Retrying after {retry_after}s...")
+                    time.sleep(retry_after)
+                    continue
+                break
+
+            if response is not None and response.status_code == 200:
                 message_id = response.json()["id"]
                 logger.info(f"Successfully sent chat message {message_id} as bot.")
                 
@@ -127,7 +140,9 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                             # Reactions are cosmetic — don't spam ERROR logs for rate limits
                             logger.warning(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
             else:
-                logger.error(f"Failed to send chat message as bot: {response.status_code} - {response.text}")
+                status = response.status_code if response is not None else "N/A"
+                text = response.text if response is not None else "No response"
+                logger.error(f"Failed to send chat message as bot: {status} - {text}")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"An error occurred while sending message as bot: {e}")
