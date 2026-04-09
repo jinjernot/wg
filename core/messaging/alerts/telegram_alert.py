@@ -3,7 +3,8 @@ import json
 import re
 import os
 import logging
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
+from datetime import datetime, timezone
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS, PLATFORM_ACCOUNTS
 from config_messages.telegram_messages import (
     NOONES_ALERT_MESSAGE,
     NEW_CHAT_ALERT_MESSAGE,
@@ -19,6 +20,9 @@ from config_messages.telegram_messages import (
     LOW_BALANCE_ALERT_MESSAGE,
     DUPLICATE_RECEIPT_ALERT_MESSAGE,
     HIGH_VALUE_TRADE_ALERT_MESSAGE,
+    BUYER_RISK_FLAG_ALERT_MESSAGE,
+    BOT_ONLINE_ALERT_MESSAGE,
+    BOT_OFFLINE_ALERT_MESSAGE,
     format_currency,
     STATUS_UPDATE_PAID,
     STATUS_UPDATE_SUCCESSFUL,
@@ -161,10 +165,11 @@ def send_telegram_alert(trade, platform):
         logger.error("Error: Trade data is not a dictionary.")
         return
 
-    # Get buyer stats
+    # Get buyer stats — capture profile_data at function scope for risk check below
     buyer_username = trade.get('responder_username', 'N/A')
     buyer_line = f"*{escape_markdown(buyer_username)}*"
-    
+    profile_data = None
+
     if buyer_username != 'N/A':
         profile_data = generate_user_profile(buyer_username)
         if profile_data:
@@ -173,7 +178,8 @@ def send_telegram_alert(trade, platform):
             currency = trade.get('fiat_currency_code', '')
             volume_formatted = format_currency(volume, currency)
             buyer_line = f"*{escape_markdown(buyer_username)}* • {trades_count} trades • ${escape_markdown(volume_formatted)} volume"
-    
+
+
     # Format amount
     amount = trade.get('fiat_amount_requested', '0')
     currency = trade.get('fiat_currency_code', '')
@@ -197,6 +203,10 @@ def send_telegram_alert(trade, platform):
     msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("live_trades"), reply_markup=reply_markup)
     if msg_id and trade_hash:
         save_message_id(trade_hash, msg_id)
+
+    # Fire risk flag to Important channel if buyer has any dispute history this month
+    if profile_data and profile_data.get('disputed_trades', 0) > 0:
+        send_buyer_risk_flag_alert(trade, platform)
 
 def send_high_value_trade_alert(trade, platform):
     """Sends a high-priority Telegram alert when a trade exceeds 5000 MXN."""
@@ -409,3 +419,52 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     
     reply_to = get_message_id(trade_hash)
     _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("action_required"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+
+
+def send_buyer_risk_flag_alert(trade, platform):
+    """Sends a risk flag to the Important channel when a buyer has dispute history."""
+    if isinstance(trade, str):
+        try:
+            trade = json.loads(trade)
+        except json.JSONDecodeError:
+            return
+    if not isinstance(trade, dict):
+        return
+
+    amount = trade.get('fiat_amount_requested', '0')
+    currency = trade.get('fiat_currency_code', '')
+    amount_formatted = format_currency(amount, currency)
+    buyer_username = trade.get('responder_username', 'N/A')
+    trade_hash = trade.get('trade_hash')
+
+    message = BUYER_RISK_FLAG_ALERT_MESSAGE.format(
+        owner_username=escape_markdown(trade.get('owner_username', 'N/A')),
+        buyer_username=escape_markdown(buyer_username),
+        amount_formatted=escape_markdown(amount_formatted),
+        payment_method_name=escape_markdown(trade.get('payment_method_name', 'N/A')),
+        trade_hash=escape_markdown(trade_hash if trade_hash else 'N/A')
+    )
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
+
+
+def send_bot_online_alert():
+    """Sends a notification to the Important channel that the bot has started."""
+    account_names = ", ".join(
+        escape_markdown(a["name"].split("_")[0]) for a in PLATFORM_ACCOUNTS
+    )
+    timestamp = datetime.now(timezone.utc).strftime("%Y\\-%m\\-%d %H:%M UTC")
+    message = BOT_ONLINE_ALERT_MESSAGE.format(
+        accounts=account_names,
+        timestamp=timestamp
+    )
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
+
+
+def send_bot_offline_alert(reason="Shutdown"):
+    """Sends a notification to the Important channel that the bot has stopped."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y\\-%m\\-%d %H:%M UTC")
+    message = BOT_OFFLINE_ALERT_MESSAGE.format(
+        timestamp=timestamp,
+        reason=escape_markdown(reason)
+    )
+    _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
