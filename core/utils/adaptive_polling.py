@@ -1,6 +1,7 @@
 import time
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class AdaptivePoller:
         # Off-hours: 2 AM - 7 AM (Mexico City time)
         self.off_hours_start = 2
         self.off_hours_end = 7
+        self._tz = ZoneInfo("America/Mexico_City")
         
         logger.info(f"Initialized adaptive poller (base={base_interval}s, "
                    f"quiet={quiet_interval}s, off-hours={off_hours_interval}s)")
@@ -66,11 +68,11 @@ class AdaptivePoller:
             Interval in seconds to wait before next poll
         """
         # Check if we're in off-hours (2 AM - 7 AM Mexico City time)
-        current_hour = datetime.now().hour
+        current_hour = datetime.now(self._tz).hour
         
         if self.off_hours_start <= current_hour < self.off_hours_end:
             if self.current_interval != self.off_hours_interval:
-                logger.info(f"Off-hours detected, using {self.off_hours_interval}s interval")
+                logger.info(f"Off-hours detected ({current_hour}:00 MX), using {self.off_hours_interval}s interval")
             return self.off_hours_interval
         
         return self.current_interval
