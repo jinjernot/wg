@@ -30,7 +30,10 @@ from config_messages.chat_messages import (
     ATTACHMENT_MESSAGE,
     ONLINE_REPLY_MESSAGE,
     OXXO_IN_BANK_TRANSFER_MESSAGE,
-    THIRD_PARTY_ALLOWED_MESSAGE
+    THIRD_PARTY_ALLOWED_MESSAGE,
+    RELEASE_MESSAGE,
+    DELAY_MESSAGE,
+    SPAM_WARNING_MESSAGE,
 )
 from core.utils.profile import generate_user_profile
 
@@ -46,7 +49,10 @@ AUTOMATED_MESSAGES = set(
     ATTACHMENT_MESSAGE +
     ONLINE_REPLY_MESSAGE +
     OXXO_IN_BANK_TRANSFER_MESSAGE +
-    THIRD_PARTY_ALLOWED_MESSAGE
+    THIRD_PARTY_ALLOWED_MESSAGE +
+    RELEASE_MESSAGE +
+    DELAY_MESSAGE +
+    SPAM_WARNING_MESSAGE
 )
 
 def _send_discord_request(webhook_url, payload=None, files=None, max_retries=3):

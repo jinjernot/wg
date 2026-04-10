@@ -35,7 +35,9 @@ from core.messaging.trade_lifecycle_messages import (
     send_online_reply_message,
     send_oxxo_redirect_message,
     send_third_party_allowed_message,
-    send_release_message
+    send_release_message,
+    send_delay_message,
+    send_spam_warning_message
 )
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
@@ -366,10 +368,12 @@ class Trade:
                     )
 
         if new_messages:
+            self.handle_spam_detection(new_messages)
             self.handle_online_query(new_messages)
             self.handle_oxxo_query(new_messages)
             self.handle_third_party_query(new_messages)
             self.handle_release_query(new_messages)
+            self.handle_delay_query(new_messages)
             for msg in reversed(new_messages):
                  if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
@@ -482,6 +486,47 @@ class Trade:
                 
             self.save()
     
+    def handle_spam_detection(self, new_messages):
+        """Sends a spam warning if the buyer sends too many messages in a short window.
+        Threshold: 5+ buyer messages within 3 minutes.
+        Cooldown: 30 minutes before re-triggering."""
+        logger.debug(f"--- Checking for Spam: {self.trade_hash} ---")
+
+        spam_threshold = 10
+        spam_window_seconds = 3 * 60   # 3 minutes
+        cooldown_seconds   = 30 * 60   # 30 minutes
+
+        # Cooldown check
+        last_sent = self.trade_state.get('spam_warning_last_sent_ts')
+        if last_sent and (datetime.now(timezone.utc).timestamp() - last_sent) < cooldown_seconds:
+            logger.debug(f"Spam warning on cooldown for {self.trade_hash}. Skipping.")
+            return
+
+        # Count buyer messages from the full history that fall within the spam window
+        all_messages = self._get_chat_messages()
+        if not all_messages:
+            return
+
+        now = datetime.now(timezone.utc).timestamp()
+        recent_buyer_count = sum(
+            1 for msg in all_messages
+            if msg.get("author") not in BOT_OWNER_USERNAMES
+            and msg.get("author") is not None
+            and msg.get("type") != "trade_attach_uploaded"
+            and isinstance(msg.get("text"), str)
+            and (now - (msg.get("timestamp") or 0)) <= spam_window_seconds
+        )
+
+        if recent_buyer_count >= spam_threshold:
+            logger.info(
+                f"Spam detected for trade {self.trade_hash}: "
+                f"{recent_buyer_count} buyer messages in the last {spam_window_seconds // 60} minutes. "
+                f"Sending warning."
+            )
+            send_spam_warning_message(self.trade_hash, self.account, self.headers)
+            self.trade_state['spam_warning_last_sent_ts'] = now
+            self.save()
+
     def handle_online_query(self, new_messages):
         """Checks for messages asking if the user is online and sends a reply.
         Replies at most once every 10 minutes to prevent spamming back."""
@@ -545,6 +590,40 @@ class Trade:
                         self.trade_state['third_party_reply_sent'] = True
                         self.save()
                         break
+
+    def handle_delay_query(self, new_messages):
+        """Sends a neutral stalling reply when the buyer messages after uploading a receipt,
+        while the trade is still in Paid status and pending manual review.
+        Fires at most once every 5 minutes to avoid spamming."""
+        logger.debug(f"--- Checking for Delay Query: {self.trade_hash} ---")
+
+        # Only fire when trade is Paid and at least one attachment has been received
+        if self.trade_state.get("trade_status") != "Paid":
+            return
+        processed_attachments = self.trade_state.get('processed_attachments', {})
+        if not any(v.get('downloaded') for v in processed_attachments.values()):
+            return
+
+        # Cooldown: max once every 5 minutes
+        cooldown_seconds = 5 * 60
+        last_sent = self.trade_state.get('delay_reply_last_sent_ts')
+        if last_sent and (datetime.now(timezone.utc).timestamp() - last_sent) < cooldown_seconds:
+            logger.debug(f"Delay reply on cooldown for {self.trade_hash}. Skipping.")
+            return
+
+        for msg in new_messages:
+            if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
+                message_text = msg.get("text", "")
+                # Only reply to text messages (not attachment upload events)
+                if isinstance(message_text, str) and message_text.strip():
+                    logger.info(
+                        f"Delay reply triggered for trade {self.trade_hash}: "
+                        f"buyer messaged after receipt upload while still Paid."
+                    )
+                    send_delay_message(self.trade_hash, self.account, self.headers)
+                    self.trade_state['delay_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
+                    self.save()
+                    break
 
     def handle_release_query(self, new_messages):
         """Checks if a user asks about release.

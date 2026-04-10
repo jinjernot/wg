@@ -2,7 +2,21 @@ import logging
 import random
 from core.messaging.message_sender import send_message_with_retry
 from config import CHAT_URL_NOONES
-from config_messages.chat_messages import *
+from config_messages.chat_messages import (
+    TRADE_COMPLETION_MESSAGE,
+    PAYMENT_RECEIVED_MESSAGE,
+    PAYMENT_REMINDER_MESSAGE,
+    ATTACHMENT_MESSAGE,
+    AFK_MESSAGE,
+    EXTENDED_AFK_MESSAGE,
+    NO_ATTACHMENT_MESSAGE,
+    ONLINE_REPLY_MESSAGE,
+    OXXO_IN_BANK_TRANSFER_MESSAGE,
+    THIRD_PARTY_ALLOWED_MESSAGE,
+    RELEASE_MESSAGE,
+    DELAY_MESSAGE,
+    SPAM_WARNING_MESSAGE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,3 +75,11 @@ def send_third_party_allowed_message(trade_hash, account, headers, max_retries=3
 def send_release_message(trade_hash, account, headers, max_retries=3):
     """Sends a message to reply when user asks about release."""
     _send_lifecycle_message(trade_hash, account, headers, RELEASE_MESSAGE, "Release reply", max_retries)
+
+def send_delay_message(trade_hash, account, headers, max_retries=3):
+    """Sends a neutral stalling message while the trade is pending manual review."""
+    _send_lifecycle_message(trade_hash, account, headers, DELAY_MESSAGE, "Delay", max_retries)
+
+def send_spam_warning_message(trade_hash, account, headers, max_retries=3):
+    """Sends a warning message when a buyer sends too many messages in a short period."""
+    _send_lifecycle_message(trade_hash, account, headers, SPAM_WARNING_MESSAGE, "Spam Warning", max_retries)
