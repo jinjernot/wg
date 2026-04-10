@@ -49,31 +49,49 @@ AUTOMATED_MESSAGES = set(
     THIRD_PARTY_ALLOWED_MESSAGE
 )
 
-def _send_discord_request(webhook_url, payload=None, files=None):
-    """Helper function to send HTTP requests to Discord."""
+def _send_discord_request(webhook_url, payload=None, files=None, max_retries=3):
+    """Helper function to send HTTP requests to Discord with automatic rate-limit retry."""
     if not webhook_url or "YOUR_WEBHOOK_URL_HERE" in webhook_url:
         return False, "Webhook URL is not configured.", None
 
     # Debug logging to see exact webhook URL
     logger.info(f"[WEBHOOK DEBUG] Sending Discord request to webhook URL: {webhook_url!r}")
-    
-    try:
-        if files:
-            response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files, timeout=15)
-        else:
-            response = requests.post(webhook_url, json=payload, timeout=15)
 
-        if response.status_code in [200, 204]:
-            return True, "Success", None
-        else:
+    for attempt in range(max_retries):
+        try:
+            if files:
+                response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files, timeout=15)
+            else:
+                response = requests.post(webhook_url, json=payload, timeout=15)
+
+            if response.status_code in [200, 204]:
+                return True, "Success", None
+
+            if response.status_code == 429:
+                try:
+                    retry_after = float(response.json().get("retry_after", 1.0))
+                except (json.JSONDecodeError, AttributeError, ValueError):
+                    retry_after = 1.0
+                logger.warning(
+                    f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying after {retry_after:.2f}s..."
+                )
+                time.sleep(retry_after)
+                continue  # retry
+
+            # Non-retryable error
             error_code = None
             try:
                 error_code = response.json().get("code")
             except json.JSONDecodeError:
-                pass # No JSON body
+                pass
             return False, f"{response.status_code} - {response.text}", error_code
-    except Exception as e:
-        return False, str(e), None
+
+        except Exception as e:
+            return False, str(e), None
+
+    # All retries exhausted on rate limit
+    return False, f"Rate limited after {max_retries} retries.", None
 
 def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """
@@ -101,16 +119,19 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
         payload = {"embeds": [embed_data]}
         
         try:
-            max_retries = 2
+            max_retries = 3
             response = None
             for attempt in range(max_retries):
                 response = requests.post(url, headers=headers, json=payload, timeout=15)
                 if response.status_code == 429:
                     try:
-                        retry_after = response.json().get("retry_after", 1.0)
-                    except (json.JSONDecodeError, AttributeError):
+                        retry_after = float(response.json().get("retry_after", 1.0))
+                    except (json.JSONDecodeError, AttributeError, ValueError):
                         retry_after = 1.0
-                    logger.warning(f"Rate limited by Discord (attempt {attempt + 1}/{max_retries}). Retrying after {retry_after}s...")
+                    logger.warning(
+                        f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying after {retry_after:.2f}s..."
+                    )
                     time.sleep(retry_after)
                     continue
                 break

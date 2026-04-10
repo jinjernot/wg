@@ -2,6 +2,7 @@ import requests
 import json
 import re
 import os
+import time
 import logging
 from datetime import datetime, timezone
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS, PLATFORM_ACCOUNTS
@@ -87,15 +88,30 @@ def _send_text_alert(message, disable_web_page_preview=True, thread_id=None, rep
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
         
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code == 200:
-            logger.info("Telegram text alert sent successfully.")
-            return response.json().get("result", {}).get("message_id")
-        else:
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            if response.status_code == 200:
+                logger.info("Telegram text alert sent successfully.")
+                return response.json().get("result", {}).get("message_id")
+            if response.status_code == 429:
+                try:
+                    retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
+                except (ValueError, AttributeError, KeyError):
+                    retry_after = 1.0
+                logger.warning(
+                    f"[RATE LIMIT] Telegram rate limited (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying after {retry_after:.2f}s..."
+                )
+                time.sleep(retry_after)
+                continue
             logger.error(f"Failed to send Telegram text alert: {response.status_code} - {response.text}")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error sending Telegram request: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error sending Telegram request: {e}")
+            return None
+    logger.error(f"Telegram text alert failed after {max_retries} retries (rate limited).")
     return None
 
 def _send_photo_alert(caption_text, image_path, thread_id=None, reply_to_message_id=None, reply_markup=None):
@@ -131,22 +147,38 @@ def _send_photo_alert(caption_text, image_path, thread_id=None, reply_to_message
     if reply_markup is not None:
         data["reply_markup"] = json.dumps(reply_markup)
 
-    try:
-        with open(image_path, 'rb') as photo_file:
-            files = {'photo': photo_file}
-            response = requests.post(url, data=data, files=files, timeout=20)
-
-        if response.status_code == 200:
-            logger.info("Attachment alert with image sent successfully.")
-            return response.json().get("result", {}).get("message_id")
-        else:
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            with open(image_path, 'rb') as photo_file:
+                files = {'photo': photo_file}
+                response = requests.post(url, data=data, files=files, timeout=20)
+            if response.status_code == 200:
+                logger.info("Attachment alert with image sent successfully.")
+                return response.json().get("result", {}).get("message_id")
+            if response.status_code == 429:
+                try:
+                    retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
+                except (ValueError, AttributeError, KeyError):
+                    retry_after = 1.0
+                logger.warning(
+                    f"[RATE LIMIT] Telegram rate limited on photo (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying after {retry_after:.2f}s..."
+                )
+                time.sleep(retry_after)
+                continue
             logger.error(f"Failed to send attachment alert with image: {response.status_code} - {response.text}")
-    except IOError as e:
-        logger.error(f"Error opening image file {image_path}: {e}")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error sending Telegram request with image: {e}")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while sending attachment alert: {e}")
+            return None
+        except IOError as e:
+            logger.error(f"Error opening image file {image_path}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error sending Telegram request with image: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while sending attachment alert: {e}")
+            return None
+    logger.error(f"Telegram photo alert failed after {max_retries} retries (rate limited).")
     return None
 
 def extract_placeholders(message_template):
