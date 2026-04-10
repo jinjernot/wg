@@ -54,8 +54,7 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=3):
     if not webhook_url or "YOUR_WEBHOOK_URL_HERE" in webhook_url:
         return False, "Webhook URL is not configured.", None
 
-    # Debug logging to see exact webhook URL
-    logger.info(f"[WEBHOOK DEBUG] Sending Discord request to webhook URL: {webhook_url!r}")
+    logger.debug(f"[WEBHOOK] Sending request to: {webhook_url!r}")
 
     for attempt in range(max_retries):
         try:
@@ -139,16 +138,16 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
             if response is not None and response.status_code == 200:
                 message_id = response.json()["id"]
                 logger.info(f"Successfully sent chat message {message_id} as bot.")
-                
+
                 # Add reactions based on the message type
                 title = embed_data.get("title", "")
                 if "AUTOMATED MESSAGE" in title:
                     emoji = "🤖"
                 elif "MESSAGE SENT" in title:
                     emoji = "📤"
-                else: # Default reaction for buyer messages
+                else:  # Default reaction for buyer messages
                     emoji = "💬"
-                
+
                 if emoji:
                     time.sleep(0.5)
                     reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
@@ -160,39 +159,23 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                         else:
                             # Reactions are cosmetic — don't spam ERROR logs for rate limits
                             logger.warning(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
+            elif response is not None and response.status_code == 429:
+                logger.error(
+                    f"Failed to send chat message as bot: rate limited after {max_retries} retries. "
+                    f"Last retry_after was in the response body."
+                )
             else:
                 status = response.status_code if response is not None else "N/A"
-                text = response.text if response is not None else "No response"
+                text   = response.text       if response is not None else "No response"
                 logger.error(f"Failed to send chat message as bot: {status} - {text}")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"An error occurred while sending message as bot: {e}")
 
     else:
-        # Original webhook logic for other alert types
-        # Debug logging - show all available webhooks
-        logger.info(f"[WEBHOOK DEBUG] DISCORD_WEBHOOKS keys: {list(DISCORD_WEBHOOKS.keys())}")
-        logger.info(f"[WEBHOOK DEBUG] Alert type requested: {alert_type}")
-        
-        if trade_hash:
-            webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
-        else:
-            webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
-        
-        # Debug logging - check if webhook is None
-        if webhook_url_base is None:
-            logger.error(f"CRITICAL: webhook_url_base is None for alert_type '{alert_type}'!")
-            logger.error(f"DISCORD_WEBHOOKS contents: {DISCORD_WEBHOOKS}")
-        
-        logger.info(f"[WEBHOOK DEBUG] Alert type: {alert_type}, Webhook URL: {webhook_url_base!r}")
-
-        webhook_url = webhook_url_base
-        thread_id = None
-
-        if trade_hash:
-            thread_id = get_thread_id(trade_hash, wait=True)
-            if thread_id:
-                webhook_url += f"?thread_id={thread_id}"
+        webhook_url_base, thread_id, webhook_url = _resolve_webhook(alert_type, trade_hash)
+        if not webhook_url_base:
+            return
 
         payload = {"embeds": [embed_data]}
         success, message, error_code = _send_discord_request(webhook_url, payload)
@@ -202,9 +185,42 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
             success, message, _ = _send_discord_request(webhook_url_base, payload)
 
         if success:
-            logger.info(f"Discord alert ('{alert_type}') sent successfully to {'thread '+thread_id if thread_id else 'main channel'}.")
+            logger.info(f"Discord alert ('{alert_type}') sent successfully to {'thread ' + thread_id if thread_id else 'main channel'}.")
         else:
             logger.error(f"Failed to send Discord alert ('{alert_type}'): {message}")
+
+
+def _resolve_webhook(alert_type, trade_hash):
+    """
+    Resolves the base webhook URL, thread ID, and final URL for a given alert.
+
+    Returns:
+        (webhook_url_base, thread_id, webhook_url) — webhook_url_base is None
+        if no valid webhook is configured.
+    """
+    if trade_hash:
+        webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
+    else:
+        webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
+
+    if not webhook_url_base:
+        logger.error(
+            f"No webhook configured for alert_type '{alert_type}'. "
+            f"Available keys: {list(DISCORD_WEBHOOKS.keys())}"
+        )
+        return None, None, None
+
+    logger.debug(f"[WEBHOOK] alert_type={alert_type!r}, base URL resolved.")
+
+    thread_id   = None
+    webhook_url = webhook_url_base
+
+    if trade_hash:
+        thread_id = get_thread_id(trade_hash, wait=True)
+        if thread_id:
+            webhook_url += f"?thread_id={thread_id}"
+
+    return webhook_url_base, thread_id, webhook_url
 
 
 def send_discord_embed_with_image(embed_data, image_path, alert_type="default", trade_hash=None):
@@ -213,18 +229,9 @@ def send_discord_embed_with_image(embed_data, image_path, alert_type="default", 
     Routes to the chat_log webhook if a trade_hash is provided.
     Retries in the main channel if the thread is archived.
     """
-    if trade_hash:
-        webhook_url_base = DISCORD_WEBHOOKS.get("chat_log", DISCORD_WEBHOOKS.get("default"))
-    else:
-        webhook_url_base = DISCORD_WEBHOOKS.get(alert_type, DISCORD_WEBHOOKS.get("default"))
-
-    webhook_url = webhook_url_base
-    thread_id = None
-
-    if trade_hash:
-        thread_id = get_thread_id(trade_hash, wait=True)
-        if thread_id:
-            webhook_url += f"?thread_id={thread_id}"
+    webhook_url_base, thread_id, webhook_url = _resolve_webhook(alert_type, trade_hash)
+    if not webhook_url_base:
+        return
 
     payload = {"embeds": [embed_data]}
 
@@ -378,8 +385,6 @@ def create_trade_status_update_embed(trade_hash, owner_username, new_status, pla
 
 def create_attachment_embed(trade_hash, owner_username, author, image_path, platform, bank_name=None):
     """Creates and sends a Discord embed for a new attachment."""
-
-    embed_color = COLORS["NOONES_GREEN"]
     template = ATTACHMENT_EMBED
 
     if bank_name:
