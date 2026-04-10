@@ -119,6 +119,21 @@ class Trade:
             self.handle_new_trade()
         self.check_status_change()
         self.check_for_completion_message()
+
+        # Stop all further processing once the trade is completed.
+        # Handlers below must not fire on released/successful trades — they
+        # caused spurious messages (online replies, delay replies, attachment
+        # confirmations) to be sent into an already-closed chat.
+        trade_status = str(self.trade_state.get("trade_status", "")).lower()
+        status = str(self.trade_state.get("status", "")).lower()
+        if trade_status in ['released', 'successful'] or status == 'successful':
+            logger.debug(
+                f"Trade {self.trade_hash} is completed — skipping all "
+                f"post-completion message handlers."
+            )
+            self.save()
+            return
+
         # self.check_for_email_confirmation()  # EMAIL MODULE DISABLED
         self.check_chat_and_attachments()
         self.check_for_afk()
