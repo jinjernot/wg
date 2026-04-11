@@ -24,7 +24,7 @@ def retry_on_permission_error(max_retries=5, base_delay=0.1):
                         logger.error(f"Failed after {max_retries} retries: {e}")
                         raise
                     delay = base_delay * (2 ** attempt)  # Exponential backoff: 0.1s, 0.2s, 0.4s, 0.8s, 1.6s
-                    logger.warning(f"PermissionError on attempt {attempt + 1}/{max_retries}. Retrying in {delay:.1f}s...")
+                    logger.debug(f"PermissionError on attempt {attempt + 1}/{max_retries}. Retrying in {delay:.1f}s...")
                     time.sleep(delay)
             return None
         return wrapper

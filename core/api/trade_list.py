@@ -108,7 +108,7 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                     
                     return trades
                 else:
-                    logger.warning(f"No trades found for {account['name']}.")
+                    logger.debug(f"No trades found for {account['name']}.")
                     return []
             else:
                 logger.error(f"Error fetching trade list for {account['name']}: {response.status_code} - {response.text}")

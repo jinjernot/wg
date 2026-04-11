@@ -164,7 +164,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                             logger.info(f"Successfully added reaction to message {message_id}.")
                         else:
                             # Reactions are cosmetic — don't spam ERROR logs for rate limits
-                            logger.warning(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
+                            logger.debug(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
             elif response is not None and response.status_code == 429:
                 logger.error(
                     f"Failed to send chat message as bot: rate limited after {max_retries} retries. "
