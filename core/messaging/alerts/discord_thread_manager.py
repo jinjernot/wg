@@ -100,13 +100,16 @@ def _save_thread_id(trade_hash, thread_id):
             event.set()
 
 
-def get_thread_id(trade_hash, wait=False, timeout=20):
+def get_thread_id(trade_hash, wait=False, timeout=45):
     """
     Returns the Discord thread ID for a given trade hash.
 
     If wait=True and the ID is not yet cached, blocks (efficiently, via a
     threading.Event) until the ID is saved or timeout is reached — no disk
     polling.
+
+    The default timeout is 45 s to give thread creation enough headroom even
+    when Discord is slow or a rate-limit retry is needed.
     """
     _ensure_cache_loaded()
     trade_hash = str(trade_hash)
