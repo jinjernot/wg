@@ -134,6 +134,21 @@ class Trade:
             self.save()
             return
 
+        # On the very first cycle for a new trade, skip chat/attachment
+        # processing.  Thread creation is async — dispatching chat embeds
+        # before the thread ID exists causes them to race against the 45 s
+        # waiter and may still fall back to the main channel when there are
+        # many messages or the API is slow.  The next polling cycle will
+        # pick up all messages once the thread ID is safely cached.
+        if is_new:
+            logger.debug(
+                f"Trade {self.trade_hash} is new — deferring chat/attachment "
+                f"processing to the next cycle so the Discord thread has time "
+                f"to be created."
+            )
+            self.save()
+            return
+
         # self.check_for_email_confirmation()  # EMAIL MODULE DISABLED
         self.check_chat_and_attachments()
         self.check_for_afk()
