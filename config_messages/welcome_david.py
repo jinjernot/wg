@@ -6,7 +6,11 @@ WELCOME_MESSAGES_DAVID = {
         "✅  Third-party payments accepted\n"
         "❌  No OXXO / cash deposits\n"
         "────────────────────\n"
-        "📋  Payment details coming shortly."
+        "📋  INSTRUCTIONS:\n"
+        "1. I will send the bank account details shortly.\n"
+        "2. Make the transfer exactly as instructed.\n"
+        "3. Upload a full, clear screenshot/photo of the receipt (not cropped).\n"
+        "4. Click the 'Mark as Paid' button."
     ),
     "domestic-wire-transfer": (
         "🤝  TRADE STARTED\n"
@@ -15,7 +19,11 @@ WELCOME_MESSAGES_DAVID = {
         "✅  Third-party payments accepted\n"
         "❌  No OXXO / cash deposits\n"
         "────────────────────\n"
-        "📋  Payment details coming shortly."
+        "📋  INSTRUCTIONS:\n"
+        "1. I will send the bank account details shortly.\n"
+        "2. Make the transfer exactly as instructed.\n"
+        "3. Upload a full, clear screenshot/photo of the receipt (not cropped).\n"
+        "4. Click the 'Mark as Paid' button."
     ),
     "spei-sistema-de-pagos-electronicos-interbancarios": (
         "🤝  TRADE STARTED\n"
@@ -24,26 +32,37 @@ WELCOME_MESSAGES_DAVID = {
         "✅  Third-party payments accepted\n"
         "❌  No OXXO / cash deposits\n"
         "────────────────────\n"
-        "📋  Payment details coming shortly."
+        "📋  INSTRUCTIONS:\n"
+        "1. I will send the bank account details shortly.\n"
+        "2. Make the transfer exactly as instructed.\n"
+        "3. Upload a full, clear screenshot/photo of the receipt (not cropped).\n"
+        "4. Click the 'Mark as Paid' button."
     ),
     "oxxo": (
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "💳  Method: OXXO Cash Deposit\n"
         "────────────────────\n"
-        "📋  Payment details coming shortly."
+        "📋  INSTRUCTIONS:\n"
+        "1. I will send the OXXO payment details shortly.\n"
+        "2. Go to any OXXO store and make the cash deposit.\n"
+        "3. KEEP YOUR PRINTED RECEIPT.\n"
+        "4. Upload a full, clear photo of the receipt (not cropped).\n"
+        "5. Click the 'Mark as Paid' button."
     ),
     "amazon-gift-card": (
         "🎁  GIFT CARD TRADE STARTED\n"
         "────────────────────\n"
         "📦  Physical Amazon cards only\n"
         "💵  Minimum: $300 MXN per card\n"
-        "📸  Clear photo of card code required\n"
-        "🧾  Purchase receipt required\n"
         "────────────────────\n"
         "E-codes accepted at a different rate.\n"
         "Confirm before proceeding.\n\n"
-        "Upload your photos to get started. ✅"
+        "📋  INSTRUCTIONS:\n"
+        "1. Upload a clear photo of the physical Amazon Gift Card.\n"
+        "2. Upload a full, clear photo of the purchase receipt (not cropped).\n"
+        "3. Wait for me to verify and redeem the card.\n"
+        "4. I will release the crypto once redeemed successfully. ✅"
     ),
     "other-bank-transfer": (
         "🤝  TRADE STARTED\n"
@@ -55,7 +74,11 @@ WELCOME_MESSAGES_DAVID = {
         "🤝  TRADE STARTED\n"
         "────────────────────\n"
         "Please follow the offer terms as specified.\n\n"
-        "📋  Payment details coming shortly."
+        "📋  INSTRUCTIONS:\n"
+        "1. I will send the payment details shortly.\n"
+        "2. Make the payment exactly as instructed.\n"
+        "3. Upload a full, clear screenshot/photo of the receipt (not cropped).\n"
+        "4. Click the 'Mark as Paid' button."
     )
 }
 

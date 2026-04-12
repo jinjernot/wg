@@ -53,21 +53,26 @@ PAYMENT_REMINDER_MESSAGE = [
 ]
 
 ATTACHMENT_MESSAGE = [
-    "Receipt received. Reviewing now.",
-    "Got the receipt. Checking the details.",
-    "Reviewing your proof of payment.",
-    "Receipt uploaded. Checking now.",
-    "Got it. Reviewing the receipt.",
-    "Receipt received. Going over the details.",
+    "Reviewing the details now.",
+    "Checking the trade details. Give me a moment.",
+    "Looking over the trade.",
+    "Going over everything now.",
+    "Reviewing now.",
+    "Taking a look at the trade details.",
+    "Give me a moment to review.",
     "Checking now. Give me a moment.",
-    "Got the receipt. Looking it over.",
-    "On it. Checking your receipt.",
-    "Got the receipt. One moment.",
-    "Received. Going over it now.",
-    "Reviewing your receipt.",
-    "Got your proof of payment. One moment.",
-    "Looking over the receipt now.",
-    "Receipt received. Checking.",
+    "On it. Going over the details.",
+    "Looking it over.",
+    "One moment, reviewing.",
+    "Going over the trade now.",
+    "Reviewing the latest updates.",
+    "Taking a moment to check.",
+    "I will review this now.",
+    "Checking the details.",
+    "Reviewing.",
+    "Hold on, checking.",
+    "Reviewing the information.",
+    "Let me check."
 ]
 
 AFK_MESSAGE = [
@@ -185,6 +190,11 @@ RELEASE_MESSAGE = [
     "On my end now.",
     "Will follow up shortly.",
     "One sec.",
+    "Taking a look right now.",
+    "Reviewing the current status.",
+    "Just a moment while I check.",
+    "Hold please, reviewing.",
+    "Going over the transaction now."
 ]
 
 SPAM_WARNING_MESSAGE = [
@@ -226,4 +236,9 @@ DELAY_MESSAGE = [
     "Still on it.",
     "Give me a sec.",
     "Working on it.",
+    "Verifying the details.",
+    "Checking the system.",
+    "I'll be with you in a moment.",
+    "Looking things over.",
+    "Just reviewing this."
 ]
