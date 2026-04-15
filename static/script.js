@@ -660,6 +660,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const FUND_METER_MAX = 60000;
+    const FUND_METER_ALERT = 10000;
+
+    function buildFundMeter(amount) {
+        const pct = Math.min(amount / FUND_METER_MAX, 1) * 100;
+        const alertPct = (FUND_METER_ALERT / FUND_METER_MAX) * 100;
+
+        let zone = 'zone-ok';
+        if (amount < FUND_METER_ALERT) zone = 'zone-danger';
+        else if (amount < FUND_METER_MAX / 2) zone = 'zone-warning';
+
+        const formatted = amount >= 1000
+            ? `${(amount / 1000).toFixed(1)}K`
+            : amount.toFixed(0);
+
+        return `
+            <div class="fund-meter-wrap">
+                <div class="fund-meter-track">
+                    <div class="fund-meter-fill ${zone}" style="width:${pct.toFixed(2)}%"></div>
+                </div>
+                <div class="fund-meter-marker" style="left:${alertPct.toFixed(2)}%" data-label="10K ⚠️"></div>
+            </div>
+            <div class="fund-meter-labels">
+                <span>$0</span>
+                <span style="color:${zone === 'zone-danger' ? 'var(--red)' : zone === 'zone-warning' ? 'var(--amber)' : 'var(--green)'}">
+                    $${formatted} MXN &nbsp;·&nbsp; ${pct.toFixed(1)}%
+                </span>
+                <span>$60K</span>
+            </div>
+        `;
+    }
+
     function updateBalancesDashboard(balances) {
         const davidContainer = document.getElementById('david-balances-col');
         const joeContainer = document.getElementById('joe-balances-col');
@@ -688,18 +720,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 let hasBalance = false;
                 let balanceContent = '<ul class="balance-list">';
                 for (const currency in accountData) {
-                    if (parseFloat(accountData[currency]) !== 0) {
-                        balanceContent += `<li><strong>${currency.toUpperCase()}</strong>${accountData[currency]}</li>`;
+                    const rawVal = accountData[currency];
+                    if (parseFloat(rawVal) !== 0) {
                         hasBalance = true;
+                        const currencyUpper = currency.toUpperCase();
+                        if (currencyUpper === 'MXN') {
+                            const amount = parseFloat(rawVal);
+                            balanceContent += `
+                                <li>
+                                    <div class="balance-list-row">
+                                        <strong>${currencyUpper}</strong>
+                                        <span style="font-size:0.88rem;font-weight:600;">${parseFloat(rawVal).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                                    </div>
+                                    ${buildFundMeter(amount)}
+                                </li>`;
+                        } else {
+                            balanceContent += `
+                                <li>
+                                    <div class="balance-list-row">
+                                        <strong>${currencyUpper}</strong>
+                                        <span>${rawVal}</span>
+                                    </div>
+                                </li>`;
+                        }
                     }
                 }
-                if (!hasBalance) balanceContent += '<li>No active balances.</li>';
+                if (!hasBalance) balanceContent += '<li><div class="balance-list-row"><span>No active balances.</span></div></li>';
                 balanceContent += '</ul>';
                 content += balanceContent;
             }
             content += '</div>';
 
-            // Distribute accounts across the two columns evenly by index
             const target = idx % 2 === 0 ? davidContainer : joeContainer;
             target.innerHTML += content;
         });
