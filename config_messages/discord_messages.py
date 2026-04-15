@@ -301,9 +301,12 @@ LOW_BALANCE_ALERT_EMBED = {
     "title": "⚠️ Low Balance Alert",
     "color": COLORS["warning"],
     "description": (
-        "The total balance for **{account_name}** is below the threshold.\n\n"
-        "**Total Balance:** `${total_balance_usd}`\n"
-        "**Threshold:** `${threshold}`\n\n"
+        "The total balance for **{account_name}** has dropped below the threshold.\n\n"
+        "**Available Funds (MXN)**\n"
+        "{progress_bar}\n"
+        "`${mxn_amount}` of `$60,000 MXN` &nbsp;·&nbsp; {pct:.1f}%\n\n"
+        "**Total Balance (USD):** `${total_balance_usd}`\n"
+        "**Alert Threshold:** `${threshold}`\n\n"
         "**Balance Details:**\n{balance_details}"
     ),
     "footer": {"text": "WillGang Bot"}
