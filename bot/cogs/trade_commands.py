@@ -186,6 +186,7 @@ class TradeCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.last_known_trades_state = set()
+        self.fund_meter_message_id = None  # tracks the pinned fund meter embed
         self.refresh_live_trades_channel.start()
 
     def cog_unload(self):
@@ -227,6 +228,98 @@ class TradeCommands(commands.Cog):
             embed.set_footer(text=f"Showing {shown} of {len(trades)} trades")
         return embed
 
+    def _build_fund_meter_embed(self, balances: dict) -> discord.Embed:
+        """Builds the Available Funds embed with per-account Unicode progress bars."""
+        FUND_MAX = 60_000
+        FUND_ALERT = 10_000
+        SEGMENTS = 20
+
+        embed = discord.Embed(
+            title="💎 Available Funds",
+            color=0x5865F2,
+            timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
+        embed.set_footer(text="▲ = $10K alert threshold  •  Max: $60K MXN  •  Auto-refreshes every 60s")
+
+        has_field = False
+        for account_name, balance_data in balances.items():
+            if "paxful" in account_name.lower() or "error" in balance_data:
+                continue
+
+            mxn_raw = balance_data.get("mxn") or balance_data.get("MXN") or 0
+            try:
+                mxn_amount = float(mxn_raw)
+            except (ValueError, TypeError):
+                mxn_amount = 0.0
+
+            pct = min(mxn_amount / FUND_MAX, 1.0)
+            filled = round(pct * SEGMENTS)
+            alert_pos = round((FUND_ALERT / FUND_MAX) * SEGMENTS)
+
+            chars = []
+            for i in range(SEGMENTS):
+                if i == alert_pos:
+                    chars.append("▲")
+                elif i < filled:
+                    chars.append("█")
+                else:
+                    chars.append("░")
+            bar = "".join(chars)
+
+            if mxn_amount < FUND_ALERT:
+                status = "🔴"
+            elif mxn_amount < FUND_MAX / 2:
+                status = "🟡"
+            else:
+                status = "🟢"
+
+            formatted = f"{mxn_amount / 1000:.1f}K" if mxn_amount >= 1000 else f"{mxn_amount:.0f}"
+            display_name = account_name.replace("_", " ")
+
+            embed.add_field(
+                name=f"{status} {display_name}",
+                value=f"`{bar}`\n`${formatted} MXN` · `{pct * 100:.1f}%` of $60K",
+                inline=False
+            )
+            has_field = True
+
+        if not has_field:
+            embed.description = "*No MXN balance data available.*"
+
+        return embed
+
+    async def _refresh_fund_meter(self, channel: discord.TextChannel) -> None:
+        """Fetches balances and edits the pinned fund meter embed (posts a new one if needed)."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "http://127.0.0.1:5001/get_wallet_balances",
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status != 200:
+                        return
+                    balances = await response.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning(f"[FundMeter] Could not fetch balances: {e}")
+            return
+
+        embed = self._build_fund_meter_embed(balances)
+
+        # Try to edit the existing message
+        if self.fund_meter_message_id:
+            try:
+                msg = await channel.fetch_message(self.fund_meter_message_id)
+                await msg.edit(embed=embed)
+                return
+            except (discord.NotFound, discord.HTTPException):
+                logger.warning("[FundMeter] Pinned message not found — will post a new one.")
+                self.fund_meter_message_id = None
+
+        # Post a fresh message and remember its ID
+        msg = await channel.send(embed=embed)
+        self.fund_meter_message_id = msg.id
+        logger.info(f"[FundMeter] Posted fund meter (message ID: {msg.id})")
+
     @tasks.loop(seconds=60)
     async def refresh_live_trades_channel(self):
         """Fetches active trades and posts a summary only if there are changes."""
@@ -248,27 +341,35 @@ class TradeCommands(commands.Cog):
 
         current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status'), trade.get('has_attachment')) for trade in trades}
 
-        if current_trades_state == self.last_known_trades_state:
-            return
+        trades_changed = current_trades_state != self.last_known_trades_state
 
-        logger.info("Change detected in active trades. Refreshing channel.")
+        if trades_changed:
+            logger.info("Change detected in active trades. Refreshing channel.")
+            await self._attach_buyer_profiles(trades)
 
-        await self._attach_buyer_profiles(trades)
+            # Purge only bot messages that are NOT the fund meter
+            def should_purge(m):
+                return m.author == self.bot.user and m.id != self.fund_meter_message_id
 
-        await channel.purge(limit=10, check=lambda m: m.author == self.bot.user)
+            await channel.purge(limit=10, check=should_purge)
 
-        if not trades:
-            embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
-        else:
-            embed = self._build_trades_embed(trades)
+            if not trades:
+                embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
+            else:
+                embed = self._build_trades_embed(trades)
 
-        embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-        embed.set_footer(text="Last updated")
+            embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+            embed.set_footer(text="Last updated")
 
-        await channel.send(embed=embed)
+            await channel.send(embed=embed)
 
-        self.last_known_trades_state = current_trades_state
-        logger.info("Successfully refreshed the active trades channel with new data.")
+            self.last_known_trades_state = current_trades_state
+            logger.info("Successfully refreshed the active trades channel with new data.")
+
+        # Always refresh the fund meter (edit in place)
+        await self._refresh_fund_meter(channel)
+
+
 
 
     @refresh_live_trades_channel.before_loop
