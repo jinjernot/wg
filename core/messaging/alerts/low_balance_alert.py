@@ -112,7 +112,7 @@ def send_wallet_fund_meter(balances: dict) -> None:
         return
 
     embed = {
-        "title": "💎 Available Funds",
+        "title": "💰 Available Funds",
         "color": 5793266,   # Discord blurple
         "fields": fields,
         "footer": {"text": "▲ = $10K alert threshold  •  Max: $60K MXN"},
