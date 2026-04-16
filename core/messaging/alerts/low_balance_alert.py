@@ -195,17 +195,22 @@ def check_wallet_balances_and_alert():
     """
     Checks wallet balances, adds funds from open trades, converts to USD,
     and sends alerts if any balance is below the threshold.
+    The fund meter in the active trades channel is ALWAYS updated regardless
+    of whether wallet alerts are enabled.
     """
-    # Check if wallet alerts are enabled
-    app_settings = get_app_settings()
-    if not app_settings.get("wallet_alerts_enabled", True):
-        logger.info("Wallet alerts are disabled. Skipping balance check.")
-        return
-    
     logger.debug("--- Running Low Balance Check ---")
     balances = get_wallet_balances()
     if not balances:
         logger.debug("No balances found to check.")
+        return
+
+    # Always update the fund meter embed in the active trades channel
+    send_wallet_fund_meter(balances)
+
+    # Wallet alert logic respects the toggle
+    app_settings = get_app_settings()
+    if not app_settings.get("wallet_alerts_enabled", True):
+        logger.info("Wallet alerts are disabled. Skipping low-balance alert check.")
         return
 
     for account in PLATFORM_ACCOUNTS:
@@ -320,6 +325,4 @@ def check_wallet_balances_and_alert():
             logger.debug(
                 f"No alert needed for {account_name}. Balance is sufficient.")
 
-    # Always update the fund meter embed in the active trades channel
-    send_wallet_fund_meter(balances)
     logger.debug("Low balance check finished.")
