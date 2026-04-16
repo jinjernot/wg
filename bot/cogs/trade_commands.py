@@ -235,7 +235,7 @@ class TradeCommands(commands.Cog):
         SEGMENTS = 20
 
         embed = discord.Embed(
-            title="💎 Available Funds",
+            title="💰 Available Funds",
             color=0x5865F2,
             timestamp=datetime.datetime.now(datetime.timezone.utc)
         )

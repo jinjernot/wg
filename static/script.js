@@ -728,11 +728,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const amount = parseFloat(rawVal);
                             balanceContent += `
                                 <li>
+                                    ${buildFundMeter(amount)}
                                     <div class="balance-list-row">
                                         <strong>${currencyUpper}</strong>
                                         <span style="font-size:0.88rem;font-weight:600;">${parseFloat(rawVal).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                                     </div>
-                                    ${buildFundMeter(amount)}
                                 </li>`;
                         } else {
                             balanceContent += `
