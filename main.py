@@ -1,6 +1,7 @@
 import threading
 import logging
 import os
+import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trading.processor import process_trades
 from config import PLATFORM_ACCOUNTS, TRADES_STORAGE_DIR
@@ -8,9 +9,15 @@ from core.api.offers import set_offer_status, send_scheduled_task_alert
 from core.utils.log_config import setup_logging
 from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
 from core.messaging.alerts.telegram_alert import send_bot_online_alert, send_bot_offline_alert
+from core.utils.connection_guard import wait_for_internet
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Restart backoff settings
+_RESTART_BACKOFF_INITIAL = 30   # seconds before first restart attempt
+_RESTART_BACKOFF_FACTOR  = 2
+_RESTART_BACKOFF_MAX     = 300  # cap at 5 minutes
 
 
 def turn_on_offers_job():
@@ -94,6 +101,7 @@ def main():
             send_bot_offline_alert(reason="Manual shutdown")
         except Exception as e:
             logger.error(f"Failed to send bot offline alert: {e}")
+        raise  # Re-raise so the outer loop knows it was intentional
     except Exception as e:
         logger.critical(f"Bot crashed: {e}", exc_info=True)
         try:
@@ -104,4 +112,32 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    restart_count = 0
+    backoff = _RESTART_BACKOFF_INITIAL
+
+    while True:
+        try:
+            main()
+            # main() returned cleanly (only happens on clean KeyboardInterrupt re-raise)
+            logger.info("Trading bot exited cleanly.")
+            break
+
+        except KeyboardInterrupt:
+            logger.info("Trading bot stopped by user. Exiting.")
+            break
+
+        except Exception as e:
+            restart_count += 1
+            logger.critical(
+                f"Trading bot crashed (restart #{restart_count}): {e}. "
+                f"Will restart in {backoff}s.",
+                exc_info=True
+            )
+
+            # Wait for internet before restarting (outage scenario)
+            logger.info("Checking internet connectivity before restarting...")
+            wait_for_internet(retry_interval=30, label="TradingBot")
+
+            logger.info(f"Restarting trading bot in {backoff}s (restart #{restart_count + 1})...")
+            time.sleep(backoff)
+            backoff = min(backoff * _RESTART_BACKOFF_FACTOR, _RESTART_BACKOFF_MAX)
