@@ -1,7 +1,7 @@
 import logging
 import json
 import os
-# Remove the RotatingFileHandler import, we'll use the basic FileHandler
+from logging.handlers import RotatingFileHandler
 from config import APP_SETTINGS_FILE, DISCORD_WEBHOOKS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
 from core.messaging.alerts.discord_logging_handler import DiscordHandler
 from core.messaging.alerts.telegram_logging_handler import TelegramHandler
@@ -27,11 +27,12 @@ def setup_logging():
     os.makedirs(log_dir, exist_ok=True)
     error_log_path = os.path.join(log_dir, "error.log")
 
-    # --- MODIFICATION HERE ---
-    # Use the standard FileHandler which does not rotate logs.
-    # This avoids the multi-process PermissionError.
-    file_handler = logging.FileHandler(error_log_path, mode='a')
-    # --- END MODIFICATION ---
+    # Rotate at 50 MB, keep 3 backups — prevents disk-full crashes.
+    # 50 MB cap makes rotation rare for an error-only log, minimising
+    # the risk of Windows multi-process file-rename contention.
+    file_handler = RotatingFileHandler(
+        error_log_path, maxBytes=50 * 1024 * 1024, backupCount=3
+    )
     
     file_handler.setLevel(logging.ERROR)
     file_handler.setFormatter(logging.Formatter(log_format))
