@@ -351,20 +351,25 @@ class TradeCommands(commands.Cog):
             def should_purge(m):
                 return m.author == self.bot.user and m.id != self.fund_meter_message_id
 
-            await channel.purge(limit=10, check=should_purge)
+            try:
+                await channel.purge(limit=10, check=should_purge)
 
-            if not trades:
-                embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
-            else:
-                embed = self._build_trades_embed(trades)
+                if not trades:
+                    embed = discord.Embed.from_dict(NO_ACTIVE_TRADES_EMBED)
+                else:
+                    embed = self._build_trades_embed(trades)
 
-            embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
-            embed.set_footer(text="Last updated")
+                embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+                embed.set_footer(text="Last updated")
 
-            await channel.send(embed=embed)
+                await channel.send(embed=embed)
 
-            self.last_known_trades_state = current_trades_state
-            logger.info("Successfully refreshed the active trades channel with new data.")
+                self.last_known_trades_state = current_trades_state
+                logger.info("Successfully refreshed the active trades channel with new data.")
+            except discord.DiscordServerError as e:
+                logger.warning(f"Discord 503 error while refreshing trades channel (will retry next cycle): {e}")
+            except discord.HTTPException as e:
+                logger.warning(f"Discord HTTP error while refreshing trades channel (will retry next cycle): {e}")
 
         # Always refresh the fund meter (edit in place)
         await self._refresh_fund_meter(channel)
