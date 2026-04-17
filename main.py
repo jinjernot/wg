@@ -86,14 +86,45 @@ def main():
         logger.info(
             "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
 
-        threads = []
+        # --- Trading thread registry --- 
+        # Keyed by account name so the watchdog can respawn individual threads.
+        trading_threads: dict[str, tuple[threading.Thread, dict]] = {}
         for account in PLATFORM_ACCOUNTS:
-            thread = threading.Thread(target=process_trades, args=(account,), daemon=True)
-            thread.start()
-            threads.append(thread)
+            t = threading.Thread(
+                target=process_trades,
+                args=(account,),
+                daemon=True,
+                name=f"trader-{account['name']}"
+            )
+            t.start()
+            trading_threads[account["name"]] = (t, account)
+            logger.info(f"[Watchdog] Started trading thread for {account['name']}.")
 
-        for thread in threads:
-            thread.join()
+        # --- Watchdog loop (replaces thread.join()) ---
+        # Checks every 60 s and respawns any thread that has silently died.
+        logger.info("[Watchdog] Thread watchdog is active.")
+        while True:
+            time.sleep(60)
+            for account_name, (thread, account) in list(trading_threads.items()):
+                if not thread.is_alive():
+                    logger.error(
+                        f"[Watchdog] Trading thread for '{account_name}' has died — restarting."
+                    )
+                    try:
+                        send_scheduled_task_alert(
+                            f"⚠️ [{account_name}] trading thread died unexpectedly. Auto-restarting."
+                        )
+                    except Exception:
+                        pass
+                    new_thread = threading.Thread(
+                        target=process_trades,
+                        args=(account,),
+                        daemon=True,
+                        name=f"trader-{account_name}"
+                    )
+                    new_thread.start()
+                    trading_threads[account_name] = (new_thread, account)
+                    logger.info(f"[Watchdog] Restarted trading thread for '{account_name}'.")
 
     except KeyboardInterrupt:
         logger.info("Bot stopped by user (KeyboardInterrupt).")

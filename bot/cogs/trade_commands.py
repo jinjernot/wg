@@ -375,7 +375,16 @@ class TradeCommands(commands.Cog):
         await self._refresh_fund_meter(channel)
 
 
-
+    @refresh_live_trades_channel.error
+    async def on_refresh_error(self, error: Exception):
+        """Restarts the task if it crashes — prevents silent permanent death."""
+        logger.error(
+            f"[LiveFeed] Background task crashed unexpectedly: {error}. "
+            "Restarting task on next cycle.",
+            exc_info=True
+        )
+        if not self.refresh_live_trades_channel.is_running():
+            self.refresh_live_trades_channel.restart()
 
     @refresh_live_trades_channel.before_loop
     async def before_refresh(self):
