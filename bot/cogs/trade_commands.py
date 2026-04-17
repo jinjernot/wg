@@ -336,7 +336,7 @@ class TradeCommands(commands.Cog):
                 ) as response:
                     trades = await response.json() if response.status == 200 else []
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"Could not connect to Flask app to refresh live trades: {e}")
+            logger.error(f"Could not connect to Flask app to refresh live trades: {e}", exc_info=True)
             return
 
         current_trades_state = {(trade.get('trade_hash'), trade.get('trade_status'), trade.get('has_attachment')) for trade in trades}
