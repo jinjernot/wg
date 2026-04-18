@@ -277,7 +277,7 @@ def plot_trades_by_payment_method(all_trades, output_path):
         logging.info("No data to plot for payment methods.")
         return
 
-    ax = trade_counts.plot(kind='bar', stacked=True,
+    trade_counts.plot(kind='bar', stacked=True,
                            figsize=(14, 8), colormap='viridis')
 
     plt.title("Trades por Método de Pago y Cuenta")
@@ -413,7 +413,7 @@ def plot_client_profitability(trades, output_dir):
                         completed_date = completed_date.replace(tzinfo=tz.utc)
                     if month_start <= completed_date <= month_end:
                         month_trades.append(t)
-                except:
+                except Exception:
                     pass
         
         if not month_trades:
@@ -430,7 +430,7 @@ def plot_client_profitability(trades, output_dir):
             fiat_amount = trade.get('fiat_amount_requested')
             try:
                 fiat_amount = float(fiat_amount) if fiat_amount else 0
-            except:
+            except Exception:
                 continue
             
             if buyer not in client_volumes:
@@ -533,7 +533,7 @@ def generate_client_profitability_csv(trades, output_dir):
                         completed_date = completed_date.replace(tzinfo=tz.utc)
                     if month_start <= completed_date <= month_end:
                         month_trades.append(t)
-                except:
+                except Exception:
                     pass
         
         if not month_trades:
@@ -550,7 +550,7 @@ def generate_client_profitability_csv(trades, output_dir):
             fiat_amount = trade.get('fiat_amount_requested')
             try:
                 fiat_amount = float(fiat_amount) if fiat_amount else 0
-            except:
+            except Exception:
                 continue
             
             if buyer not in buyer_stats:

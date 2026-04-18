@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 import logging
 import os
-import asyncio
 import sys
 import time
 import signal

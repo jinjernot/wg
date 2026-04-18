@@ -4,7 +4,6 @@ import json
 import cv2
 import re
 import os
-import numpy as np
 import hashlib
 
 from datetime import datetime
@@ -114,7 +113,8 @@ def preprocess_image_for_ocr(image_path):
     """Applies pre-processing techniques to an image to improve OCR accuracy."""
     try:
         img = cv2.imread(image_path)
-        if img is None: return None
+        if img is None:
+            return None
 
         # --- 1. Resize for Consistency ---
         # Resizing can help standardize the input and improve performance.
@@ -169,7 +169,8 @@ def extract_text_from_image(image_path):
 
 def identify_bank_from_text(text):
     """Identifies the source bank using a detailed fingerprinting method."""
-    if not text: return None
+    if not text:
+        return None
     text_lower = text.lower()
     text_normalized = normalize_text(text)  # Accent-insensitive matching
     bank_templates = OCR_TEMPLATES.get("bank_templates", {})
@@ -259,7 +260,8 @@ def find_details_with_parsers(text, identified_bank):
 
 def find_amount_in_text(text, trade_amount):
     """Finds amount, prioritizing bank-specific parsers then falling back to generic search."""
-    if not text: return None
+    if not text:
+        return None
     identified_bank = identify_bank_from_text(text)
     
     if identified_bank:
@@ -275,7 +277,8 @@ def find_amount_in_text(text, trade_amount):
     if identified_bank:
         bank_template = OCR_TEMPLATES.get("bank_templates", {}).get(identified_bank, {})
         kw = bank_template.get("parsers", {}).get("amount", {}).get("line_keyword")
-        if kw: priority_keywords.insert(0, kw.lower())
+        if kw:
+            priority_keywords.insert(0, kw.lower())
 
     # --- UPDATED REGEX: More flexible for amounts with or without decimals ---
     money_pattern = r'\$\s*(\d{1,3}(?:,?\d{3})*(?:\.\d{2})?)\b'
@@ -283,12 +286,14 @@ def find_amount_in_text(text, trade_amount):
 
     for line in text.lower().split('\n'):
         found = re.findall(money_pattern, line)
-        if not found: continue
+        if not found:
+            continue
         is_priority = any(keyword in line for keyword in priority_keywords)
         for amount_str in found:
             amount = float(amount_str.replace(',', ''))
             all_amounts.append(amount)
-            if is_priority: priority_amounts.append(amount)
+            if is_priority:
+                priority_amounts.append(amount)
 
     expected_amount = float(trade_amount)
     for amount in priority_amounts:
@@ -314,7 +319,8 @@ def find_amount_in_text(text, trade_amount):
 
 def find_name_in_text(text, name_keywords):
     """Finds name, prioritizing bank-specific parsers then falling back to keyword search."""
-    if not text or not name_keywords: return None
+    if not text or not name_keywords:
+        return None
     identified_bank = identify_bank_from_text(text)
     
     if identified_bank:

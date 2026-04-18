@@ -45,7 +45,7 @@ def update_all_selections():
         selected_id = selection.get("selected_id")
 
         if not all([filename, owner_username, payment_method, selected_id]):
-            errors.append(f"Incomplete data for one of the selections.")
+            errors.append("Incomplete data for one of the selections.")
             continue
 
         filepath = os.path.join(PAYMENT_ACCOUNTS_PATH, filename)

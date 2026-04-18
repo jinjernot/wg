@@ -5,6 +5,7 @@ import os
 import time
 import threading
 import logging
+import random
 from datetime import datetime, timezone
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS, PLATFORM_ACCOUNTS
 from config_messages.telegram_messages import (
@@ -48,6 +49,7 @@ _FLOOD_WINDOW = 5 * 60        # 5 minutes
 _FLOOD_SIG_LEN = 120          # characters used as the message "signature"
 _flood_cache: dict[str, float] = {}
 _flood_lock = threading.Lock()
+_telegram_api_lock = threading.Lock()
 
 def escape_markdown(text):
     """Escapes special characters for Telegram's MarkdownV2 parse mode."""
@@ -118,24 +120,30 @@ def _send_text_alert(message, disable_web_page_preview=True, thread_id=None, rep
     if reply_markup is not None:
         payload["reply_markup"] = reply_markup
         
-    max_retries = 3
+    max_retries = 5
     for attempt in range(max_retries):
         try:
-            response = requests.post(url, json=payload, timeout=10)
-            if response.status_code == 200:
-                logger.info("Telegram text alert sent successfully.")
-                return response.json().get("result", {}).get("message_id")
-            if response.status_code == 429:
-                try:
-                    retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
-                except (ValueError, AttributeError, KeyError):
-                    retry_after = 1.0
-                logger.warning(
-                    f"[RATE LIMIT] Telegram rate limited (attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {retry_after:.2f}s..."
-                )
-                time.sleep(retry_after)
-                continue
+            with _telegram_api_lock:
+                response = requests.post(url, json=payload, timeout=10)
+                if response.status_code == 200:
+                    logger.info("Telegram text alert sent successfully.")
+                    return response.json().get("result", {}).get("message_id")
+                if response.status_code == 429:
+                    try:
+                        retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
+                    except (ValueError, AttributeError, KeyError):
+                        retry_after = 1.0
+                    
+                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                    total_sleep = retry_after + jitter
+                    
+                    logger.warning(
+                        f"[RATE LIMIT] Telegram rate limited (attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
+                    )
+                    time.sleep(total_sleep)
+                    continue
+                
             logger.error(f"Failed to send Telegram text alert: {response.status_code} - {response.text}")
             return None
         except requests.exceptions.RequestException as e:
@@ -177,26 +185,33 @@ def _send_photo_alert(caption_text, image_path, thread_id=None, reply_to_message
     if reply_markup is not None:
         data["reply_markup"] = json.dumps(reply_markup)
 
-    max_retries = 3
+    max_retries = 5
     for attempt in range(max_retries):
         try:
-            with open(image_path, 'rb') as photo_file:
-                files = {'photo': photo_file}
-                response = requests.post(url, data=data, files=files, timeout=20)
-            if response.status_code == 200:
-                logger.info("Attachment alert with image sent successfully.")
-                return response.json().get("result", {}).get("message_id")
-            if response.status_code == 429:
-                try:
-                    retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
-                except (ValueError, AttributeError, KeyError):
-                    retry_after = 1.0
-                logger.warning(
-                    f"[RATE LIMIT] Telegram rate limited on photo (attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {retry_after:.2f}s..."
-                )
-                time.sleep(retry_after)
-                continue
+            with _telegram_api_lock:
+                with open(image_path, 'rb') as photo_file:
+                    files = {'photo': photo_file}
+                    response = requests.post(url, data=data, files=files, timeout=20)
+                
+                if response.status_code == 200:
+                    logger.info("Attachment alert with image sent successfully.")
+                    return response.json().get("result", {}).get("message_id")
+                if response.status_code == 429:
+                    try:
+                        retry_after = float(response.json().get("parameters", {}).get("retry_after", 1.0))
+                    except (ValueError, AttributeError, KeyError):
+                        retry_after = 1.0
+                        
+                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                    total_sleep = retry_after + jitter
+                    
+                    logger.warning(
+                        f"[RATE LIMIT] Telegram rate limited on photo (attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
+                    )
+                    time.sleep(total_sleep)
+                    continue
+                    
             logger.error(f"Failed to send attachment alert with image: {response.status_code} - {response.text}")
             return None
         except IOError as e:
