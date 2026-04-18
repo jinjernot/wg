@@ -9,7 +9,7 @@ from config import TRADES_STORAGE_DIR
 
 logger = logging.getLogger(__name__)
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 
 def retry_on_permission_error(max_retries=5, base_delay=0.1):
     """Decorator to retry file operations on Windows PermissionError with exponential backoff"""
@@ -30,9 +30,11 @@ def retry_on_permission_error(max_retries=5, base_delay=0.1):
         return wrapper
     return decorator
 
+@retry_on_permission_error(max_retries=5)
 def load_processed_trades(owner_username, platform):
     """Loads all processed trades for a specific user and platform."""
-    file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
+    with _lock:
+        file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
     try:
         # Check if file exists and is not empty
         if not os.path.exists(file_path):
@@ -62,41 +64,42 @@ def save_processed_trade(trade_data, platform):
     if not owner_username or not trade_hash:
         return # Cannot save without these essential keys
 
-    file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
-    
-    # Load all trades to ensure we don't overwrite other trades in the file.
-    all_trades = load_processed_trades(owner_username, platform)
+    with _lock:
+        file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
+        
+        # Load all trades to ensure we don't overwrite other trades in the file.
+        all_trades = load_processed_trades(owner_username, platform)
     
     # Check if the data has actually changed before doing heavy I/O
     if all_trades.get(trade_hash) == trade_data:
         logger.debug(f"Trade state for {trade_hash} has not changed. Skipping disk write.")
         return
     
-    # Update the dictionary with the new, complete data for the specific trade.
-    all_trades[trade_hash] = trade_data
+        # Update the dictionary with the new, complete data for the specific trade.
+        all_trades[trade_hash] = trade_data
 
-    # Write the entire updated dictionary back to the file.
-    # Write to a temporary file first to ensure atomicity
-    temp_file_path = file_path + ".tmp"
-    try:
-        with open(temp_file_path, "w") as file:
-            json.dump(all_trades, file, indent=4)
-            file.flush()
-            os.fsync(file.fileno())
+        # Write the entire updated dictionary back to the file.
+        # Write to a temporary file first to ensure atomicity
+        temp_file_path = file_path + ".tmp"
+        try:
+            with open(temp_file_path, "w") as file:
+                json.dump(all_trades, file, indent=4)
+                file.flush()
+                os.fsync(file.fileno())
         
         # On Windows, os.replace() can raise PermissionError (WinError 5)
         # if antivirus briefly holds a lock on the destination file.
-        try:
-            os.replace(temp_file_path, file_path)
-        except PermissionError:
-            # Fallback: delete target then move — less atomic but works on Windows
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            shutil.move(temp_file_path, file_path)
-    except Exception as e:
-        if os.path.exists(temp_file_path):
             try:
-                os.remove(temp_file_path)
-            except:
-                pass  # Ignore error if temp file can't be removed
-        raise e
+                os.replace(temp_file_path, file_path)
+            except PermissionError:
+                # Fallback: delete target then move — less atomic but works on Windows
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                shutil.move(temp_file_path, file_path)
+        except Exception as e:
+            if os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                except:
+                    pass  # Ignore error if temp file can't be removed
+            raise e
