@@ -4,6 +4,9 @@ import json
 import os
 import time
 import random
+import threading
+
+_discord_api_lock = threading.Lock()
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
 from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID, BOT_OWNER_USERNAMES
@@ -65,38 +68,39 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
 
     for attempt in range(max_retries):
         try:
-            if files:
-                response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files, timeout=15)
-            else:
-                response = requests.post(webhook_url, json=payload, timeout=15)
+            with _discord_api_lock:
+                if files:
+                    response = requests.post(webhook_url, data={"payload_json": json.dumps(payload)}, files=files, timeout=15)
+                else:
+                    response = requests.post(webhook_url, json=payload, timeout=15)
 
-            if response.status_code in [200, 204]:
-                return True, "Success", None
+                if response.status_code in [200, 204]:
+                    return True, "Success", None
 
-            if response.status_code == 429:
+                if response.status_code == 429:
+                    try:
+                        retry_after = float(response.json().get("retry_after", 1.0))
+                    except (json.JSONDecodeError, AttributeError, ValueError):
+                        retry_after = 1.0
+                    
+                    # Add exponential jitter to avoid thundering herds
+                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                    total_sleep = retry_after + jitter
+                    
+                    logger.warning(
+                        f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
+                    )
+                    time.sleep(total_sleep)
+                    continue  # retry
+
+                # Non-retryable error
+                error_code = None
                 try:
-                    retry_after = float(response.json().get("retry_after", 1.0))
-                except (json.JSONDecodeError, AttributeError, ValueError):
-                    retry_after = 1.0
-                
-                # Add exponential jitter to avoid thundering herds
-                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
-                total_sleep = retry_after + jitter
-                
-                logger.warning(
-                    f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
-                )
-                time.sleep(total_sleep)
-                continue  # retry
-
-            # Non-retryable error
-            error_code = None
-            try:
-                error_code = response.json().get("code")
-            except json.JSONDecodeError:
-                pass
-            return False, f"{response.status_code} - {response.text}", error_code
+                    error_code = response.json().get("code")
+                except json.JSONDecodeError:
+                    pass
+                return False, f"{response.status_code} - {response.text}", error_code
 
         except Exception as e:
             return False, str(e), None
@@ -133,24 +137,25 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
             max_retries = 5
             response = None
             for attempt in range(max_retries):
-                response = requests.post(url, headers=headers, json=payload, timeout=15)
-                if response.status_code == 429:
-                    try:
-                        retry_after = float(response.json().get("retry_after", 1.0))
-                    except (json.JSONDecodeError, AttributeError, ValueError):
-                        retry_after = 1.0
-                    
-                    # Add exponential jitter to avoid thundering herds
-                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
-                    total_sleep = retry_after + jitter
-                    
-                    logger.warning(
-                        f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
-                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
-                    )
-                    time.sleep(total_sleep)
-                    continue
-                break
+                with _discord_api_lock:
+                    response = requests.post(url, headers=headers, json=payload, timeout=15)
+                    if response.status_code == 429:
+                        try:
+                            retry_after = float(response.json().get("retry_after", 1.0))
+                        except (json.JSONDecodeError, AttributeError, ValueError):
+                            retry_after = 1.0
+                        
+                        # Add exponential jitter to avoid thundering herds
+                        jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                        total_sleep = retry_after + jitter
+                        
+                        logger.warning(
+                            f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
+                            f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
+                        )
+                        time.sleep(total_sleep)
+                        continue
+                    break
 
             if response is not None and response.status_code == 200:
                 message_id = response.json()["id"]

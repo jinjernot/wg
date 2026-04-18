@@ -23,6 +23,7 @@ _file_lock  = threading.Lock()          # Guards all disk reads/writes
 _pending_events: dict = {}              # trade_hash -> threading.Event
 _events_lock = threading.Lock()         # Guards _pending_events
 _cache_initialized = False
+_discord_api_lock = threading.Lock()
 
 
 def _ensure_cache_loaded():
@@ -156,32 +157,33 @@ def _make_request_with_retry(url, headers, payload, max_retries=5):
     """
     for attempt in range(max_retries):
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=10)
+            with _discord_api_lock:
+                response = requests.post(url, headers=headers, json=payload, timeout=10)
 
-            # Success
-            if response.status_code in [200, 201]:
-                return response
+                # Success
+                if response.status_code in [200, 201]:
+                    return response
 
-            # Rate limiting
-            if response.status_code == 429:
-                try:
-                    error_data  = response.json()
-                    retry_after = float(error_data.get("retry_after", 1.0))
-                    code_msg    = f" (code {error_data['code']})" if "code" in error_data else ""
-                except (json.JSONDecodeError, KeyError, ValueError):
-                    retry_after = 2 ** attempt
-                    code_msg    = ""
+                # Rate limiting
+                if response.status_code == 429:
+                    try:
+                        error_data  = response.json()
+                        retry_after = float(error_data.get("retry_after", 1.0))
+                        code_msg    = f" (code {error_data['code']})" if "code" in error_data else ""
+                    except (json.JSONDecodeError, KeyError, ValueError):
+                        retry_after = 2 ** attempt
+                        code_msg    = ""
+                        
+                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                    total_sleep = retry_after + jitter
                     
-                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
-                total_sleep = retry_after + jitter
-                
-                logger.warning(
-                    f"[RATE LIMIT] Discord API rate limited{code_msg} "
-                    f"(attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
-                )
-                time.sleep(total_sleep)
-                continue
+                    logger.warning(
+                        f"[RATE LIMIT] Discord API rate limited{code_msg} "
+                        f"(attempt {attempt + 1}/{max_retries}). "
+                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
+                    )
+                    time.sleep(total_sleep)
+                    continue
 
             # Other errors — not retryable
             logger.error(
