@@ -56,8 +56,12 @@ def generate_user_profile(username):
                 continue 
 
             filepath = os.path.join(TRADES_STORAGE_DIR, filename)
-            with open(filepath, 'r') as f:
-                trades = json.load(f)
+            try:
+                with open(filepath, 'r') as f:
+                    trades = json.load(f)
+            except json.JSONDecodeError as e:
+                logger.error(f"Skipping malformed profile data in {filename}: {e}")
+                continue
 
             for trade_hash, trade in trades.items():
                 if trade.get("responder_username", "").lower() == username.lower():
