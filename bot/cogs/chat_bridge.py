@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 import aiohttp
@@ -60,6 +61,8 @@ class ChatBridge(commands.Cog):
                                     await message.add_reaction("🤷‍♂️")  # Trade not found
                             else:
                                 await message.add_reaction("🔥")  # Server error
+                except asyncio.CancelledError:
+                    raise  # Let the event loop handle cancellation cleanly
                 except Exception as e:
                     logger.error(f"Error in chat bridge: {e}", exc_info=True)
                     await message.add_reaction("🌐")  # Network error
