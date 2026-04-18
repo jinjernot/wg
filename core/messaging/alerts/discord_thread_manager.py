@@ -2,6 +2,7 @@ import requests
 import json
 import os
 import time
+import random
 import threading
 import tempfile
 import logging
@@ -144,7 +145,7 @@ def get_thread_id(trade_hash, wait=False, timeout=45):
 # HTTP helper
 # ---------------------------------------------------------------------------
 
-def _make_request_with_retry(url, headers, payload, max_retries=3):
+def _make_request_with_retry(url, headers, payload, max_retries=5):
     """
     Make a Discord API request with automatic retry on rate limiting (429).
     Uses the retry_after value from the response body; falls back to
@@ -170,12 +171,16 @@ def _make_request_with_retry(url, headers, payload, max_retries=3):
                 except (json.JSONDecodeError, KeyError, ValueError):
                     retry_after = 2 ** attempt
                     code_msg    = ""
+                    
+                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                total_sleep = retry_after + jitter
+                
                 logger.warning(
                     f"[RATE LIMIT] Discord API rate limited{code_msg} "
                     f"(attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {retry_after:.2f}s..."
+                    f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
                 )
-                time.sleep(retry_after)
+                time.sleep(total_sleep)
                 continue
 
             # Other errors — not retryable
