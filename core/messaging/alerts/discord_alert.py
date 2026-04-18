@@ -3,6 +3,7 @@ import logging
 import json
 import os
 import time
+import random
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
 from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID, BOT_OWNER_USERNAMES
@@ -55,7 +56,7 @@ AUTOMATED_MESSAGES = set(
     SPAM_WARNING_MESSAGE
 )
 
-def _send_discord_request(webhook_url, payload=None, files=None, max_retries=3):
+def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
     """Helper function to send HTTP requests to Discord with automatic rate-limit retry."""
     if not webhook_url or "YOUR_WEBHOOK_URL_HERE" in webhook_url:
         return False, "Webhook URL is not configured.", None
@@ -77,11 +78,16 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=3):
                     retry_after = float(response.json().get("retry_after", 1.0))
                 except (json.JSONDecodeError, AttributeError, ValueError):
                     retry_after = 1.0
+                
+                # Add exponential jitter to avoid thundering herds
+                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                total_sleep = retry_after + jitter
+                
                 logger.warning(
                     f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
-                    f"Retrying after {retry_after:.2f}s..."
+                    f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
                 )
-                time.sleep(retry_after)
+                time.sleep(total_sleep)
                 continue  # retry
 
             # Non-retryable error
@@ -124,7 +130,7 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
         payload = {"embeds": [embed_data]}
         
         try:
-            max_retries = 3
+            max_retries = 5
             response = None
             for attempt in range(max_retries):
                 response = requests.post(url, headers=headers, json=payload, timeout=15)
@@ -133,11 +139,16 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                         retry_after = float(response.json().get("retry_after", 1.0))
                     except (json.JSONDecodeError, AttributeError, ValueError):
                         retry_after = 1.0
+                    
+                    # Add exponential jitter to avoid thundering herds
+                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                    total_sleep = retry_after + jitter
+                    
                     logger.warning(
                         f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
-                        f"Retrying after {retry_after:.2f}s..."
+                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)..."
                     )
-                    time.sleep(retry_after)
+                    time.sleep(total_sleep)
                     continue
                 break
 
