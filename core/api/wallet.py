@@ -13,21 +13,12 @@ logger = logging.getLogger(__name__)
 API_LOG_PATH = os.path.join('data', 'logs', 'api_logs')
 os.makedirs(API_LOG_PATH, exist_ok=True)
 
-def _save_api_response(account_name, response):
-    """Saves the raw API response to a file for debugging."""
+def _log_api_response(account_name, response):
+    """Logs the raw API response status for debugging (no disk writes)."""
     try:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{account_name}_balance_{timestamp}.json"
-        filepath = os.path.join(API_LOG_PATH, filename)
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            try:
-                json.dump(response.json(), f, indent=4)
-            except json.JSONDecodeError:
-                f.write(response.text)
-        logger.debug(f"Saved API response for {account_name} to {filepath}")
+        logger.debug(f"[{account_name}] wallet-balances status={response.status_code}")
     except Exception as e:
-        logger.error(f"Failed to save API response for {account_name}: {e}")
+        logger.error(f"Failed to log API response for {account_name}: {e}")
 
 def get_wallet_balances():
     """Fetches wallet balances for all configured accounts."""
@@ -55,7 +46,7 @@ def get_wallet_balances():
             response = http_client.post(url, headers=headers, timeout=15)
 
             if response:
-                _save_api_response(account['name'], response)
+                _log_api_response(account['name'], response)
 
             if response.status_code == 200:
                 data = response.json().get("data", {})
