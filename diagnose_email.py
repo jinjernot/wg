@@ -3,7 +3,6 @@ Email Validation Diagnostic Script
 Run this to check your email validation setup and troubleshoot issues.
 """
 
-import os
 import json
 from pathlib import Path
 from datetime import datetime
@@ -35,10 +34,10 @@ if creds_dir.exists():
                 with open(token) as f:
                     token_data = json.load(f)
                     if "expiry" in token_data:
-                        token_status = f"✅ Present (may need refresh)"
+                        token_status = "✅ Present (may need refresh)"
                     else:
                         token_status = "✅ Present"
-            except:
+            except Exception:
                 token_status = "⚠️ Corrupt"
         
         print(f"   • {name}")
@@ -92,7 +91,7 @@ if email_logs.exists():
                 print(f"   Trade: {data.get('trade_hash', 'Unknown')}")
                 print(f"   Validator: {data.get('validator', 'Unknown')}")
                 print(f"   Emails found: {data.get('emails_found', 0)}")
-            except:
+            except Exception:
                 pass
     else:
         print("🔍 Search Logs: None yet")

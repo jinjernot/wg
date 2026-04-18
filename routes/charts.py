@@ -55,4 +55,4 @@ def generate_charts():
 
 @charts_bp.route('/charts/<filename>')
 def get_chart(filename):
-    return send_from_directory(TRADE_HISTORY, filename, as_attachment=True) 
+    return send_from_directory(TRADE_HISTORY_DIR, filename, as_attachment=True) 

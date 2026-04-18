@@ -109,7 +109,7 @@ def generate_mxn_market_report():
     
     date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"mxn_market_report_all_{date_str}.csv"
-    filepath = os.path.join(TRADE_HISTORY, filename)
+    filepath = os.path.join(TRADE_HISTORY_DIR, filename)
     
     try:
         with open(filepath, "w", newline='', encoding='utf-8') as f:

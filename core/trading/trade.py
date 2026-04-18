@@ -340,12 +340,6 @@ class Trade:
                 account_names.append(selected_account["name"])
                 logger.debug(f"Selected account: {selected_account['name']}")
 
-        for acc in all_accounts:
-            if "name" in acc:
-                acc_name = acc["name"]
-                if acc_name not in account_names and acc_name in EMAIL_ACCOUNT_DETAILS:
-                    account_names.append(acc_name)
-                    logger.debug(f"Additional account to check: {acc_name}")
 
         logger.debug(f"Total accounts to check for email: {len(account_names)}")
         return account_names
