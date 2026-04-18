@@ -761,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchActiveTrades();
     fetchOffers();
     fetchWalletBalances();
-    setInterval(updateStatus, 15000);
+    setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);

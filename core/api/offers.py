@@ -130,6 +130,13 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
 
 def get_all_offers():
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
+    # Check cache first (3 minute TTL — offers rarely change on their own)
+    response_cache = get_response_cache()
+    cached_offers = response_cache.get("all_offers")
+    if cached_offers is not None:
+        logger.debug("Returning cached offers list")
+        return cached_offers
+
     all_offers_data = []
     http_client = get_http_client()
     for account in PLATFORM_ACCOUNTS:
@@ -178,7 +185,9 @@ def get_all_offers():
 
         except Exception as e:
             logger.error(f"An exception occurred fetching offers for {account['name']}: {e}")
-            
+
+    # Cache results for 3 minutes
+    response_cache.set("all_offers", all_offers_data, ttl_seconds=180)
     return all_offers_data
 
 def toggle_single_offer(account_name, offer_hash, turn_on):
@@ -203,8 +212,10 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
     http_client = get_http_client()
     try:
         response = http_client.post(url, headers=headers, data=data, timeout=15)
-        
+
         if response.status_code == 200 and response.json().get("status") == "success":
+            # Invalidate offers cache so next fetch is fresh
+            get_response_cache().invalidate("all_offers")
             return {"success": True}
         else:
             error_message = response.json().get("error_description", "Unknown API error")
@@ -234,7 +245,7 @@ def set_offer_status(turn_on):
 
         try:
             response = http_client.post(url, headers=headers)
-            
+
             if response.status_code == 200 and response.json().get("status") == "success":
                 results.append({"account": account["name"], "success": True})
             else:
@@ -242,6 +253,10 @@ def set_offer_status(turn_on):
                 results.append({"account": account["name"], "success": False, "error": error_message})
         except Exception as e:
             results.append({"account": account["name"], "success": False, "error": str(e)})
+
+    # Invalidate offers cache after bulk toggle
+    if any(r["success"] for r in results):
+        get_response_cache().invalidate("all_offers")
     
     return results
 
