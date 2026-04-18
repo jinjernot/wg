@@ -1,4 +1,5 @@
 import time
+import threading
 import logging
 from core.api.auth import fetch_token_with_retry
 from core.api.trade_list import get_trade_list
@@ -11,6 +12,18 @@ logger = logging.getLogger(__name__)
 # How long to pause before retrying after a run of consecutive auth failures
 AUTH_BACKOFF_SECONDS = 5 * 60  # 5 minutes
 MAX_FAILED_AUTH = 5
+
+# --- Thread heartbeat registry ---
+# Keyed by thread name; updated at the start of every poll cycle.
+# The watchdog in main.py reads this to detect deadlocked threads.
+_heartbeats: dict[str, float] = {}
+_heartbeat_lock = threading.Lock()
+
+
+def get_thread_heartbeats() -> dict[str, float]:
+    """Returns a snapshot of {thread_name: last_seen_timestamp} for all trading threads."""
+    with _heartbeat_lock:
+        return dict(_heartbeats)
 
 
 def process_trades(account):
@@ -28,7 +41,14 @@ def process_trades(account):
 
     failed_auth_attempts = 0
 
+    thread_name = threading.current_thread().name
+
     while True:
+        # Stamp heartbeat at the top of every cycle so the watchdog can
+        # detect threads that are alive but frozen (deadlocked).
+        with _heartbeat_lock:
+            _heartbeats[thread_name] = time.time()
+
         logger.debug(f"--- Starting new trade processing cycle for {account['name']} ---")
         access_token = fetch_token_with_retry(account)
 

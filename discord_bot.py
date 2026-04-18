@@ -3,9 +3,12 @@ from discord.ext import commands
 import logging
 import os
 import asyncio
+import sys
 import time
+import signal
 from config import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
 from core.utils.connection_guard import wait_for_internet
+from core.utils.startup_checks import validate_config
 from core.messaging.alerts.telegram_alert import send_bot_online_alert, send_bot_offline_alert
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -15,6 +18,39 @@ logger = logging.getLogger(__name__)
 _BACKOFF_INITIAL  = 10    # seconds — first retry delay
 _BACKOFF_FACTOR   = 2     # multiply delay by this each failure
 _BACKOFF_MAX      = 300   # cap at 5 minutes
+
+
+# =============================================================================
+# Safety hooks
+# =============================================================================
+
+def _handle_uncaught_exception(exc_type, exc_value, exc_traceback):
+    """Catch any exception that escapes all try/except blocks."""
+    if issubclass(exc_type, (KeyboardInterrupt, SystemExit)):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.critical(
+        "Uncaught exception — process will exit.",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
+    try:
+        send_bot_offline_alert(reason=f"Fatal uncaught exception: {exc_value}")
+    except Exception:
+        pass
+
+sys.excepthook = _handle_uncaught_exception
+
+
+def _handle_sigterm(signum, frame):
+    """Graceful shutdown when OS/NSSM sends SIGTERM."""
+    logger.info("Received SIGTERM — shutting down Discord bot.")
+    try:
+        send_bot_offline_alert(reason="Graceful shutdown (SIGTERM received)")
+    except Exception:
+        pass
+    raise SystemExit(0)
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
 
 class MyBot(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -137,6 +173,8 @@ def _run_bot_with_reconnect():
 
 
 if __name__ == "__main__":
+    validate_config()  # Fail fast if env vars are missing
+
     if DISCORD_BOT_TOKEN is None:
         logger.critical("DISCORD_BOT_TOKEN is not set in the configuration. The bot cannot start.")
     else:

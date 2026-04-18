@@ -3,6 +3,7 @@ import json
 import re
 import os
 import time
+import threading
 import logging
 from datetime import datetime, timezone
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS, PLATFORM_ACCOUNTS
@@ -38,6 +39,16 @@ from .telegram_thread_manager import (
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Alert flood filter
+# Prevents the same message type from spamming Telegram in a tight loop.
+# Keyed by the first 120 chars of the message; value is last-sent timestamp.
+# ---------------------------------------------------------------------------
+_FLOOD_WINDOW = 5 * 60        # 5 minutes
+_FLOOD_SIG_LEN = 120          # characters used as the message "signature"
+_flood_cache: dict[str, float] = {}
+_flood_lock = threading.Lock()
+
 def escape_markdown(text):
     """Escapes special characters for Telegram's MarkdownV2 parse mode."""
     if not isinstance(text, str):
@@ -64,6 +75,25 @@ def _send_text_alert(message, disable_web_page_preview=True, thread_id=None, rep
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("Telegram Bot Token or Chat ID is not configured.")
         return None
+
+    # --- Flood filter ---
+    # Suppress identical alerts sent within _FLOOD_WINDOW seconds.
+    # Uses the first _FLOOD_SIG_LEN chars as the message signature so that
+    # minor variations (e.g. different timestamps) are still grouped.
+    sig = message[:_FLOOD_SIG_LEN]
+    with _flood_lock:
+        last_sent = _flood_cache.get(sig, 0)
+        if time.time() - last_sent < _FLOOD_WINDOW:
+            logger.debug(
+                f"[FloodFilter] Suppressed duplicate Telegram alert "
+                f"(cooldown: {_FLOOD_WINDOW // 60}m): {sig[:60]}..."
+            )
+            return None
+        _flood_cache[sig] = time.time()
+        # Evict old entries to prevent unbounded memory growth
+        stale_cutoff = time.time() - _FLOOD_WINDOW * 2
+        for k in [k for k, v in _flood_cache.items() if v < stale_cutoff]:
+            del _flood_cache[k]
 
     message = re.sub(r'(?<!\\)([\.\(\)\-\|])', r'\\\1', message)
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
