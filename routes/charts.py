@@ -2,6 +2,7 @@ import logging
 import glob
 import json
 import os
+import pytz
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
 from flask import Blueprint, jsonify, send_from_directory
@@ -34,14 +35,16 @@ def get_weekly_volume():
                 if key not in account_files or date_str > account_files[key][1]:
                     account_files[key] = (f, date_str)
 
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(days=7)
+        # Use Mexico City time so day boundaries match the user's calendar
+        mexico_tz = pytz.timezone('America/Mexico_City')
+        now_local = datetime.now(mexico_tz)
+        cutoff = now_local - timedelta(days=7)
 
-        # Initialise 7-day buckets (oldest → newest)
+        # Initialise 7-day buckets (oldest → newest) in local time
         daily_volume = {}
         daily_count  = {}
         for i in range(7):
-            day = (now - timedelta(days=6 - i)).strftime("%Y-%m-%d")
+            day = (now_local - timedelta(days=6 - i)).strftime("%Y-%m-%d")
             daily_volume[day] = 0.0
             daily_count[day]  = 0
 
@@ -59,9 +62,11 @@ def get_weekly_volume():
                         dt = isoparse(completed_at)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=timezone.utc)
-                        if dt < cutoff:
+                        # Convert to Mexico City local time before bucketing
+                        dt_local = dt.astimezone(mexico_tz)
+                        if dt_local < cutoff:
                             continue
-                        day_key = dt.strftime("%Y-%m-%d")
+                        day_key = dt_local.strftime("%Y-%m-%d")
                         if day_key in daily_volume:
                             if (trade.get("fiat_currency_code") or "").upper() == "MXN":
                                 amt = float(trade.get("fiat_amount_requested") or 0)
