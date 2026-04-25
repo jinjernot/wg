@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,154 +10,189 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
-    <div class="header">
-        <div class="logo">
-            <img src="{{ url_for('static', filename='ss.png') }}" alt="Logo" class="logo-img">
+
+<div class="header">
+    <div class="logo">
+        <img src="{{ url_for('static', filename='ss.png') }}" alt="Logo" class="logo-img">
+    </div>
+    <h1>WillGang Command Center</h1>
+    <div style="margin-left:auto;">
+        <a href="/trades-view" class="nav-btn">📊 Trades View</a>
+    </div>
+</div>
+
+<!-- KPI Strip -->
+<div class="kpi-strip">
+    <div class="kpi-item">
+        <span class="kpi-icon">⚡</span>
+        <div class="kpi-value" id="kpi-active">—</div>
+        <div class="kpi-label">Active</div>
+    </div>
+    <div class="kpi-divider"></div>
+    <div class="kpi-item">
+        <span class="kpi-icon">✅</span>
+        <div class="kpi-value kpi-green" id="kpi-paid">—</div>
+        <div class="kpi-label">Paid</div>
+    </div>
+    <div class="kpi-divider"></div>
+    <div class="kpi-item">
+        <span class="kpi-icon">💰</span>
+        <div class="kpi-value kpi-gold" id="kpi-exposure">—</div>
+        <div class="kpi-label">MXN Exposure</div>
+    </div>
+    <div class="kpi-divider"></div>
+    <div class="kpi-item">
+        <span class="kpi-icon">📎</span>
+        <div class="kpi-value kpi-orange" id="kpi-noreceipt">—</div>
+        <div class="kpi-label">No Receipt</div>
+    </div>
+    <div class="kpi-divider"></div>
+    <div class="kpi-item">
+        <span class="kpi-icon">⚠️</span>
+        <div class="kpi-value kpi-red" id="kpi-disputed">—</div>
+        <div class="kpi-label">Disputed</div>
+    </div>
+</div>
+
+<div class="dashboard-container">
+
+    <!-- Bot Control -->
+    <div class="card card-control">
+        <h2>⚙️ Bot Control</h2>
+
+        <!-- Hero Status -->
+        <div class="hero-status-wrap">
+            <span id="status-indicator">Checking...</span>
+            <span class="hero-last-action" id="hero-last-action">No recent action</span>
         </div>
-        <h1>WillGang Command Center</h1>
-        <div style="margin-left: auto;">
-            <a href="/trades-view" class="nav-btn">Trades View</a>
+
+        <div class="control-buttons">
+            <button id="start-btn">▶ Start Bot</button>
+            <button id="stop-btn">■ Stop Bot</button>
+        </div>
+        <div class="control-buttons" style="margin-top:10px;">
+            <button id="save-all-btn">💾 Save Selections</button>
+            <button id="generate-charts-btn">📊 Reports</button>
+        </div>
+        <button id="generate-market-report-btn">📈 MXN Market Report</button>
+
+        <div class="toggles-container">
+            <div class="offers-toggle">
+                <span>🌙 Nighttime Messages</span>
+                <label class="switch">
+                    <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if app_settings.night_mode_enabled %}checked{% endif %}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="offers-toggle">
+                <span>💤 AFK Messages</span>
+                <label class="switch">
+                    <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if app_settings.afk_mode_enabled %}checked{% endif %}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="offers-toggle">
+                <span>📢 Enable All Offers</span>
+                <label class="switch">
+                    <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif %}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="offers-toggle">
+                <span>📝 Verbose Logging</span>
+                <label class="switch">
+                    <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if app_settings.verbose_logging_enabled %}checked{% endif %}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="offers-toggle">
+                <span>💰 Wallet Alerts</span>
+                <label class="switch">
+                    <input type="checkbox" class="setting-toggle" data-key="wallet_alerts_enabled" {% if app_settings.wallet_alerts_enabled %}checked{% endif %}>
+                    <span class="slider round"></span>
+                </label>
+            </div>
         </div>
     </div>
 
-    <div class="dashboard-container">
-
-        <div class="card card-control">
-            <h2>⚙️ Bot Control</h2>
-
-            <div class="control-buttons">
-                <button id="start-btn">▶ Start Bot</button>
-                <button id="stop-btn">■ Stop Bot</button>
-            </div>
-
-            <div class="control-buttons" style="margin-top:10px;">
-                <button id="save-all-btn">💾 Save Selections</button>
-                <button id="generate-charts-btn">📊 Reports</button>
-            </div>
-
-            <button id="generate-market-report-btn">📈 MXN Market Report</button>
-
-            <p class="status-text">Status: <span id="status-indicator">Checking...</span></p>
-
-            <div class="toggles-container">
-                <div class="offers-toggle">
-                    <span>🌙 Nighttime Messages</span>
-                    <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="night_mode_enabled" {% if
-                            app_settings.night_mode_enabled %}checked{% endif %}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="offers-toggle">
-                    <span>💤 AFK Messages</span>
-                    <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="afk_mode_enabled" {% if
-                            app_settings.afk_mode_enabled %}checked{% endif %}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="offers-toggle">
-                    <span>📢 Enable All Offers</span>
-                    <label class="switch">
-                        <input type="checkbox" id="offers-checkbox" {% if app_settings.offers_enabled %}checked{% endif
-                            %}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="offers-toggle">
-                    <span>📝 Verbose Logging</span>
-                    <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="verbose_logging_enabled" {% if
-                            app_settings.verbose_logging_enabled %}checked{% endif %}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="offers-toggle">
-                    <span>💰 Wallet Alerts</span>
-                    <label class="switch">
-                        <input type="checkbox" class="setting-toggle" data-key="wallet_alerts_enabled" {% if
-                            app_settings.wallet_alerts_enabled %}checked{% endif %}>
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-
-        <div class="account-column">
-            {% if user_grouped_data %}
-            {% for owner_name, methods in user_grouped_data.items() %}
-            <div class="card card-selector">
-                <h2>👤 {{ owner_name }}'s Accounts</h2>
-                {% for method_name, data in methods.items() %}
-                <div class="method-section">
-                    <h4>{{ method_name | replace('-', ' ') | title }}</h4>
-                    <form class="account-form">
-                        <input type="hidden" name="filename" value="{{ data.filename }}">
-                        <input type="hidden" name="owner_username" value="{{ owner_name }}">
-                        <input type="hidden" name="payment_method" value="{{ method_name }}">
-                        <select name="selected_id" class="account-select">
-                            {% for account in data.details.accounts %}
-                            <option value="{{ account.id }}" {% if account.id|string==data.details.selected_id|string
-                                %}selected{% endif %}>
-                                {{ account.name }} ({{ account.get('bank', 'N/A') }})
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                </div>
-                {% endfor %}
+    <!-- Account Selectors -->
+    <div class="account-column">
+        {% if user_grouped_data %}
+        {% for owner_name, methods in user_grouped_data.items() %}
+        <div class="card card-selector">
+            <h2>👤 {{ owner_name }}'s Accounts</h2>
+            {% for method_name, data in methods.items() %}
+            <div class="method-section">
+                <h4>{{ method_name | replace('-', ' ') | title }}</h4>
+                <form class="account-form">
+                    <input type="hidden" name="filename" value="{{ data.filename }}">
+                    <input type="hidden" name="owner_username" value="{{ owner_name }}">
+                    <input type="hidden" name="payment_method" value="{{ method_name }}">
+                    <select name="selected_id" class="account-select">
+                        {% for account in data.details.accounts %}
+                        <option value="{{ account.id }}" {% if account.id|string==data.details.selected_id|string %}selected{% endif %}>
+                            {{ account.name }} ({{ account.get('bank', 'N/A') }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
             {% endfor %}
-            {% else %}
-            <div class="card">
-                <h2>Account Selector</h2>
-                <div class="empty-state">
-                    <div class="empty-state-icon">📂</div>
-                    <h3>No Payment Files Found</h3>
-                    <p>No payment JSON files found in /data/json directory.</p>
-                </div>
-            </div>
-            {% endif %}
         </div>
-
-        <div class="card card-balances">
-            <h2>💰 Wallet Balances</h2>
-            <div id="wallet-balances-container" class="balance-columns">
-                <div id="david-balances-col">
-                    <div class="skeleton skeleton-card"></div>
-                </div>
-                <div id="joe-balances-col">
-                    <div class="skeleton skeleton-card"></div>
-                </div>
+        {% endfor %}
+        {% else %}
+        <div class="card">
+            <h2>Account Selector</h2>
+            <div class="empty-state">
+                <div class="empty-state-icon">📂</div>
+                <h3>No Payment Files Found</h3>
+                <p>No payment JSON files found in /data/json directory.</p>
             </div>
         </div>
-
-        <div class="card card-trades-table full-width">
-            <h2>📊 Active Trades</h2>
-            <div id="active-trades-container">
-                <div class="skeleton skeleton-card"></div>
-            </div>
-        </div>
-
-        <div class="card card-offers-table full-width">
-            <div class="card-header">
-                <h2>🎯 Offer Management</h2>
-                <button id="toggle-offers-visibility-btn" class="toggle-visibility-btn">Show All</button>
-            </div>
-            <div id="offers-container">
-                <div class="skeleton skeleton-card"></div>
-            </div>
-        </div>
-
+        {% endif %}
     </div>
 
-    <!-- Toast Notification Container -->
-    <div class="toast-container" id="toast-container"></div>
+    <!-- Wallet Balances -->
+    <div class="card card-balances">
+        <div class="card-header">
+            <h2>💰 Wallet Balances</h2>
+            <span class="wallet-total-badge" id="wallet-total-badge" title="Combined MXN"></span>
+        </div>
+        <div id="wallet-balances-container" class="balance-columns">
+            <div id="david-balances-col"><div class="skeleton skeleton-card"></div></div>
+            <div id="joe-balances-col"><div class="skeleton skeleton-card"></div></div>
+        </div>
+    </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <!-- Active Trades (compact preview) -->
+    <div class="card card-trades-table full-width">
+        <div class="card-header">
+            <h2>📊 Active Trades</h2>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span class="dash-trades-pill" id="dash-trades-pill" style="display:none;"></span>
+                <a href="/trades-view" class="nav-btn" style="padding:6px 14px;font-size:0.8rem;white-space:nowrap;">View Full →</a>
+            </div>
+        </div>
+        <div id="active-trades-container">
+            <div class="skeleton skeleton-card"></div>
+        </div>
+    </div>
+
+    <!-- Offer Management -->
+    <div class="card card-offers-table full-width">
+        <div class="card-header">
+            <h2>🎯 Offer Management</h2>
+            <button id="toggle-offers-visibility-btn" class="toggle-visibility-btn">Show All</button>
+        </div>
+        <div id="offers-container">
+            <div class="skeleton skeleton-card"></div>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
-
 </html>

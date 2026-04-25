@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             startBtn.classList.remove('loading');
             showToast('Bot Started', result.message, result.success ? 'success' : 'error');
             updateStatus();
+            setLastAction('Bot Started');
         });
     }
 
@@ -122,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stopBtn.classList.remove('loading');
             showToast('Bot Stopped', result.message, result.success ? 'success' : 'error');
             updateStatus();
+            setLastAction('Bot Stopped');
         });
     }
 
@@ -433,6 +435,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Last-action tracker ---
+    function setLastAction(label) {
+        const el = document.getElementById('hero-last-action');
+        if (!el) return;
+        const t = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        el.textContent = `${label} at ${t}`;
+    }
+
+    // --- KPI Strip ---
+    function updateKpiStrip(trades) {
+        if (!trades) return;
+        const active   = trades.filter(t => t.trade_status !== 'Paid' && t.trade_status !== 'Dispute open').length;
+        const paid     = trades.filter(t => t.trade_status === 'Paid').length;
+        const noRcpt   = trades.filter(t => t.trade_status === 'Paid' && !t.has_attachment).length;
+        const disputed = trades.filter(t => t.trade_status === 'Dispute open').length;
+        const exposure = trades.reduce((s, t) => {
+            const a = parseFloat(t.fiat_amount_requested);
+            return (t.fiat_currency_code || '').toUpperCase() === 'MXN' && !isNaN(a) ? s + a : s;
+        }, 0);
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('kpi-active',    active);
+        set('kpi-paid',      paid);
+        set('kpi-noreceipt', noRcpt);
+        set('kpi-disputed',  disputed);
+        set('kpi-exposure',  exposure > 0 ? '$' + exposure.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' MXN' : '$0');
+        // Trades summary pill
+        const pill = document.getElementById('dash-trades-pill');
+        if (pill) {
+            pill.textContent = `${trades.length} trade${trades.length !== 1 ? 's' : ''} live`;
+            pill.style.display = trades.length > 0 ? 'inline-block' : 'none';
+        }
+    }
+
     // --- Data Fetching and UI Update Functions ---
     async function updateStatus() {
         try {
@@ -480,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateTradesTable(trades) {
         if (!tradesContainer) return;
+        updateKpiStrip(trades);
         tradesContainer.innerHTML = '';
 
         if (!trades || trades.length === 0) {
@@ -754,6 +790,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = idx % 2 === 0 ? davidContainer : joeContainer;
             target.innerHTML += content;
         });
+
+        // Combined MXN badge
+        const totalMXN = accounts.reduce((sum, name) => {
+            const data = balances[name];
+            if (!data || data.error) return sum;
+            for (const k in data) {
+                if (k.toUpperCase() === 'MXN') {
+                    const v = parseFloat(data[k]);
+                    return !isNaN(v) ? sum + v : sum;
+                }
+            }
+            return sum;
+        }, 0);
+        const badge = document.getElementById('wallet-total-badge');
+        if (badge) {
+            badge.textContent = totalMXN > 0
+                ? '$' + totalMXN.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' MXN'
+                : '';
+            badge.style.display = totalMXN > 0 ? 'inline-block' : 'none';
+        }
     }
 
     // --- Initial and Periodic Updates ---
