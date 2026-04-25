@@ -13,6 +13,7 @@ a{color:#0DBBA8}
 .report-header{display:flex;align-items:center;justify-content:space-between;padding:28px 32px;background:linear-gradient(135deg,#0c1e1c,#091a18);border:1px solid #1a3330;border-radius:16px;margin-bottom:32px}
 .rh-left h1{font-size:1.7rem;font-weight:800;background:linear-gradient(90deg,#0DBBA8,#22D3EE);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .rh-left p{color:#7ea89f;font-size:0.8rem;margin-top:4px}
+.rh-actions{display:flex;align-items:center;gap:12px}
 .rh-badge{background:rgba(13,187,168,.15);border:1px solid rgba(13,187,168,.3);border-radius:20px;padding:6px 16px;font-size:0.75rem;color:#0DBBA8;font-weight:700}
 /* kpi */
 .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:32px}
@@ -250,12 +251,12 @@ def generate_report_html(data: dict) -> str:
 
   <!-- KPI STRIP -->
   <div class="kpi-grid">
-    {_kpi("Total Trades", f"{m['total_trades']:,}", "all time")}
-    {_kpi("Total MXN Volume", m['total_vol_fmt'], "all time")}
+    {_kpi("Total Trades", f"{m['total_trades']:,}", "last 90 days")}
+    {_kpi("Total MXN Volume", m['total_vol_fmt'], "last 90 days")}
     {_kpi("Avg Trade Size", m['avg_size_fmt'], "MXN per trade")}
     {_kpi("Largest Trade", m['max_trade_fmt'], "single transaction")}
     {_kpi("Unique Buyers", f"{m['uniq_buyers']:,}", "distinct buyers")}
-    {_kpi("Avg Completion", f"{m['avg_duration']} min", "started → paid")}
+    {_kpi("Active Accounts", f"{m.get('active_accounts', 0)}", "receiving trades")}
   </div>
 
   <!-- DAILY TREND -->
