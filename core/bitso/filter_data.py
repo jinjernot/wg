@@ -29,3 +29,29 @@ def filter_fundings_by_month(fundings, year, month):
 
     print(f"Filtered down to {len(filtered)} funding transactions")
     return filtered
+
+
+def filter_fundings_by_period(fundings, year, month, period):
+    """
+    Split monthly fundings into two half-month periods.
+    period=1 → days 1–15
+    period=2 → days 16–end of month
+    """
+    mexico_tz = pytz.timezone('America/Mexico_City')
+    result = []
+    for f in fundings:
+        created_str = f.get('created_at')
+        if not created_str:
+            continue
+        try:
+            created_local = parser.isoparse(created_str).astimezone(mexico_tz).date()
+            if created_local.year != year or created_local.month != month:
+                continue
+            day = created_local.day
+            if period == 1 and 1 <= day <= 15:
+                result.append(f)
+            elif period == 2 and day >= 16:
+                result.append(f)
+        except Exception:
+            continue
+    return result
