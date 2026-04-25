@@ -47,7 +47,18 @@ td.teal{color:#0DBBA8;font-weight:700}
 .badge-other{background:rgba(139,92,246,.12);color:#8B5CF6}
 /* footer */
 .report-footer{text-align:center;color:#3D6860;font-size:.72rem;margin-top:48px;padding-top:24px;border-top:1px solid #1a3330}
+/* mobile overrides */
+@media(max-width:768px){
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .report-header{flex-direction:column;align-items:flex-start;gap:16px;padding:20px}
+  .rh-actions{width:100%;display:flex;justify-content:space-between;align-items:center}
+  .page{padding:16px 12px}
+  .card{padding:16px}
+}
+.btn-download{background:#0DBBA8;color:#050e0d;border:none;border-radius:20px;padding:8px 16px;font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .2s}
+.btn-download:hover{opacity:.8}
 """
+
 
 _JS_STATIC = """
 const P = window.RDATA;
@@ -157,6 +168,18 @@ function grad(ctx,c1,c2){const g=ctx.createLinearGradient(0,0,0,300);g.addColorS
     y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#3D6860',font:{size:10},callback:v=>v},border:{display:false}}
   }}});
 })();
+
+// Download Offline HTML
+function downloadHtml(){
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeDate = P.meta.generated.replace(/[^a-zA-Z0-9]/g, '_');
+  a.download = `WillGang_Report_${safeDate}.html`;
+  a.click();
+}
 """
 
 
@@ -216,8 +239,12 @@ def generate_report_html(data: dict) -> str:
       <h1>⚡ WillGang Trading Report</h1>
       <p>Period: {m.get('period','N/A')} &nbsp;·&nbsp; Generated {m['generated']}</p>
     </div>
-    <div>
+    <div class="rh-actions">
       <div class="rh-badge">Noones · All Accounts</div>
+      <button class="btn-download" onclick="downloadHtml()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Save Offline
+      </button>
     </div>
   </div>
 
