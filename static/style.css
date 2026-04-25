@@ -1,46 +1,46 @@
 /* ============================================================
-   WILLGANG COMMAND CENTER — Design System v2
+   WILLGANG COMMAND CENTER — Design System v3 (Teal/Emerald)
    ============================================================ */
 
 :root {
-    /* Background */
-    --bg-base:    #07090f;
-    --bg-surface: rgba(14, 17, 30, 0.85);
-    --bg-raised:  rgba(24, 28, 46, 0.7);
+    /* Background — deep teal-tinted dark */
+    --bg-base:    #060d0c;
+    --bg-surface: rgba(8, 22, 20, 0.88);
+    --bg-raised:  rgba(12, 32, 28, 0.72);
     --bg-hover:   rgba(255, 255, 255, 0.04);
 
     /* Borders */
     --border:       rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.18);
-    --border-focus: rgba(99, 102, 241, 0.5);
+    --border-focus: rgba(13, 186, 170, 0.5);
 
     /* Text */
-    --text-1: #F0F2FA;
-    --text-2: #8892A8;
-    --text-3: #505970;
+    --text-1: #EEF5F3;
+    --text-2: #7EA89F;
+    --text-3: #3D6860;
 
-    /* Brand */
-    --indigo:  #6366F1;
-    --violet:  #8B5CF6;
-    --indigo-dim: rgba(99, 102, 241, 0.15);
+    /* Brand — teal primary, cyan accent */
+    --indigo:     #0DBBA8;
+    --violet:     #22D3EE;
+    --indigo-dim: rgba(13, 187, 168, 0.15);
 
     /* Semantic */
-    --green:   #22C55E;
-    --green-dim: rgba(34, 197, 94, 0.15);
-    --green-glow: rgba(34, 197, 94, 0.35);
+    --green:      #10B981;
+    --green-dim:  rgba(16, 185, 129, 0.15);
+    --green-glow: rgba(16, 185, 129, 0.35);
 
-    --red:     #EF4444;
-    --red-dim: rgba(239, 68, 68, 0.15);
-    --red-glow: rgba(239, 68, 68, 0.35);
+    --red:        #F43F5E;
+    --red-dim:    rgba(244, 63, 94, 0.15);
+    --red-glow:   rgba(244, 63, 94, 0.35);
 
-    --amber:   #F59E0B;
-    --amber-dim: rgba(245, 158, 11, 0.15);
+    --amber:      #F59E0B;
+    --amber-dim:  rgba(245, 158, 11, 0.15);
     --amber-glow: rgba(245, 158, 11, 0.35);
 
-    --blue:    #3B82F6;
-    --blue-dim: rgba(59, 130, 246, 0.18);
+    --blue:       #38BDF8;
+    --blue-dim:   rgba(56, 189, 248, 0.18);
 
-    --teal: #14B8A6;
+    --teal:       #0DBBA8;
 
     /* Elevation */
     --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -59,9 +59,10 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background-color: var(--bg-base);
     background-image:
-        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 102, 241, 0.12) 0%, transparent 65%),
-        radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px);
-    background-size: auto, 28px 28px;
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(13, 187, 168, 0.14) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 40% at 90% 60%, rgba(34, 211, 238, 0.05) 0%, transparent 60%),
+        radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: auto, auto, 28px 28px;
     background-attachment: fixed;
     color: var(--text-1);
     line-height: 1.6;
@@ -106,7 +107,7 @@ h1 {
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    background: linear-gradient(110deg, #a5b4fc 0%, var(--violet) 60%, #c084fc 100%);
+    background: linear-gradient(110deg, #5eead4 0%, var(--indigo) 50%, var(--violet) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -143,10 +144,10 @@ h1 {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: 320px 1fr 1fr;
-    gap: 20px;
-    padding: 24px;
-    align-items: start;
+    grid-template-columns: 300px 1fr 1fr;
+    gap: 16px;
+    padding: 0 24px 24px;
+    align-items: stretch;
     animation: fadeUp 0.5s ease-out;
 }
 
@@ -158,8 +159,9 @@ h1 {
 .account-column {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
 }
+.account-column .card { flex: 1; }
 
 .full-width { grid-column: 1 / -1; }
 
@@ -187,14 +189,14 @@ h1 {
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(13, 187, 168, 0.6), transparent);
     opacity: 0;
     transition: opacity var(--ease);
 }
 .card:hover::before { opacity: 1; }
 .card:hover {
-    border-color: var(--border-hover);
-    box-shadow: var(--shadow-xl);
+    border-color: rgba(13, 187, 168, 0.25);
+    box-shadow: var(--shadow-xl), 0 0 0 1px rgba(13, 187, 168, 0.08);
     transform: translateY(-2px);
 }
 
@@ -279,19 +281,19 @@ h4 { font-size: 0.85rem; color: var(--text-2); font-weight: 500; margin-bottom: 
 }
 
 #start-btn {
-    background: linear-gradient(135deg, #16a34a, var(--green));
+    background: linear-gradient(135deg, #059669, var(--green));
 }
 #start-btn:hover { box-shadow: 0 6px 20px var(--green-glow); transform: translateY(-1px); }
 
 #stop-btn {
-    background: linear-gradient(135deg, #dc2626, var(--red));
+    background: linear-gradient(135deg, #be123c, var(--red));
 }
 #stop-btn:hover { box-shadow: 0 6px 20px var(--red-glow); transform: translateY(-1px); }
 
 #save-all-btn {
-    background: linear-gradient(135deg, #4338ca, var(--indigo));
+    background: linear-gradient(135deg, #0f766e, var(--indigo));
 }
-#save-all-btn:hover { box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+#save-all-btn:hover { box-shadow: 0 6px 20px rgba(13, 187, 168, 0.4); transform: translateY(-1px); }
 
 #generate-charts-btn {
     background: linear-gradient(135deg, #b45309, var(--amber));
@@ -299,9 +301,9 @@ h4 { font-size: 0.85rem; color: var(--text-2); font-weight: 500; margin-bottom: 
 #generate-charts-btn:hover { box-shadow: 0 6px 20px var(--amber-glow); transform: translateY(-1px); }
 
 #generate-market-report-btn {
-    background: linear-gradient(135deg, #6d28d9, var(--violet));
+    background: linear-gradient(135deg, #0e7490, var(--violet));
 }
-#generate-market-report-btn:hover { box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transform: translateY(-1px); }
+#generate-market-report-btn:hover { box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4); transform: translateY(-1px); }
 
 /* Status row */
 .status-text {
@@ -327,12 +329,12 @@ h4 { font-size: 0.85rem; color: var(--text-2); font-weight: 500; margin-bottom: 
     transition: all var(--ease);
 }
 #status-indicator.running {
-    background: linear-gradient(135deg, #16a34a, var(--green));
-    box-shadow: 0 0 12px var(--green-glow);
+    background: linear-gradient(135deg, #059669, var(--green));
+    box-shadow: 0 0 16px var(--green-glow);
     animation: pulse 2.5s ease-in-out infinite;
 }
 #status-indicator.stopped {
-    background: linear-gradient(135deg, #b91c1c, var(--red));
+    background: linear-gradient(135deg, #be123c, var(--red));
     box-shadow: 0 0 12px var(--red-glow);
 }
 #status-indicator.error {
@@ -587,8 +589,8 @@ table {
 }
 
 thead tr {
-    background: rgba(99, 102, 241, 0.08);
-    border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+    background: rgba(13, 187, 168, 0.07);
+    border-bottom: 1px solid rgba(13, 187, 168, 0.18);
 }
 
 th {
@@ -614,7 +616,7 @@ tbody tr {
     transition: background var(--ease);
 }
 tbody tr:hover {
-    background: rgba(99, 102, 241, 0.07);
+    background: rgba(13, 187, 168, 0.07);
 }
 tbody tr:last-child td { border-bottom: none; }
 
@@ -702,9 +704,9 @@ tr.high-value td:nth-child(4)::after {
 }
 
 .send-manual-message-btn {
-    background: linear-gradient(135deg, #4338ca, var(--indigo));
+    background: linear-gradient(135deg, #0f766e, var(--indigo));
 }
-.send-manual-message-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(99,102,241,0.4); }
+.send-manual-message-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(13,187,168,0.4); }
 .send-manual-message-btn:disabled { opacity: 0.5; pointer-events: none; }
 
 .release-trade-btn {
@@ -880,10 +882,10 @@ tr.high-value td:nth-child(4)::after {
     top: 0; left: 0; right: 0;
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--indigo), transparent);
-    opacity: 0;
+    opacity: 0.5;
     transition: opacity var(--ease);
 }
-.stat-card:hover              { border-color: var(--border-hover); transform: translateY(-1px); }
+.stat-card:hover              { border-color: rgba(13,187,168,0.3); transform: translateY(-1px); box-shadow: 0 0 20px rgba(13,187,168,0.08); }
 .stat-card:hover::before      { opacity: 1; }
 
 .stat-card-value {
@@ -1193,13 +1195,14 @@ tr.high-value td:nth-child(4)::after {
     background: var(--bg-surface);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(13,187,168,0.18);
     border-radius: 14px;
-    padding: 18px 28px;
-    margin: 0 24px 20px;
+    padding: 14px 24px;
+    margin: 0 24px 16px;
     position: relative;
     overflow: hidden;
     animation: fadeUp 0.45s ease-out;
+    box-shadow: 0 0 0 1px rgba(13,187,168,0.05), inset 0 1px 0 rgba(13,187,168,0.08);
 }
 .kpi-strip::before {
     content: '';
