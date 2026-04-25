@@ -5,54 +5,307 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Active Trades - WillGang</title>
+    <meta name="description" content="WillGang real-time active trades monitor — live status, release controls, and trade insights.">
     <link rel="icon" href="{{ url_for('static', filename='ss.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* ── Trades-view local overrides ─────────────────────────── */
+
+        /* Stat card icons */
+        .stat-card-icon {
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+            display: block;
+            opacity: 0.7;
+        }
+
+        /* MXN exposure KPI — wider card */
+        .stat-card.kpi-wide {
+            grid-column: span 2;
+        }
+        .kpi-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            background: linear-gradient(135deg, #FBBF24, #F59E0B);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+            margin-bottom: 4px;
+        }
+
+        /* Count-up number animation */
+        @keyframes countUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .stat-card-value { animation: countUp 0.4s ease-out; }
+
+        /* Status pill badges */
+        .trade-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .pill-active-funded {
+            background: rgba(99,102,241,0.18);
+            color: #a5b4fc;
+            border: 1px solid rgba(99,102,241,0.35);
+        }
+        .pill-paid {
+            background: rgba(34,197,94,0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34,197,94,0.3);
+        }
+        .pill-disputed {
+            background: rgba(239,68,68,0.15);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .pill-default {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        /* Pulsing live dot */
+        .live-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #818cf8;
+            animation: dotPulse 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .live-dot.green  { background: #4ade80; }
+        .live-dot.red    { background: #f87171; }
+        @keyframes dotPulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.45; transform: scale(0.7); }
+        }
+
+        /* Trade hash — truncated + copy chip */
+        .hash-chip {
+            font-family: monospace;
+            font-size: 0.78rem;
+            color: var(--text-2);
+            background: rgba(0,0,0,0.25);
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all var(--ease);
+            user-select: none;
+            max-width: 110px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .hash-chip:hover {
+            border-color: var(--border-hover);
+            color: var(--text-1);
+            background: rgba(99,102,241,0.1);
+        }
+        .hash-chip.copied {
+            color: var(--green);
+            border-color: rgba(34,197,94,0.4);
+        }
+
+        /* Age badge */
+        .age-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            color: var(--text-3);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .age-badge.age-warn { color: var(--amber); }
+        .age-badge.age-old  { color: var(--red); opacity: 0.85; }
+
+        /* Countdown ring in header */
+        .refresh-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .countdown-ring {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .countdown-ring svg {
+            transform: rotate(-90deg);
+        }
+        .countdown-ring circle {
+            fill: none;
+            stroke-width: 3;
+        }
+        .ring-bg  { stroke: rgba(255,255,255,0.08); }
+        .ring-arc { stroke: var(--indigo); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+        .countdown-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-2);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Empty state */
+        .tv-empty {
+            padding: 60px 24px;
+            text-align: center;
+        }
+        .tv-empty-icon {
+            font-size: 3.5rem;
+            display: block;
+            margin-bottom: 14px;
+            opacity: 0.35;
+        }
+        .tv-empty h3 {
+            font-size: 1rem;
+            color: var(--text-2);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .tv-empty p {
+            font-size: 0.82rem;
+            color: var(--text-3);
+        }
+
+        /* Buyer cell */
+        .buyer-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.82rem;
+        }
+        .buyer-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--indigo), var(--violet));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        /* Stat grid tweak — 6 cols on wide screens */
+        @media (min-width: 900px) {
+            .stat-cards-grid { grid-template-columns: repeat(6, 1fr); }
+            .stat-card.kpi-wide { grid-column: span 2; }
+        }
+
+        /* Header live indicator */
+        .header-live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            color: var(--text-3);
+            font-weight: 500;
+        }
+        .header-live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+    </style>
 </head>
 
 <body>
+    <!-- Toast container (needed for the global showToast) -->
+    <div class="toast-container" id="toast-container"></div>
+
     <div class="header">
         <div class="logo">
             <img src="{{ url_for('static', filename='ss.png') }}" alt="Logo" class="logo-img">
         </div>
         <h1>Active Trades</h1>
+        <div class="header-live-indicator" id="header-live-indicator" style="margin-left: 14px; display:none;">
+            <span class="header-live-dot"></span>
+            <span id="header-live-text">Live</span>
+        </div>
         <div style="margin-left: auto;">
             <a href="/" class="nav-btn">← Dashboard</a>
         </div>
     </div>
 
     <div class="trades-view-container">
-        <!-- Stats -->
-        <div class="stat-cards-grid">
+
+        <!-- ── Stat Cards ──────────────────────────────────────── -->
+        <div class="stat-cards-grid" id="stat-cards-grid">
             <div class="stat-card">
-                <div class="stat-card-value" id="total-count">0</div>
+                <span class="stat-card-icon">📋</span>
+                <div class="stat-card-value" id="total-count">—</div>
                 <div class="stat-card-label">Total</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-value green" id="paid-count">0</div>
+                <span class="stat-card-icon">✅</span>
+                <div class="stat-card-value green" id="paid-count">—</div>
                 <div class="stat-card-label">Paid</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-value" style="color: #FB923C;" id="no-receipt-count">0</div>
+                <span class="stat-card-icon">📎</span>
+                <div class="stat-card-value" style="background:linear-gradient(135deg,#ea580c,#FB923C);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;" id="no-receipt-count">—</div>
                 <div class="stat-card-label">No Receipt</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-value yellow" id="disputed-count">0</div>
+                <span class="stat-card-icon">⚠️</span>
+                <div class="stat-card-value yellow" id="disputed-count">—</div>
                 <div class="stat-card-label">Disputed</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-value" id="active-count">0</div>
+                <span class="stat-card-icon">⚡</span>
+                <div class="stat-card-value" id="active-count">—</div>
                 <div class="stat-card-label">Active</div>
+            </div>
+            <div class="stat-card kpi-wide">
+                <span class="stat-card-icon">💰</span>
+                <div class="kpi-amount" id="mxn-exposure">—</div>
+                <div class="stat-card-label">Total MXN Exposure</div>
             </div>
         </div>
 
-        <!-- Trades Card -->
-        <div class="card">
+        <!-- ── Trades Card ─────────────────────────────────────── -->
+        <div class="card" style="margin-top: 0;">
             <div class="trades-card-header">
-                <h2>Active Trades</h2>
-                <button class="refresh-btn" onclick="loadTrades()">Refresh</button>
+                <h2>⚡ Active Trades</h2>
+                <div class="refresh-area">
+                    <!-- Countdown ring -->
+                    <div class="countdown-ring" id="countdown-ring" title="Next auto-refresh">
+                        <svg width="28" height="28" viewBox="0 0 28 28">
+                            <circle class="ring-bg" cx="14" cy="14" r="11"/>
+                            <circle class="ring-arc" id="ring-arc" cx="14" cy="14" r="11"
+                                    stroke-dasharray="69.12" stroke-dashoffset="0"/>
+                        </svg>
+                        <span class="countdown-label" id="countdown-label">30</span>
+                    </div>
+                    <button class="refresh-btn" id="tv-refresh-btn">⟳ Refresh</button>
+                </div>
             </div>
             <div id="active-trades-container">
                 <div class="skeleton skeleton-card"></div>
@@ -62,32 +315,348 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
+        // ── Helpers ─────────────────────────────────────────────────
+        function fmtAge(isoStr) {
+            if (!isoStr) return null;
+            const diffSec = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+            if (diffSec < 60) return { text: `${diffSec}s`, cls: '' };
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return { text: `${diffMin}m`, cls: diffMin > 30 ? 'age-warn' : '' };
+            const diffH = Math.floor(diffMin / 60);
+            return { text: `${diffH}h ${diffMin % 60}m`, cls: 'age-old' };
+        }
+
+        function animateCount(el, target, prefix = '', suffix = '') {
+            const duration = 600;
+            const start = performance.now();
+            const from = 0;
+            function step(now) {
+                const p = Math.min((now - start) / duration, 1);
+                const ease = 1 - Math.pow(1 - p, 3);
+                el.textContent = prefix + Math.round(from + (target - from) * ease).toLocaleString() + suffix;
+                if (p < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        function statusPill(trade) {
+            const s = trade.trade_status || '';
+            const noReceipt = s === 'Paid' && !trade.has_attachment;
+            if (noReceipt) {
+                return `<span class="trade-status-pill pill-default">
+                            <span class="no-receipt-badge" style="margin-left:0">⚠️ No Receipt</span>
+                        </span>`;
+            }
+            if (s === 'Paid') {
+                return `<span class="trade-status-pill pill-paid"><span class="live-dot green"></span>Paid</span>`;
+            }
+            if (s === 'Dispute open') {
+                return `<span class="trade-status-pill pill-disputed"><span class="live-dot red"></span>Disputed</span>`;
+            }
+            if (s.toLowerCase().includes('funded') || s.toLowerCase().includes('active')) {
+                return `<span class="trade-status-pill pill-active-funded"><span class="live-dot"></span>${s}</span>`;
+            }
+            return `<span class="trade-status-pill pill-default">${s || 'N/A'}</span>`;
+        }
+
+        function buyerChip(username) {
+            if (!username) return 'N/A';
+            const initial = username.charAt(0).toUpperCase();
+            return `<span class="buyer-chip">
+                        <span class="buyer-avatar">${initial}</span>
+                        <span>${username}</span>
+                    </span>`;
+        }
+
+        function hashChip(hash) {
+            if (!hash) return 'N/A';
+            const short = hash.slice(0, 10) + '…';
+            return `<span class="hash-chip" title="${hash}" onclick="copyHash(this,'${hash}')">${short}</span>`;
+        }
+
+        function copyHash(el, full) {
+            navigator.clipboard.writeText(full).then(() => {
+                el.classList.add('copied');
+                el.textContent = 'Copied!';
+                setTimeout(() => {
+                    el.classList.remove('copied');
+                    el.textContent = full.slice(0, 10) + '…';
+                }, 1500);
+            });
+        }
+
+        // ── Countdown Ring ───────────────────────────────────────────
+        const REFRESH_INTERVAL = 30;
+        const CIRCUMFERENCE = 2 * Math.PI * 11; // r=11
+        let countdownSec = REFRESH_INTERVAL;
+        let countdownTimer = null;
+
+        function startCountdown() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownSec = REFRESH_INTERVAL;
+            updateRing();
+            countdownTimer = setInterval(() => {
+                countdownSec--;
+                if (countdownSec < 0) countdownSec = REFRESH_INTERVAL;
+                updateRing();
+            }, 1000);
+        }
+
+        function updateRing() {
+            const arc = document.getElementById('ring-arc');
+            const label = document.getElementById('countdown-label');
+            if (!arc || !label) return;
+            const offset = CIRCUMFERENCE * (1 - countdownSec / REFRESH_INTERVAL);
+            arc.style.strokeDashoffset = offset;
+            label.textContent = countdownSec;
+            // Colour: urgent when <= 5s
+            arc.style.stroke = countdownSec <= 5 ? 'var(--amber)' : 'var(--indigo)';
+        }
+
+        // ── updateTradesTable override for trades-view ───────────────
+        // We shadow the one in script.js so this page gets the richer version.
+        function updateTradesTable(trades) {
+            const container = document.getElementById('active-trades-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!trades || trades.length === 0) {
+                container.innerHTML = `
+                    <div class="tv-empty">
+                        <span class="tv-empty-icon">📭</span>
+                        <h3>No Active Trades</h3>
+                        <p>Everything's quiet — no trades to display right now.</p>
+                    </div>`;
+                return;
+            }
+
+            // Last updated row
+            const hdr = document.createElement('div');
+            hdr.className = 'trades-table-header';
+            const lu = document.createElement('span');
+            lu.className = 'trades-last-updated';
+            lu.id = 'tv-last-updated';
+            lu.textContent = 'Last updated: just now';
+            hdr.appendChild(lu);
+            container.appendChild(hdr);
+            startLastUpdatedCounterTV(lu);
+
+            // Age timer registry: { el, isoStr }
+            window._ageTimers = window._ageTimers || [];
+            window._ageTimers = [];
+
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Trade Hash</th>
+                        <th>Buyer</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Age</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            trades.forEach(trade => {
+                const row = document.createElement('tr');
+                const isNew = trade.started_at
+                    ? (Date.now() - new Date(trade.started_at)) / 60000 <= 30
+                    : false;
+                const isOldPaid = trade.trade_status === 'Paid' && trade.started_at
+                    ? (Date.now() - new Date(trade.started_at)) / 3600000 > 3
+                    : false;
+                const noReceipt = trade.trade_status === 'Paid' && !trade.has_attachment;
+                const amountStr = `${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}`.trim();
+                const ageInfo = fmtAge(trade.started_at);
+
+                // Age cell placeholder id
+                const ageId = `age-${trade.trade_hash}`;
+
+                row.innerHTML = `
+                    <td style="font-weight:600;color:var(--text-1);font-size:0.82rem;">${trade.account_name_source || 'N/A'}</td>
+                    <td>${hashChip(trade.trade_hash)}</td>
+                    <td>${buyerChip(trade.responder_username)}</td>
+                    <td style="font-weight:600;">${amountStr}</td>
+                    <td style="color:var(--text-2);font-size:0.82rem;">${trade.payment_method_name || 'N/A'}</td>
+                    <td>${statusPill(trade)}</td>
+                    <td><span id="${ageId}" class="age-badge ${ageInfo ? ageInfo.cls : ''}">${ageInfo ? ageInfo.text : '—'}</span></td>
+                    <td class="message-cell">
+                        <input type="text" class="manual-message-input" placeholder="Type a message…">
+                        <button class="send-manual-message-btn"
+                            data-trade-hash="${trade.trade_hash}"
+                            data-account-name="${trade.account_name_source}">Send</button>
+                        <button class="release-trade-btn"
+                            data-trade-hash="${trade.trade_hash}"
+                            data-account-name="${trade.account_name_source}"
+                            data-buyer="${trade.responder_username || ''}"
+                            data-amount="${amountStr}"
+                            data-has-attachment="${trade.has_attachment ? 'true' : 'false'}">Release</button>
+                    </td>
+                `;
+
+                // Row colour coding
+                if (isNew && trade.trade_status !== 'Paid' && trade.trade_status !== 'Dispute open') {
+                    row.classList.add('status-new');
+                } else if (noReceipt) {
+                    row.classList.add('status-paid-no-attachment');
+                } else if (trade.trade_status === 'Paid' && trade.has_attachment && isOldPaid) {
+                    row.classList.add('status-paid-old');
+                } else if (trade.trade_status === 'Paid') {
+                    row.classList.add('status-paid');
+                } else if (trade.trade_status === 'Dispute open') {
+                    row.classList.add('status-disputed');
+                }
+
+                // High-value
+                const amt = parseFloat(trade.fiat_amount_requested);
+                if (!isNaN(amt) && amt > 3000 && (trade.fiat_currency_code || '').toUpperCase() === 'MXN') {
+                    row.classList.add('high-value');
+                }
+
+                if (trade.started_at) {
+                    window._ageTimers.push({ id: ageId, isoStr: trade.started_at });
+                }
+
+                tbody.appendChild(row);
+            });
+
+            container.appendChild(table);
+
+            // Attach click handler for send / release on this container
+            container.addEventListener('click', async (event) => {
+                // Send message
+                if (event.target.classList.contains('send-manual-message-btn')) {
+                    const btn = event.target;
+                    const input = btn.previousElementSibling;
+                    const message = input.value.trim();
+                    if (!message) { showToast('Missing Message', 'Please type a message to send.', 'warning'); return; }
+                    btn.disabled = true; btn.textContent = '…';
+                    try {
+                        const res = await fetch('/send_manual_message', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ trade_hash: btn.dataset.tradeHash, account_name: btn.dataset.accountName, message })
+                        });
+                        const r = await res.json();
+                        r.success ? (showToast('Sent ✅', r.message, 'success'), input.value = '') : showToast('Error', r.error, 'error');
+                    } catch { showToast('Error', 'Unexpected error.', 'error'); }
+                    finally { btn.disabled = false; btn.textContent = 'Send'; }
+                }
+                // Release
+                if (event.target.classList.contains('release-trade-btn')) {
+                    const btn = event.target;
+                    const confirmed = await showReleaseModal({
+                        tradeHash: btn.dataset.tradeHash,
+                        accountName: btn.dataset.accountName,
+                        buyer: btn.dataset.buyer,
+                        amount: btn.dataset.amount,
+                        hasAttachment: btn.dataset.hasAttachment === 'true'
+                    });
+                    if (!confirmed) return;
+                    btn.disabled = true; btn.textContent = '…';
+                    try {
+                        const res = await fetch('/release_trade', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ trade_hash: btn.dataset.tradeHash, account_name: btn.dataset.accountName })
+                        });
+                        const r = await res.json();
+                        r.success ? (showToast('Released 🎉', r.message, 'success'), loadTrades()) : showToast('Error', r.error, 'error');
+                    } catch { showToast('Error', 'Unexpected error.', 'error'); }
+                    finally { btn.disabled = false; btn.textContent = 'Release'; }
+                }
+            }, { once: true });
+
+            // Start live age tickers
+            startAgeTickerTV();
+        }
+
+        // Live age ticker
+        let _ageTicker = null;
+        function startAgeTickerTV() {
+            if (_ageTicker) clearInterval(_ageTicker);
+            _ageTicker = setInterval(() => {
+                (window._ageTimers || []).forEach(({ id, isoStr }) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const info = fmtAge(isoStr);
+                    if (!info) return;
+                    el.textContent = info.text;
+                    el.className = `age-badge ${info.cls}`;
+                });
+            }, 10000);
+        }
+
+        // Last-updated counter (local to this page)
+        let _lvTimer = null, _lvStart = null;
+        function startLastUpdatedCounterTV(el) {
+            if (_lvTimer) clearInterval(_lvTimer);
+            _lvStart = Date.now();
+            _lvTimer = setInterval(() => {
+                if (!_lvStart || !el) return;
+                const s = Math.floor((Date.now() - _lvStart) / 1000);
+                el.textContent = s < 60 ? `Last updated: ${s}s ago` : `Last updated: ${Math.floor(s/60)}m ${s%60}s ago`;
+            }, 1000);
+        }
+
+        // ── Main load function ───────────────────────────────────────
         async function loadTrades() {
+            const refreshBtn = document.getElementById('tv-refresh-btn');
+            if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⟳ Loading…'; }
             try {
                 const response = await fetch('/get_active_trades');
                 const trades = await response.json();
 
-                // Update stats
-                document.getElementById('total-count').textContent = trades.length;
-                document.getElementById('paid-count').textContent = trades.filter(t => t.trade_status === 'Paid').length;
-                document.getElementById('no-receipt-count').textContent = trades.filter(t => t.trade_status === 'Paid' && !t.has_attachment).length;
-                document.getElementById('disputed-count').textContent = trades.filter(t => t.trade_status === 'Dispute open').length;
-                document.getElementById('active-count').textContent = trades.filter(t => t.trade_status !== 'Paid' && t.trade_status !== 'Dispute open').length;
+                // Stats
+                const total    = trades.length;
+                const paid     = trades.filter(t => t.trade_status === 'Paid').length;
+                const noRcpt   = trades.filter(t => t.trade_status === 'Paid' && !t.has_attachment).length;
+                const disputed = trades.filter(t => t.trade_status === 'Dispute open').length;
+                const active   = trades.filter(t => t.trade_status !== 'Paid' && t.trade_status !== 'Dispute open').length;
+                const exposure = trades.reduce((sum, t) => {
+                    const a = parseFloat(t.fiat_amount_requested);
+                    return (t.fiat_currency_code || '').toUpperCase() === 'MXN' && !isNaN(a) ? sum + a : sum;
+                }, 0);
 
-                // Use the existing updateTradesTable function from script.js
-                if (typeof updateTradesTable === 'function') {
-                    updateTradesTable(trades);
-                }
+                animateCount(document.getElementById('total-count'), total);
+                animateCount(document.getElementById('paid-count'), paid);
+                animateCount(document.getElementById('no-receipt-count'), noRcpt);
+                animateCount(document.getElementById('disputed-count'), disputed);
+                animateCount(document.getElementById('active-count'), active);
+
+                const expEl = document.getElementById('mxn-exposure');
+                if (expEl) expEl.textContent = exposure > 0
+                    ? '$' + exposure.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' MXN'
+                    : '—';
+
+                // Show live indicator
+                const liveInd = document.getElementById('header-live-indicator');
+                if (liveInd) liveInd.style.display = 'flex';
+                const liveTxt = document.getElementById('header-live-text');
+                if (liveTxt) liveTxt.textContent = `${total} trade${total !== 1 ? 's' : ''} live`;
+
+                updateTradesTable(trades);
+
+                // Restart countdown
+                startCountdown();
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error loading trades:', error);
+                showToast('Error', 'Failed to load trades.', 'error');
+            } finally {
+                if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '⟳ Refresh'; }
             }
         }
 
-        // Load on page load
-        loadTrades();
+        // Refresh button
+        document.getElementById('tv-refresh-btn').addEventListener('click', loadTrades);
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadTrades, 30000);
+        // Boot
+        loadTrades();
+        setInterval(loadTrades, REFRESH_INTERVAL * 1000);
     </script>
 </body>
 
