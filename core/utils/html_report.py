@@ -52,13 +52,14 @@ def compute_report_data(trade_history_dir):
     mxtz = pytz.timezone("America/Mexico_City")
     now  = datetime.now(mxtz)
     raw  = _load_trades(trade_history_dir)
+    cutoff = now - timedelta(days=90)
 
     ok = []
     for t in raw:
         if t.get("status") != "successful":
             continue
         dt = _parse_dt(t.get("completed_at"), mxtz)
-        if dt is None:
+        if dt is None or dt < cutoff:
             continue
         t["_dt"] = dt
         ok.append(t)
@@ -83,13 +84,11 @@ def compute_report_data(trade_history_dir):
     avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
 
     # Daily (last 90 days)
-    cutoff = now - timedelta(days=90)
     d_vol, d_cnt = defaultdict(float), defaultdict(int)
     for t in mxn:
-        if t["_dt"] >= cutoff:
-            day = t["_dt"].strftime("%Y-%m-%d")
-            d_vol[day] += float(t.get("fiat_amount_requested") or 0)
-            d_cnt[day] += 1
+        day = t["_dt"].strftime("%Y-%m-%d")
+        d_vol[day] += float(t.get("fiat_amount_requested") or 0)
+        d_cnt[day] += 1
 
     sorted_days = sorted(d_vol)
     daily_labels = [d[5:] for d in sorted_days]          # MM-DD
@@ -210,6 +209,7 @@ def compute_report_data(trade_history_dir):
             "total_vol_fmt": _fmt_k(total_vol),
             "avg_size_fmt": _fmt_k(avg_size),
             "max_trade_fmt": _fmt_k(max_trade),
+            "active_accounts": len(acc),
         },
         "daily_labels": daily_labels, "daily_vols": daily_vols,
         "daily_counts": daily_counts, "ma7": ma7,
