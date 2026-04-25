@@ -1293,4 +1293,87 @@ tr.high-value td:nth-child(4)::after {
     font-variant-numeric: tabular-nums;
 }
 
+/* ============================================================
+   MARKET TICKER (inside wallet card)
+   ============================================================ */
+.market-ticker {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.market-ticker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.market-ticker-title { font-size: 0.78rem; font-weight: 700; color: var(--text-2); letter-spacing: 0.04em; }
+.market-ticker-sub   { font-size: 0.65rem; color: var(--text-3); }
+.market-ticker-grid {
+    display: flex;
+    align-items: center;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 8px;
+    overflow: hidden;
+}
+.mt-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 0 6px;
+}
+.mt-item.mt-primary .mt-value { font-size: 1rem; }
+.mt-label {
+    font-size: 0.6rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.mt-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.mt-green { color: var(--green); }
+.mt-red   { color: var(--red); }
+.mt-teal  { color: var(--indigo); }
+.mt-gold  { color: #FBBF24; }
+.mp-change { font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
+.mp-positive { color: var(--green); }
+.mp-negative { color: var(--red); }
+.mt-divider  { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+/* ============================================================
+   WEEKLY VOLUME CHART CARD
+   ============================================================ */
+.vol-total-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 600;
+}
+.vol-total-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--indigo);
+    font-variant-numeric: tabular-nums;
+}
+.vol-note {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    text-align: center;
+}
+
+
+
 

@@ -696,6 +696,101 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Weekly Volume Chart ---
+    let volumeChart = null;
+
+    async function fetchWeeklyVolume() {
+        try {
+            const res = await fetch('/get_weekly_volume');
+            const d = await res.json();
+            if (!d.success) return;
+
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            set('vol-total',  d.total_volume > 0
+                ? '$' + d.total_volume.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' MXN'
+                : '$0 MXN');
+            set('vol-trades', d.total_trades);
+
+            const note = document.getElementById('vol-note');
+            if (d.total_volume === 0 && note) {
+                note.style.display = 'block';
+            } else if (note) {
+                note.style.display = 'none';
+            }
+
+            const ctx = document.getElementById('weekly-volume-chart');
+            if (!ctx) return;
+
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 140);
+            gradient.addColorStop(0,   'rgba(13, 187, 168, 0.55)');
+            gradient.addColorStop(1,   'rgba(13, 187, 168, 0.04)');
+
+            const chartData = {
+                labels: d.labels,
+                datasets: [{
+                    label: 'MXN Volume',
+                    data: d.volumes,
+                    backgroundColor: gradient,
+                    borderColor: '#0DBBA8',
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            };
+
+            if (volumeChart) {
+                volumeChart.data = chartData;
+                volumeChart.update('none');
+                return;
+            }
+
+            volumeChart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(8,22,20,0.95)',
+                            borderColor: 'rgba(13,187,168,0.3)',
+                            borderWidth: 1,
+                            titleColor: '#7EA89F',
+                            bodyColor: '#EEF5F3',
+                            callbacks: {
+                                label: ctx => {
+                                    const vol = '$' + ctx.raw.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' MXN';
+                                    const cnt = d.counts[ctx.dataIndex];
+                                    return ` ${vol}  ·  ${cnt} trade${cnt !== 1 ? 's' : ''}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#3D6860', font: { size: 11, weight: '600' } },
+                            border: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#3D6860',
+                                font: { size: 10 },
+                                callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'K' : v)
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+
+        } catch (err) {
+            console.warn('fetchWeeklyVolume failed:', err);
+        }
+    }
+
     const FUND_METER_MAX = 60000;
     const FUND_METER_ALERT = 10000;
 
@@ -757,9 +852,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let balanceContent = '<ul class="balance-list">';
                 for (const currency in accountData) {
                     const rawVal = accountData[currency];
+                    const currencyUpper = currency.toUpperCase();
+                    // Skip SOL and zero balances
+                    if (currencyUpper === 'SOL') continue;
                     if (parseFloat(rawVal) !== 0) {
                         hasBalance = true;
-                        const currencyUpper = currency.toUpperCase();
                         if (currencyUpper === 'MXN') {
                             const amount = parseFloat(rawVal);
                             balanceContent += `
@@ -817,8 +914,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchActiveTrades();
     fetchOffers();
     fetchWalletBalances();
+    fetchWeeklyVolume();
     setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
+    setInterval(fetchWeeklyVolume, 600000); // refresh every 10 min
 });
+
