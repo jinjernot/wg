@@ -8,23 +8,29 @@ from collections import defaultdict
 
 def _load_trades(trade_history_dir):
     pattern = os.path.join(trade_history_dir, "*_noones_normalized_trades_*.json")
-    newest = {}
-    for f in glob.glob(pattern):
-        parts = os.path.basename(f).split("_normalized_trades_")
-        if len(parts) == 2:
-            key, date_str = parts[0], parts[1].replace(".json", "")
-            if key not in newest or date_str > newest[key][1]:
-                newest[key] = (f, date_str)
+    seen_hashes = set()
     trades = []
-    for key, (fp, _) in newest.items():
+    
+    for fp in glob.glob(pattern):
         try:
+            parts = os.path.basename(fp).split("_normalized_trades_")
+            key = parts[0] if len(parts) == 2 else "unknown"
+            
             with open(fp, "r", encoding="utf-8") as fh:
                 rows = json.load(fh)
+                
             for r in rows:
+                trade_hash = r.get("trade_hash")
+                if trade_hash:
+                    if trade_hash in seen_hashes:
+                        continue
+                    seen_hashes.add(trade_hash)
+                
                 r["_src"] = key
-            trades.extend(rows)
+                trades.append(r)
         except Exception:
             pass
+            
     return trades
 
 
