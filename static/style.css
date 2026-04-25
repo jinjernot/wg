@@ -305,6 +305,13 @@ h4 { font-size: 0.85rem; color: var(--text-2); font-weight: 500; margin-bottom: 
 }
 #generate-market-report-btn:hover { box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4); transform: translateY(-1px); }
 
+#html-report-btn {
+    background: linear-gradient(135deg, #4c1d95, #8b5cf6);
+    margin-top: 10px;
+}
+#html-report-btn:hover { box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transform: translateY(-1px); }
+
+
 /* Status row */
 .status-text {
     font-size: 0.82rem;
