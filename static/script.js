@@ -93,6 +93,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateMarketReportBtn = document.getElementById('generate-market-report-btn');
     const balancesContainer = document.getElementById('wallet-balances-container');
     const toggleOffersBtn = document.getElementById('toggle-offers-visibility-btn');
+    const htmlReportBtn = document.getElementById('html-report-btn');
+
+    // --- HTML Analytics Report ---
+    if (htmlReportBtn) {
+        htmlReportBtn.addEventListener('click', () => {
+            htmlReportBtn.disabled = true;
+            htmlReportBtn.textContent = '⏳ Building...';
+            showToast('Analytics Report', 'Generating report, opening in new tab…', 'info');
+            window.open('/generate_html_report', '_blank');
+            setTimeout(() => {
+                htmlReportBtn.disabled = false;
+                htmlReportBtn.textContent = '📄 Analytics Report';
+            }, 2500);
+        });
+    }
 
     // --- Offers panel: persist visibility in localStorage ---
     const OFFERS_VISIBLE_KEY = 'offersVisible';

@@ -5,16 +5,31 @@ import os
 import pytz
 from datetime import datetime, timezone, timedelta
 from dateutil.parser import isoparse
-from flask import Blueprint, jsonify, send_from_directory
+from flask import Blueprint, jsonify, send_from_directory, Response
 from core.utils import trade_history
 # --- NEW IMPORTS ---
 from core.utils.market_report import generate_mxn_market_report
 from core.utils.client_profitability import generate_client_profitability_report
+from core.utils.html_report import compute_report_data
+from core.utils.html_report_template import generate_report_html
 from config import TRADE_HISTORY_DIR
 # --- END NEW IMPORTS ---
 
 charts_bp = Blueprint('charts', __name__)
 logger = logging.getLogger(__name__)
+
+
+@charts_bp.route("/generate_html_report")
+def generate_html_report_route():
+    """Generate and return a self-contained HTML trading analytics report."""
+    try:
+        data = compute_report_data(TRADE_HISTORY_DIR)
+        html = generate_report_html(data)
+        return Response(html, mimetype='text/html')
+    except Exception as e:
+        logger.error(f"generate_html_report error: {e}", exc_info=True)
+        return Response(f"<h2>Report error: {e}</h2>", mimetype='text/html'), 500
+
 
 
 @charts_bp.route("/get_weekly_volume")
