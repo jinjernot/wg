@@ -31,22 +31,47 @@ class BitsoCommands(commands.Cog):
                 params['month'] = month
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    "http://127.0.0.1:5001/bitso_summary", 
-                    params=params, 
+                    "http://127.0.0.1:5001/bitso_summary",
+                    params=params,
                     timeout=aiohttp.ClientTimeout(total=120)
                 ) as response:
                     status_code = response.status
                     if status_code == 200:
                         data = await response.json()
                         if data.get("success"):
-                            deposits = data.get("deposits_by_sender", [])
-                            total = data.get("total_deposits", 0.0)
-                            month_str = data.get("month_str", "Current Month")
-                            description = "\n".join(
-                                [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits])
+                            month_str  = data.get("month_str", "Current Month")
+                            total      = data.get("total_deposits", 0.0)
+                            period1    = data.get("period1", {})
+                            period2    = data.get("period2", {})
+
+                            def fmt_period(period_data):
+                                deposits = period_data.get("deposits_by_sender", [])
+                                if not deposits:
+                                    return "_No deposits_"
+                                lines = [f"**{name}:** `${amount:,.2f}`" for name, amount in deposits]
+                                subtotal = period_data.get("total", 0.0)
+                                lines.append(f"\n**Subtotal: `${subtotal:,.2f}`**")
+                                return "\n".join(lines)
+
                             embed = discord.Embed(
-                                title=f"💰 Bitso Deposits for {month_str}", description=description, color=discord.Color.green())
-                            embed.add_field(name="Total", value=f"**`${total:,.2f}`**")
+                                title=f"💰 Bitso Deposits — {month_str}",
+                                color=discord.Color.green()
+                            )
+                            embed.add_field(
+                                name=f"📅 {period1.get('label', '1–15')}",
+                                value=fmt_period(period1),
+                                inline=False
+                            )
+                            embed.add_field(
+                                name=f"📅 {period2.get('label', '16–end')}",
+                                value=fmt_period(period2),
+                                inline=False
+                            )
+                            embed.add_field(
+                                name="💵 Grand Total",
+                                value=f"**`${total:,.2f}`**",
+                                inline=False
+                            )
                             await interaction.followup.send(embed=embed, ephemeral=True)
                         else:
                             await interaction.followup.send(f"Error: {data.get('error', 'Unknown error.')}", ephemeral=True)
@@ -54,6 +79,7 @@ class BitsoCommands(commands.Cog):
                         await interaction.followup.send(f"Error: Server responded with {status_code}.", ephemeral=True)
         except (aiohttp.ClientError, asyncio.TimeoutError):
             await interaction.followup.send(SERVER_UNREACHABLE, ephemeral=True)
+
             
     @app_commands.guilds(MY_GUILD)
     @app_commands.command(name="bitso_chart", description="Generate a chart of Bitso income for a specific month.")
