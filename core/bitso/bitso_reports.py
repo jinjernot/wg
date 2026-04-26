@@ -129,22 +129,6 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     # Format Y axis
     import matplotlib.ticker as ticker
     ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('${x:,.0f}'))
-    
-    # Custom Legend
-    from matplotlib.patches import Patch
-    legend_elements = [
-        Patch(facecolor='#00d2ff', edgecolor='#1a1a2e', label='1 - 15 del mes'),
-        Patch(facecolor='#e94560', edgecolor='#1a1a2e', label='16 - Fin de mes')
-    ]
-    legend = ax.legend(handles=legend_elements, 
-                       title='Periodo', 
-                       loc='upper right', 
-                       frameon=False, 
-                       fontsize=12,
-                       title_fontsize=13)
-    plt.setp(legend.get_title(), color='white', fontweight='bold')
-    for text in legend.get_texts():
-        text.set_color("white")
         
     # Labels on each bar
     for i, v in enumerate(daily_income):
