@@ -53,9 +53,10 @@ def process_user_funding(user: str, api_key: str, api_secret: str, year: int, mo
 
 def generate_growth_chart(all_fundings: list, year: int, month: int, filename: str = 'bitso_this_month_income.png'):
     """
-    Generates and saves a bar chart of daily income for a specific month.
+    Generates and saves a daily bar chart of income for a specific month,
+    with colors split between the first half (1-15) and second half (16-end).
     """
-    print(f"\nGenerating daily income bar chart for {year}-{month}...")
+    print(f"\nGenerating appealing daily income bar chart for {year}-{month}...")
 
     if not all_fundings:
         print("No funding data available to generate a bar chart.")
@@ -80,7 +81,7 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     df['created_at'] = df['created_at'].dt.tz_convert(mexico_tz)
 
     month_df = df[(df['created_at'].dt.year == year) &
-                    (df['created_at'].dt.month == month)]
+                  (df['created_at'].dt.month == month)].copy()
 
     if month_df.empty:
         print(f"No income data found for {year}-{month}. Bar chart not generated.")
@@ -89,20 +90,74 @@ def generate_growth_chart(all_fundings: list, year: int, month: int, filename: s
     month_df.set_index('created_at', inplace=True)
     daily_income = month_df['amount'].resample('D').sum()
 
-    plt.figure(figsize=(12, 7))
-    daily_income.plot(kind='bar', color='skyblue', edgecolor='black')
+    # === Chart Styling (More Appealing) ===
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(14, 8))
+    fig.patch.set_facecolor('#1a1a2e')  # dark blue/purple background
+    ax.set_facecolor('#1a1a2e')
+
+    # Assign colors based on day of month (<= 15 vs > 15)
+    # Using cyan for 1-15 and purple/pink for 16-end
+    colors = ['#00d2ff' if date.day <= 15 else '#e94560' for date in daily_income.index]
+
+    # Plot daily income
+    bars = daily_income.plot(
+        kind='bar',
+        ax=ax,
+        color=colors,
+        edgecolor='#1a1a2e',
+        linewidth=1.0,
+        width=0.7
+    )
 
     chart_date = datetime(year, month, 1)
-    plt.title(f'Fondos: {chart_date.strftime("%B %Y")}', fontsize=16, fontweight='bold')
-    plt.xlabel('Dia del mes', fontsize=12)
-    plt.ylabel('Dinero para el perico', fontsize=12)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d'))
-    plt.xticks(rotation=0)
+    plt.title(f'Fondos Diarios: {chart_date.strftime("%B %Y")}', fontsize=20, fontweight='bold', color='white', pad=25)
+    plt.xlabel('Día del mes', fontsize=14, color='#e0e0e0', labelpad=15)
+    plt.ylabel('Monto (MXN)', fontsize=14, color='#e0e0e0', labelpad=15)
+    
+    # Grid & Spines
+    ax.yaxis.grid(True, linestyle='--', alpha=0.2, color='#e0e0e0')
+    ax.xaxis.grid(False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+        
+    # X-axis labels (just the day number)
+    x_labels = [date.strftime('%d') for date in daily_income.index]
+    ax.set_xticklabels(x_labels, rotation=0, fontsize=12, fontweight='bold', color='#e0e0e0')
+    plt.yticks(fontsize=12, color='#e0e0e0')
+    
+    # Format Y axis
+    import matplotlib.ticker as ticker
+    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('${x:,.0f}'))
+    
+    # Custom Legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='#00d2ff', edgecolor='#1a1a2e', label='1 - 15 del mes'),
+        Patch(facecolor='#e94560', edgecolor='#1a1a2e', label='16 - Fin de mes')
+    ]
+    legend = ax.legend(handles=legend_elements, 
+                       title='Periodo', 
+                       loc='upper right', 
+                       frameon=False, 
+                       fontsize=12,
+                       title_fontsize=13)
+    plt.setp(legend.get_title(), color='white', fontweight='bold')
+    for text in legend.get_texts():
+        text.set_color("white")
+        
+    # Labels on each bar
+    for i, v in enumerate(daily_income):
+        if v >= 100:
+            # Format as $1.5k for values >= 1000 to save space, or just integer
+            formatted_v = f'${v/1000:,.1f}k' if v >= 1000 else f'${v:,.0f}'
+            ax.text(i, v + (daily_income.max() * 0.015), formatted_v, 
+                    ha='center', va='bottom', color=colors[i], fontweight='bold', fontsize=10, rotation=90 if v >= 1000 else 0)
+            
     plt.tight_layout()
 
     # --- Save chart to the reports directory ---
     chart_filepath = os.path.join(BITSO_REPORTS_DIR, filename)
-    plt.savefig(chart_filepath)
+    plt.savefig(chart_filepath, dpi=120, bbox_inches='tight', facecolor=fig.get_facecolor())
     print(f"Success! Daily income bar chart saved to {chart_filepath}")
     plt.close()
