@@ -320,7 +320,11 @@ function showReleaseModal({ tradeHash, accountName, buyer, amount, hasAttachment
 // ── Helpers ───────────────────────────────────────────────────────
 function fmtAge(isoStr) {
     if (!isoStr) return null;
-    const s = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+    // Normalize timestamps with no timezone info to UTC (Noones API omits the Z suffix).
+    // Without this, JS treats the string as local time, making trades appear ~6h in the future.
+    const normalized = /[Zz]$|[+-]\d{2}:\d{2}$/.test(isoStr) ? isoStr : isoStr + 'Z';
+    const s = Math.floor((Date.now() - new Date(normalized)) / 1000);
+    if (s < 0)  return { text: '< 1s', cls: '' };   // guard: never show negative
     if (s < 60) return { text: `${s}s`, cls: '' };
     const m = Math.floor(s / 60);
     if (m < 60) return { text: `${m}m`, cls: m > 30 ? 'age-warn' : '' };
@@ -441,12 +445,13 @@ function renderTradesTable(trades) {
     const tbody = table.querySelector('tbody');
 
     // Account → browser mapping.
-    // Joe (JoeWillgang_Noones) is logged into Noones on Chrome.
-    // David (davidvs_Noones) is logged into Noones on Edge.
-    // browserScheme: OS-registered URI prefix that forces the link to open in that specific browser.
+    // Joe (JoeWillgang_Noones) → Chrome: no OS protocol to open Chrome from another browser,
+    //   so clicking copies the URL to clipboard (paste into Chrome manually).
+    // David (davidvs_Noones) → Edge: microsoft-edge: is a real Windows URI scheme,
+    //   so clicking opens Edge directly via window.location.href.
     const ACCOUNT_BROWSER = {
-        'joewillgang noones': { cls: 'chrome', label: 'Chrome', who: 'Joe',   icon: '🔵', browserScheme: 'googlechrome://navigate?url=' },
-        'davidvs noones':     { cls: 'edge',   label: 'Edge',   who: 'David', icon: '🟢', browserScheme: 'microsoft-edge:' },
+        'joewillgang noones': { cls: 'chrome', label: 'Chrome', who: 'Joe',   icon: '🔵', mode: 'copy' },
+        'davidvs noones':     { cls: 'edge',   label: 'Edge',   who: 'David', icon: '🟢', mode: 'edge' },
     };
 
     trades.forEach(trade => {
@@ -462,21 +467,25 @@ function renderTradesTable(trades) {
         const hashShort = (trade.trade_hash || '').slice(0, 10) + '…';
         const initial = (trade.responder_username || '?').charAt(0).toUpperCase();
 
-        // Build link cell — single click opens trade in the correct browser using OS URI schemes.
-        // Chrome registers "googlechrome:" on install; Edge has "microsoft-edge:" built into Windows.
+        // Build link cell.
+        // Edge (David) → microsoft-edge: OS URI → single click opens Edge directly.
+        // Chrome (Joe) → no cross-browser URI scheme exists → copies URL to clipboard.
         const tradeUrl = trade.trade_hash ? `https://noones.com/trades/${trade.trade_hash}` : null;
         const accKey = (trade.account_name_source || '').toLowerCase().replace(/_/g, ' ');
         const bInfo = ACCOUNT_BROWSER[accKey] || null;
         let linkCell = '';
         if (tradeUrl && bInfo) {
-            const browserUrl = bInfo.browserScheme + tradeUrl;
-            linkCell = `<a class="trade-link-btn ${bInfo.cls}"
-                href="${browserUrl}"
-                title="Open in ${bInfo.label} — ${bInfo.who}'s account">
-                ${bInfo.icon} <span class="browser-badge">${bInfo.label}</span>
-            </a>`;
+            const modeLabel = bInfo.mode === 'edge' ? '↗' : '📋';
+            const modeTitle = bInfo.mode === 'edge'
+                ? `Open in Edge — David's account`
+                : `Copy link — paste into Chrome (Joe's account)`;
+            linkCell = `<button class="trade-link-btn ${bInfo.cls} trade-open-btn"
+                data-url="${tradeUrl}" data-mode="${bInfo.mode}" data-who="${bInfo.who}"
+                title="${modeTitle}">
+                ${bInfo.icon} <span class="browser-badge">${bInfo.label} ${modeLabel}</span>
+            </button>`;
         } else if (tradeUrl) {
-            linkCell = `<a class="trade-link-btn chrome" href="${tradeUrl}" target="_blank" rel="noopener noreferrer" title="Open trade on Noones">🔗 Open</a>`;
+            linkCell = `<button class="trade-link-btn chrome trade-open-btn" data-url="${tradeUrl}" data-mode="copy" data-who="" title="Copy trade link">🔗 📋</button>`;
         } else {
             linkCell = `<span style="color:var(--text-3);font-size:0.75rem;">—</span>`;
         }
@@ -530,20 +539,26 @@ function renderTradesTable(trades) {
 
     // Send / Release delegation
     container.addEventListener('click', async e => {
-        // Copy trade URL to clipboard
-        if (e.target.closest('.copy-trade-url-btn')) {
-            const btn = e.target.closest('.copy-trade-url-btn');
-            const url = btn.dataset.url;
+        // Trade link buttons
+        const linkBtn = e.target.closest('.trade-open-btn');
+        if (linkBtn) {
+            const url  = linkBtn.dataset.url;
+            const mode = linkBtn.dataset.mode;
+            const who  = linkBtn.dataset.who;
             if (!url) return;
-            navigator.clipboard.writeText(url).then(() => {
-                const origHTML = btn.innerHTML;
-                btn.classList.add('copied');
-                btn.textContent = '✓ Copied!';
-                const tip = btn.title || '';
-                const browser = tip.includes('Chrome') ? 'Chrome' : tip.includes('Edge') ? 'Edge' : 'the right browser';
-                showToast('Link Copied 📋', `Paste into ${browser}`, 'success');
-                setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = origHTML; }, 1500);
-            }).catch(() => showToast('Error', 'Could not copy to clipboard.', 'error'));
+            if (mode === 'edge') {
+                // microsoft-edge: is a real Windows URI — triggers Edge directly
+                window.location.href = 'microsoft-edge:' + url;
+            } else {
+                // Chrome has no equivalent OS URI scheme — copy to clipboard instead
+                navigator.clipboard.writeText(url).then(() => {
+                    const origHTML = linkBtn.innerHTML;
+                    linkBtn.classList.add('copied');
+                    linkBtn.textContent = '✓ Copied!';
+                    showToast('Link Copied 📋', `Paste into Chrome (${who}'s account)`, 'success');
+                    setTimeout(() => { linkBtn.classList.remove('copied'); linkBtn.innerHTML = origHTML; }, 1500);
+                }).catch(() => showToast('Error', 'Could not copy to clipboard.', 'error'));
+            }
             return;
         }
         if (e.target.classList.contains('send-manual-message-btn')) {
