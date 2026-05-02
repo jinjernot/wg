@@ -291,9 +291,9 @@ h4 { font-size: 0.85rem; color: var(--text-2); font-weight: 500; margin-bottom: 
 #stop-btn:hover { box-shadow: 0 6px 20px var(--red-glow); transform: translateY(-1px); }
 
 #save-all-btn {
-    background: linear-gradient(135deg, #0f766e, var(--indigo));
+    background: linear-gradient(135deg, #3730a3, var(--indigo));
 }
-#save-all-btn:hover { box-shadow: 0 6px 20px rgba(13, 187, 168, 0.4); transform: translateY(-1px); }
+#save-all-btn:hover { box-shadow: 0 6px 20px rgba(99,102,241,0.4); transform: translateY(-1px); }
 
 #generate-charts-btn {
     background: linear-gradient(135deg, #b45309, var(--amber));
