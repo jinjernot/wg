@@ -601,9 +601,9 @@ thead tr {
 }
 
 th {
-    padding: 11px 16px;
+    padding: 13px 18px;
     text-align: left;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--text-2);
     text-transform: uppercase;
@@ -612,8 +612,8 @@ th {
 }
 
 td {
-    padding: 13px 16px;
-    font-size: 0.875rem;
+    padding: 15px 18px;
+    font-size: 0.95rem;
     color: var(--text-1);
     border-bottom: 1px solid rgba(255,255,255,0.05);
     vertical-align: middle;
@@ -676,7 +676,7 @@ tr.high-value td:nth-child(4)::after {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 260px;
+    min-width: 300px;
 }
 
 .manual-message-input {
@@ -698,12 +698,12 @@ tr.high-value td:nth-child(4)::after {
 
 .send-manual-message-btn,
 .release-trade-btn {
-    padding: 8px 14px;
+    padding: 9px 16px;
     border: none;
     border-radius: 8px;
     color: #fff;
     font-family: inherit;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
