@@ -95,57 +95,25 @@
         .hash-chip:hover { border-color: var(--border-hover); color: var(--text-1); background: rgba(99,102,241,0.1); }
         .hash-chip.copied { color: var(--green); border-color: rgba(34,197,94,0.4); }
 
-        /* Trade link / copy button */
-        .trade-link-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 9px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-decoration: none;
-            border: 1px solid;
-            transition: all 0.18s ease;
-            white-space: nowrap;
-            cursor: pointer;
-            background: none;
-            font-family: inherit;
-        }
-        .trade-link-btn.chrome {
-            color: #93c5fd;
-            border-color: rgba(59,130,246,0.35);
-            background: rgba(59,130,246,0.1);
-        }
-        .trade-link-btn.chrome:hover {
-            background: rgba(59,130,246,0.22);
-            border-color: rgba(59,130,246,0.6);
-            color: #bfdbfe;
-            box-shadow: 0 0 8px rgba(59,130,246,0.25);
-        }
-        .trade-link-btn.edge {
+        /* Edge link button — David's account only */
+        .edge-link-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 8px;
+            font-size: 0.75rem; font-weight: 600; font-family: inherit;
             color: #6ee7b7;
-            border-color: rgba(16,185,129,0.35);
+            border: 1px solid rgba(16,185,129,0.35);
             background: rgba(16,185,129,0.1);
+            cursor: pointer; white-space: nowrap;
+            transition: all 0.18s ease;
         }
-        .trade-link-btn.edge:hover {
+        .edge-link-btn:hover {
             background: rgba(16,185,129,0.22);
             border-color: rgba(16,185,129,0.6);
             color: #a7f3d0;
             box-shadow: 0 0 8px rgba(16,185,129,0.25);
         }
-        .trade-link-btn.copied {
-            color: var(--green) !important;
-            border-color: rgba(34,197,94,0.5) !important;
-            background: rgba(34,197,94,0.12) !important;
-        }
-        .browser-badge {
-            font-size: 0.68rem;
-            opacity: 0.75;
-            font-weight: 500;
-        }
 
-        /* Buyer chip */
+
         .buyer-chip { display: inline-flex; align-items: center; gap: 5px; }
         .buyer-avatar {
             width: 22px; height: 22px;
@@ -444,22 +412,16 @@ function renderTradesTable(trades) {
     </tr></thead><tbody></tbody>`;
     const tbody = table.querySelector('tbody');
 
-    // Account → browser mapping.
-    // Joe (JoeWillgang_Noones) → Chrome: no OS protocol to open Chrome from another browser,
-    //   so clicking copies the URL to clipboard (paste into Chrome manually).
-    // David (davidvs_Noones) → Edge: microsoft-edge: is a real Windows URI scheme,
-    //   so clicking opens Edge directly via window.location.href.
-    const ACCOUNT_BROWSER = {
-        'joewillgang noones': { cls: 'chrome', label: 'Chrome', who: 'Joe',   icon: '🔵', mode: 'copy' },
-        'davidvs noones':     { cls: 'edge',   label: 'Edge',   who: 'David', icon: '🟢', mode: 'edge' },
-    };
+    // David's account (Edge) gets a single-click link via the microsoft-edge: OS URI scheme.
+    // Joe's account (Chrome) shows no link — no equivalent URI scheme works cross-browser.
+    const DAVID_KEY = 'davidvs noones';
 
     trades.forEach(trade => {
         const row = document.createElement('tr');
         const isNew = trade.started_at
-            ? (Date.now() - new Date(trade.started_at)) / 60000 <= 30 : false;
+            ? (Date.now() - new Date(trade.started_at + 'Z').getTime()) / 60000 <= 30 : false;
         const isOldPaid = trade.trade_status === 'Paid' && trade.started_at
-            ? (Date.now() - new Date(trade.started_at)) / 3600000 > 3 : false;
+            ? (Date.now() - new Date(trade.started_at + 'Z').getTime()) / 3600000 > 3 : false;
         const noReceipt = trade.trade_status === 'Paid' && !trade.has_attachment;
         const amountStr = `${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}`.trim();
         const ageInfo = fmtAge(trade.started_at);
@@ -467,28 +429,12 @@ function renderTradesTable(trades) {
         const hashShort = (trade.trade_hash || '').slice(0, 10) + '…';
         const initial = (trade.responder_username || '?').charAt(0).toUpperCase();
 
-        // Build link cell.
-        // Edge (David) → microsoft-edge: OS URI → single click opens Edge directly.
-        // Chrome (Joe) → no cross-browser URI scheme exists → copies URL to clipboard.
-        const tradeUrl = trade.trade_hash ? `https://noones.com/trades/${trade.trade_hash}` : null;
+        // Edge link — David's account only
         const accKey = (trade.account_name_source || '').toLowerCase().replace(/_/g, ' ');
-        const bInfo = ACCOUNT_BROWSER[accKey] || null;
-        let linkCell = '';
-        if (tradeUrl && bInfo) {
-            const modeLabel = bInfo.mode === 'edge' ? '↗' : '📋';
-            const modeTitle = bInfo.mode === 'edge'
-                ? `Open in Edge — David's account`
-                : `Copy link — paste into Chrome (Joe's account)`;
-            linkCell = `<button class="trade-link-btn ${bInfo.cls} trade-open-btn"
-                data-url="${tradeUrl}" data-mode="${bInfo.mode}" data-who="${bInfo.who}"
-                title="${modeTitle}">
-                ${bInfo.icon} <span class="browser-badge">${bInfo.label} ${modeLabel}</span>
-            </button>`;
-        } else if (tradeUrl) {
-            linkCell = `<button class="trade-link-btn chrome trade-open-btn" data-url="${tradeUrl}" data-mode="copy" data-who="" title="Copy trade link">🔗 📋</button>`;
-        } else {
-            linkCell = `<span style="color:var(--text-3);font-size:0.75rem;">—</span>`;
-        }
+        const tradeUrl = trade.trade_hash ? `https://noones.com/es/trade/new/${trade.trade_hash}` : null;
+        const linkCell = (accKey === DAVID_KEY && tradeUrl)
+            ? `<button class="edge-link-btn" data-url="${tradeUrl}" title="Open in Edge — David's account">🟢 Edge ↗</button>`
+            : `<span style="color:var(--text-3);font-size:0.75rem;">—</span>`;
 
         row.innerHTML = `
             <td style="font-weight:600;font-size:0.82rem;">${trade.account_name_source || 'N/A'}</td>
@@ -532,33 +478,19 @@ function renderTradesTable(trades) {
     container.appendChild(table);
     startAgeTicker();
 
-    // Hash copy clicks
+    // Hash copy clicks — re-bound each render since chips are recreated
     container.querySelectorAll('.hash-chip').forEach(chip => {
         chip.addEventListener('click', () => copyHash(chip, chip.dataset.full));
     });
 
-    // Send / Release delegation
-    container.addEventListener('click', async e => {
-        // Trade link buttons
-        const linkBtn = e.target.closest('.trade-open-btn');
-        if (linkBtn) {
-            const url  = linkBtn.dataset.url;
-            const mode = linkBtn.dataset.mode;
-            const who  = linkBtn.dataset.who;
-            if (!url) return;
-            if (mode === 'edge') {
-                // microsoft-edge: is a real Windows URI — triggers Edge directly
-                window.location.href = 'microsoft-edge:' + url;
-            } else {
-                // Chrome has no equivalent OS URI scheme — copy to clipboard instead
-                navigator.clipboard.writeText(url).then(() => {
-                    const origHTML = linkBtn.innerHTML;
-                    linkBtn.classList.add('copied');
-                    linkBtn.textContent = '✓ Copied!';
-                    showToast('Link Copied 📋', `Paste into Chrome (${who}'s account)`, 'success');
-                    setTimeout(() => { linkBtn.classList.remove('copied'); linkBtn.innerHTML = origHTML; }, 1500);
-                }).catch(() => showToast('Error', 'Could not copy to clipboard.', 'error'));
-            }
+    // Send / Release delegation — safe to re-add since container.innerHTML is replaced each render
+    const oldHandler = container._clickHandler;
+    if (oldHandler) container.removeEventListener('click', oldHandler);
+    container._clickHandler = async e => {
+        // Edge link — open David's trade directly in Edge
+        const edgeBtn = e.target.closest('.edge-link-btn');
+        if (edgeBtn && edgeBtn.dataset.url) {
+            window.location.href = 'microsoft-edge:' + edgeBtn.dataset.url;
             return;
         }
         if (e.target.classList.contains('send-manual-message-btn')) {
@@ -596,7 +528,8 @@ function renderTradesTable(trades) {
             } catch { showToast('Error', 'Unexpected error.', 'error'); }
             finally { btn.disabled=false; btn.textContent='Release'; }
         }
-    });
+    };
+    container.addEventListener('click', container._clickHandler);
 }
 
 // ── Main load ─────────────────────────────────────────────────────
