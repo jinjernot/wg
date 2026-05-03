@@ -528,6 +528,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Shared UI Helpers
+    function statusPill(trade) {
+        const s = trade.trade_status || '';
+        if (s === 'Paid' && !trade.has_attachment)
+            return `<span class="trade-status-pill pill-warn"><span class="live-dot ld-amber"></span>No Receipt</span>`;
+        if (s === 'Paid')
+            return `<span class="trade-status-pill pill-paid"><span class="live-dot ld-green"></span>Paid</span>`;
+        if (s === 'Dispute open')
+            return `<span class="trade-status-pill pill-dispute"><span class="live-dot ld-red"></span>Disputed</span>`;
+        if (s)
+            return `<span class="trade-status-pill pill-active"><span class="live-dot ld-indigo"></span>${s}</span>`;
+        return `<span class="trade-status-pill pill-default">N/A</span>`;
+    }
+
+    function copyHash(el, full) {
+        navigator.clipboard.writeText(full).then(() => {
+            el.classList.add('copied');
+            el.textContent = 'Copied!';
+            setTimeout(() => { el.classList.remove('copied'); el.textContent = full.slice(0,10)+'…'; }, 1500);
+        });
+    }
+
     function updateTradesTable(trades) {
         if (!tradesContainer) return;
         updateKpiStrip(trades);
@@ -570,7 +592,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isNewTrade = () => {
                 if (trade.started_at) {
-                    const diffMinutes = (new Date() - new Date(trade.started_at)) / (1000 * 60);
+                    // Use normalized 'Z' appended UTC time to match how trades_view does it
+                    const normalized = /[Zz]$|[+-]\d{2}:\d{2}$/.test(trade.started_at) ? trade.started_at : trade.started_at + 'Z';
+                    const diffMinutes = (Date.now() - new Date(normalized).getTime()) / (1000 * 60);
                     return diffMinutes <= 30;
                 }
                 return false;
@@ -578,27 +602,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isOldPaidTrade = () => {
                 if (trade.trade_status === 'Paid' && trade.started_at) {
-                    const diffHours = (new Date() - new Date(trade.started_at)) / (1000 * 60 * 60);
+                    const normalized = /[Zz]$|[+-]\d{2}:\d{2}$/.test(trade.started_at) ? trade.started_at : trade.started_at + 'Z';
+                    const diffHours = (Date.now() - new Date(normalized).getTime()) / (1000 * 60 * 60);
                     return diffHours > 3;
                 }
                 return false;
             };
 
-            // Status cell with optional "No Receipt" badge
             const noReceipt = trade.trade_status === 'Paid' && !trade.has_attachment;
-            const statusBadge = noReceipt
-                ? `${trade.trade_status || 'N/A'} <span class="no-receipt-badge">⚠️ No Receipt</span>`
-                : (trade.trade_status || 'N/A');
-
             const amountStr = `${trade.fiat_amount_requested || 'N/A'} ${trade.fiat_currency_code || ''}`.trim();
+            const hashShort = (trade.trade_hash || '').slice(0, 10) + '…';
+            const initial = (trade.responder_username || '?').charAt(0).toUpperCase();
 
             row.innerHTML = `
-                <td>${trade.account_name_source || 'N/A'}</td>
-                <td>${trade.trade_hash || 'N/A'}</td>
-                <td>${trade.responder_username || 'N/A'}</td>
-                <td>${amountStr}</td>
-                <td>${trade.payment_method_name || 'N/A'}</td>
-                <td>${statusBadge}</td>
+                <td style="font-weight:600;font-size:0.82rem;">${trade.account_name_source || 'N/A'}</td>
+                <td><span class="hash-chip" title="${trade.trade_hash||''}" data-full="${trade.trade_hash||''}">${hashShort}</span></td>
+                <td><span class="buyer-chip"><span class="buyer-avatar">${initial}</span><span style="font-size:0.82rem;">${trade.responder_username||'N/A'}</span></span></td>
+                <td style="font-weight:600;">${amountStr}</td>
+                <td style="color:var(--text-2);font-size:0.82rem;">${trade.payment_method_name || 'N/A'}</td>
+                <td>${statusPill(trade)}</td>
                 <td class="message-cell">
                     <input type="text" class="manual-message-input" placeholder="Type a message...">
                     <button class="send-manual-message-btn"
@@ -636,6 +658,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         tradesContainer.appendChild(table);
+
+        // Bind hash copy clicks
+        tradesContainer.querySelectorAll('.hash-chip').forEach(chip => {
+            chip.addEventListener('click', () => copyHash(chip, chip.dataset.full));
+        });
     }
 
     async function fetchOffers() {
@@ -737,8 +764,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!ctx) return;
 
             const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 140);
-            gradient.addColorStop(0,   'rgba(13, 187, 168, 0.55)');
-            gradient.addColorStop(1,   'rgba(13, 187, 168, 0.04)');
+            gradient.addColorStop(0,   'rgba(92, 98, 250, 0.6)');
+            gradient.addColorStop(1,   'rgba(92, 98, 250, 0.05)');
 
             const chartData = {
                 labels: d.labels,
@@ -746,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     label: 'MXN Volume',
                     data: d.volumes,
                     backgroundColor: gradient,
-                    borderColor: '#0DBBA8',
+                    borderColor: '#5c62fa',
                     borderWidth: 2,
                     borderRadius: 6,
                     borderSkipped: false,
@@ -768,11 +795,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            backgroundColor: 'rgba(8,22,20,0.95)',
-                            borderColor: 'rgba(13,187,168,0.3)',
+                            backgroundColor: 'rgba(10, 12, 24, 0.95)',
+                            borderColor: 'rgba(92, 98, 250, 0.4)',
                             borderWidth: 1,
-                            titleColor: '#7EA89F',
-                            bodyColor: '#EEF5F3',
+                            titleColor: '#c7d2fe',
+                            bodyColor: '#fff',
                             callbacks: {
                                 label: ctx => {
                                     const vol = '$' + ctx.raw.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' MXN';
@@ -785,13 +812,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     scales: {
                         x: {
                             grid: { display: false },
-                            ticks: { color: '#3D6860', font: { size: 11, weight: '600' } },
+                            ticks: { color: '#818cf8', font: { size: 11, weight: '600' } },
                             border: { display: false }
                         },
                         y: {
                             grid: { color: 'rgba(255,255,255,0.04)' },
                             ticks: {
-                                color: '#3D6860',
+                                color: '#818cf8',
                                 font: { size: 10 },
                                 callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'K' : v)
                             },

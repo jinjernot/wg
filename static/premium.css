@@ -21,7 +21,7 @@ body {
         radial-gradient(circle at 50% -20%, rgba(92, 98, 250, 0.15) 0%, transparent 50%),
         radial-gradient(circle at 80% 80%, rgba(208, 136, 250, 0.1) 0%, transparent 40%),
         radial-gradient(circle at 20% 80%, rgba(5, 213, 255, 0.08) 0%, transparent 40%),
-        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+        url("data:image/svg+xml,%3Csvg%20viewBox='0%200%20200%20200'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter%20id='noiseFilter'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.8'%20numOctaves='3'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23noiseFilter)'%20opacity='0.04'/%3E%3C/svg%3E");
     background-attachment: fixed;
     color: var(--text-1);
     letter-spacing: 0.01em;
@@ -39,9 +39,11 @@ h1 {
     font-family: 'Outfit', sans-serif;
     font-weight: 800;
     letter-spacing: -0.01em;
-    background: linear-gradient(110deg, #fff 0%, #c7d2fe 30%, var(--violet) 80%, var(--teal) 100%);
+    background-image: linear-gradient(110deg, #fff 0%, #c7d2fe 30%, var(--violet) 80%, var(--teal) 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
+    color: transparent;
     text-transform: uppercase;
 }
 
@@ -259,4 +261,96 @@ tr.high-value {
 
 .fund-meter-fill.zone-ok {
     animation: glowPulse 2s infinite;
+}
+
+/* ── Shared UI Components (Pills, Chips, Avatars, Dots) ── */
+
+/* Status pills */
+.trade-status-pill, .dash-trades-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.pill-active, .dash-trades-pill { background: rgba(99,102,241,0.18); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.35); }
+.pill-paid    { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.pill-dispute { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.pill-warn    { background: rgba(251,146,60,0.15); color: #FB923C; border: 1px solid rgba(251,146,60,0.3); }
+.pill-default { background: rgba(255,255,255,0.07); color: var(--text-2); border: 1px solid var(--border); }
+
+/* Live dot */
+.live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    animation: ldPulse 2s ease-in-out infinite;
+}
+.ld-indigo { background: #818cf8; }
+.ld-green  { background: #4ade80; }
+.ld-red    { background: #f87171; }
+.ld-amber  { background: #FBBF24; }
+@keyframes ldPulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:0.4; transform:scale(0.65); }
+}
+
+/* Hash chip */
+.hash-chip {
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: var(--text-2);
+    background: rgba(0,0,0,0.25);
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all var(--ease);
+    user-select: none;
+    display: inline-block;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.hash-chip:hover { border-color: var(--border-hover); color: var(--text-1); background: rgba(99,102,241,0.1); }
+.hash-chip.copied { color: var(--green); border-color: rgba(34,197,94,0.4); }
+
+/* Buyer Avatar */
+.buyer-chip { display: inline-flex; align-items: center; gap: 5px; }
+.buyer-avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo), var(--violet));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+
+/* Age badge */
+.age-badge { font-size: 0.72rem; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.age-warn { color: var(--amber); }
+.age-old  { color: var(--red); }
+
+/* Edge link button */
+.edge-link-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 0.75rem; font-weight: 600; font-family: inherit;
+    color: #a5b4fc;
+    border: 1px solid rgba(99,102,241,0.35);
+    background: rgba(99,102,241,0.1);
+    cursor: pointer; white-space: nowrap;
+    transition: all 0.18s ease;
+}
+.edge-link-btn:hover {
+    background: rgba(99,102,241,0.2);
+    border-color: rgba(99,102,241,0.55);
+    color: #c7d2fe;
+    box-shadow: 0 0 10px rgba(99,102,241,0.25);
 }
