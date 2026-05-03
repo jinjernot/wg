@@ -63,46 +63,36 @@ def _handle_sigterm(signum, frame):
 signal.signal(signal.SIGTERM, _handle_sigterm)
 
 
-def turn_on_offers_job():
-    """Job to be run by the scheduler."""
-    logger.info("SCHEDULER: Running scheduled job to turn on offers.")
-    send_scheduled_task_alert("Automatically turning on all offers.")
+def _toggle_offers_job(turn_on: bool):
+    """Shared implementation for turning offers on or off."""
+    verb = "on" if turn_on else "off"
+    logger.info(f"SCHEDULER: Running scheduled job to turn {verb} offers.")
+    send_scheduled_task_alert(f"Automatically turning {verb} all offers.")
 
-    results = set_offer_status(turn_on=True)
+    results = set_offer_status(turn_on=turn_on)
 
     successful_accounts = [r["account"] for r in results if r["success"]]
     if successful_accounts:
-        success_message = f"Offers turned on for: {', '.join(successful_accounts)}."
+        success_message = f"Offers turned {verb} for: {', '.join(successful_accounts)}."
         logger.info(f"SCHEDULER: {success_message}")
         send_scheduled_task_alert(success_message)
 
     failed_accounts = [
         f"{r['account']} ({r['error']})" for r in results if not r["success"]]
     if failed_accounts:
-        failure_message = f"Failed to turn on offers for: {', '.join(failed_accounts)}."
+        failure_message = f"Failed to turn {verb} offers for: {', '.join(failed_accounts)}."
         logger.error(f"SCHEDULER: {failure_message}")
         send_scheduled_task_alert(failure_message)
+
+
+def turn_on_offers_job():
+    """Scheduler entry-point: turn all offers on."""
+    _toggle_offers_job(turn_on=True)
 
 
 def turn_off_offers_job():
-    """Job to be run by the scheduler to turn off offers."""
-    logger.info("SCHEDULER: Running scheduled job to turn off offers.")
-    send_scheduled_task_alert("Automatically turning off all offers.")
-
-    results = set_offer_status(turn_on=False)
-
-    successful_accounts = [r["account"] for r in results if r["success"]]
-    if successful_accounts:
-        success_message = f"Offers turned off for: {', '.join(successful_accounts)}."
-        logger.info(f"SCHEDULER: {success_message}")
-        send_scheduled_task_alert(success_message)
-
-    failed_accounts = [
-        f"{r['account']} ({r['error']})" for r in results if not r["success"]]
-    if failed_accounts:
-        failure_message = f"Failed to turn off offers for: {', '.join(failed_accounts)}."
-        logger.error(f"SCHEDULER: {failure_message}")
-        send_scheduled_task_alert(failure_message)
+    """Scheduler entry-point: turn all offers off."""
+    _toggle_offers_job(turn_on=False)
 
 
 def check_disk_space_job():

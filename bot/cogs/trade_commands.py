@@ -12,7 +12,7 @@ from dateutil.parser import isoparse
 from collections import defaultdict
 from config import DISCORD_ACTIVE_TRADES_CHANNEL_ID, DISCORD_GUILD_ID
 from config_messages.discord_messages import (
-    NO_ACTIVE_TRADES_EMBED, ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
+    NO_ACTIVE_TRADES_EMBED, SEND_MESSAGE_EMBEDS,
     USER_PROFILE_EMBED, USER_NOT_FOUND_EMBED, SERVER_UNREACHABLE,
     RELEASE_TRADE_EMBEDS, COLORS
 )

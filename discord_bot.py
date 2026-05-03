@@ -90,12 +90,6 @@ def _make_bot() -> MyBot:
     return MyBot(command_prefix="!", intents=intents)
 
 
-@discord.ext.commands.Cog.listener.__func__  # not used directly — kept for reference
-async def on_ready_handler(bot_instance):
-    logger.info(f'Logged in as {bot_instance.user} (ID: {bot_instance.user.id})')
-    logger.info('Bot is ready and online!')
-    await bot_instance.change_presence(activity=discord.Game(name="Periquiando"))
-
 
 def _run_bot_with_reconnect():
     """

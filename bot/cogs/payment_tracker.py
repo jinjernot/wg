@@ -32,7 +32,7 @@ class PaymentTracker(commands.Cog):
         try:
             dt = datetime.fromisoformat(dt_str)
             return dt.strftime("%Y-%m-%d %I:%M %p")
-        except:
+        except (ValueError, TypeError):
             return dt_str
     
     @app_commands.guilds(MY_GUILD)
