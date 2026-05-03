@@ -29,13 +29,13 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     
     if not PLATFORM_ACCOUNTS:
         logger.error("Cannot search public offers, no accounts configured in PLATFORM_ACCOUNTS.")
-        return None # <-- MODIFIED: Return None on failure
+        return None
 
     auth_account = PLATFORM_ACCOUNTS[0]
     token = fetch_token_with_retry(auth_account)
     if not token:
         logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
-        return None # <-- MODIFIED: Return None on failure
+        return None
 
     url = "https://api.noones.com/noones/v1/offer/all"
     
@@ -118,10 +118,10 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
 
             else:
                 logger.error(f"Error in public offer search response: {response.text}")
-                return None # <-- MODIFIED: Return None on failure
+                return None
         else:
             logger.error(f"Failed to fetch public offers (Status: {response.status_code}): {response.text}")
-            return None # <-- MODIFIED: Return None on failure
+            return None
             
     except Exception as e:
         logger.error(f"An exception occurred fetching public offers: {e}")

@@ -138,7 +138,7 @@ def main():
         scheduler.add_job(check_disk_space_job, 'interval', hours=1)
         scheduler.start()
         logger.info(
-            "Scheduler started. Offers will be turned on daily at 8:00 AM and off at 2:00 AM Central Time.")
+            "Scheduler started. Offers will be turned on daily at 8:30 AM and off at 2:00 AM Central Time.")
 
         # --- Trading thread registry --- 
         # Keyed by account name so the watchdog can respawn individual threads.

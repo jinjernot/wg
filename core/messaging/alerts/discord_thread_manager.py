@@ -46,12 +46,6 @@ def _read_file() -> dict:
         return {}
 
 
-# Keep the old name available so nothing external that might import it breaks.
-def _load_thread_ids() -> dict:
-    """Returns the full trade_hash -> thread_id mapping from disk (file-locked)."""
-    with _file_lock:
-        return _read_file()
-
 
 def _save_thread_id(trade_hash, thread_id):
     """
