@@ -162,9 +162,9 @@ class PaymentTracker(commands.Cog):
         await interaction.response.defer()
         
         try:
-            # Get total
-            total = await self.db.get_customer_total(customer)
+            # Get history and derive total from it (avoids a second DB query)
             history = await self.db.get_customer_history(customer)
+            total = sum(p['amount'] for p in history)
             
             # Create embed
             embed = discord.Embed(

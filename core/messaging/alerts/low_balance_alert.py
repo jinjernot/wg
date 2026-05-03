@@ -282,26 +282,10 @@ def check_wallet_balances_and_alert():
                 for amount, currency, usd in balance_details_for_alert
             ]
 
-            # --- Build Unicode progress bar for Discord ---
-            FUND_MAX_MXN = 60_000
-            FUND_ALERT_MXN = 10_000
-            BAR_SEGMENTS = 20
-
+            # --- Build Unicode progress bar for Discord (reuse module-level helper) ---
             mxn_amount = effective_balances.get("mxn", effective_balances.get("MXN", 0))
-            mxn_pct = min(mxn_amount / FUND_MAX_MXN, 1.0)
-            filled = round(mxn_pct * BAR_SEGMENTS)
-            alert_pos = round((FUND_ALERT_MXN / FUND_MAX_MXN) * BAR_SEGMENTS)
-
-            bar_chars = []
-            for i in range(BAR_SEGMENTS):
-                if i == alert_pos:
-                    bar_chars.append("▲")  # threshold marker
-                elif i < filled:
-                    bar_chars.append("█")
-                else:
-                    bar_chars.append("░")
-
-            progress_bar = f"`{''.join(bar_chars)}`"
+            bar, mxn_pct = _build_fund_bar(mxn_amount)
+            progress_bar = f"`{bar}`"
 
             embed_data = LOW_BALANCE_ALERT_EMBED.copy()
             embed_data["description"] = embed_data["description"].format(

@@ -1,3 +1,4 @@
+
 import requests
 import logging
 import json
@@ -5,8 +6,6 @@ import os
 import time
 import random
 import threading
-
-_discord_api_lock = threading.Lock()
 from datetime import datetime, timezone
 from dateutil.parser import isoparse
 from config import DISCORD_WEBHOOKS, DISCORD_BOT_TOKEN, DISCORD_CHAT_LOG_CHANNEL_ID, BOT_OWNER_USERNAMES
@@ -42,6 +41,8 @@ from config_messages.chat_messages import (
 from core.utils.profile import generate_user_profile
 
 logger = logging.getLogger(__name__)
+
+_discord_api_lock = threading.Lock()
 
 AUTOMATED_MESSAGES = set(
     TRADE_COMPLETION_MESSAGE +
@@ -374,9 +375,6 @@ def create_high_value_trade_embed(trade_data, platform):
 
 def create_trade_status_update_embed(trade_hash, owner_username, new_status, platform):
     """Creates and sends a Discord embed for a trade status change."""
-    
-    trade_url = f"https://noones.com/trade/{trade_hash}"
-
     if new_status == 'Paid':
         template = STATUS_UPDATE_EMBEDS["paid"]
     elif new_status == 'Successful':
@@ -455,37 +453,13 @@ def create_amount_validation_embed(trade_hash, owner_username, expected, found, 
     }
     send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
 
-def create_email_validation_embed(trade_hash, success, account_name, details=None):
-    """Builds and sends an email validation embed using templates."""
-    logger.info(f"[EMAIL EMBED DEBUG] Creating email validation embed - success: {success}, details: {details}")
-    
-    template = EMAIL_VALIDATION_EMBEDS["success"] if success else EMAIL_VALIDATION_EMBEDS["failure"]
-
-    formatted_fields = []
-    if success and details:
-        logger.info(f"[EMAIL EMBED DEBUG] Adding bank identifier fields - validator: {details.get('validator')}")
-        formatted_fields.append({"name": "🏦 Bank", "value": f"**{details.get('validator', 'Unknown').replace('_', ' ').title()}**", "inline": True})
-        formatted_fields.append({"name": "💰 Amount", "value": f"${details.get('found_amount', 0):,.2f}", "inline": True})
-        formatted_fields.append({"name": "👤 Name", "value": f"{details.get('found_name', 'Unknown')}", "inline": True})
-    else:
-        logger.warning(f"[EMAIL EMBED DEBUG] Bank identifier fields NOT added - success: {success}, details present: {details is not None}")
-
-    logger.info(f"[EMAIL EMBED DEBUG] Total fields in embed: {len(formatted_fields)}")
-    
-    embed = {
-        "title": template["title"].format(account_name=account_name),
-        "color": COLORS["success"] if success else COLORS["error"],
-        "description": template.get("description", ""),
-        "fields": formatted_fields,
-        "footer": {"text": f"Trade: {trade_hash}"}
-    }
-    send_discord_embed(embed, alert_type="attachments", trade_hash=trade_hash)
+# --- EMAIL MODULE DISABLED ---
+# def create_email_validation_embed(trade_hash, success, account_name, details=None):
+#     (entire function commented out — re-enable when email module is restored)
 
 
 def create_chat_message_embed(trade_hash, owner_username, author, message, platform):
     """Creates and sends a visually improved Discord embed for a new chat message."""
-    
-    trade_url = f"https://noones.com/trade/{trade_hash}"
     is_bot_owner = author in BOT_OWNER_USERNAMES
     is_automated = message in AUTOMATED_MESSAGES
 

@@ -16,8 +16,6 @@ from config_messages.telegram_messages import (
     AMOUNT_VALIDATION_NOT_FOUND_ALERT,
     AMOUNT_VALIDATION_MATCH_ALERT,
     AMOUNT_VALIDATION_MISMATCH_ALERT,
-    EMAIL_VALIDATION_SUCCESS_ALERT,
-    EMAIL_VALIDATION_FAILURE_ALERT,
     NAME_VALIDATION_SUCCESS_ALERT,
     NAME_VALIDATION_FAILURE_ALERT,
     LOW_BALANCE_ALERT_MESSAGE,
@@ -68,9 +66,6 @@ def escape_markdown(text):
     # Use negative lookbehind to avoid double escaping
     return re.sub(f'(?<!\\\\)([{re.escape(escape_chars)}])', r'\\\1', text)
 
-def get_inline_keyboard(trade_hash):
-    """Generates an inline keyboard (Currently disabled)."""
-    return None
 
 def _send_text_alert(message, disable_web_page_preview=True, thread_id=None, reply_to_message_id=None, reply_markup=None):
     """Internal helper function to send a text message to Telegram."""
@@ -275,9 +270,7 @@ def send_telegram_alert(trade, platform):
     
     message = message_template.format(**formatted_data)
     trade_hash = trade.get('trade_hash')
-    reply_markup = get_inline_keyboard(trade_hash)
-    
-    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("live_trades"), reply_markup=reply_markup)
+    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("live_trades"))
     if msg_id and trade_hash:
         save_message_id(trade_hash, msg_id)
 
@@ -310,9 +303,7 @@ def send_high_value_trade_alert(trade, platform):
         payment_method_name=escape_markdown(trade.get('payment_method_name', 'N/A')),
         trade_hash=escape_markdown(trade_hash if trade_hash else 'N/A')
     )
-    reply_markup = get_inline_keyboard(trade_hash)
-    
-    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"), reply_markup=reply_markup)
+    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
     if msg_id and trade_hash:
         save_message_id(trade_hash, msg_id)
 
@@ -330,7 +321,7 @@ def send_chat_message_alert(chat_message, trade_hash, owner_username, author):
     reply_to = get_chat_message_id(trade_hash)
     topic = TELEGRAM_TOPICS.get("buyer_chats")
     
-    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=topic, reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    msg_id = _send_text_alert(message, disable_web_page_preview=True, thread_id=topic, reply_to_message_id=reply_to)
     
     # If this is the very first chat message, save its ID so all future messages become a thread under it
     if msg_id and not reply_to:
@@ -357,11 +348,11 @@ def send_attachment_alert(trade_hash, owner_username, author, image_path, bank_n
     
     # 1. Send as a reply in the original trade thread
     reply_to = get_message_id(trade_hash)
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("live_trades"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("live_trades"), reply_to_message_id=reply_to)
     
     # 2. Dump a copy separately into the attachments folder (topic)
     if TELEGRAM_TOPICS.get("attachments") is not None:
-        _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"), reply_markup=get_inline_keyboard(trade_hash))
+        _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("attachments"))
 
 def send_amount_validation_alert(trade_hash, owner_username, expected_amount, found_amount, currency):
     """Sends a Telegram alert for amount validation."""
@@ -405,26 +396,8 @@ def send_amount_validation_alert(trade_hash, owner_username, expected_amount, fo
 
     reply_to = get_message_id(trade_hash)
     topic = "action_required" if "Mismatch" in message or "Not Found" in message else "live_trades"
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to)
 
-def send_email_validation_alert(trade_hash, success, account_name, details=None):
-    """Sends a Telegram alert about the email validation result."""
-    if success:
-        message = EMAIL_VALIDATION_SUCCESS_ALERT.format(account_name=escape_markdown(account_name))
-        if details:
-            validator = details.get('validator', 'Unknown').replace('_', ' ').title()
-            found_amount = details.get('found_amount', 0)
-            found_name = details.get('found_name', 'Unknown')
-            
-            message += f"\n\n🏦 *Bank:* {escape_markdown(validator)}"
-            message += f"\n💰 *Amount:* ${escape_markdown(f'{found_amount:,.2f}')}"
-            message += f"\n👤 *Name:* {escape_markdown(found_name)}"
-    else:
-        message = EMAIL_VALIDATION_FAILURE_ALERT.format(account_name=escape_markdown(account_name))
-    
-    reply_to = get_message_id(trade_hash)
-    topic = "live_trades" if success else "action_required"
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
 
 def send_name_validation_alert(trade_hash, success, account_name):
     """Sends a Telegram alert about the OCR name validation result."""
@@ -435,7 +408,7 @@ def send_name_validation_alert(trade_hash, success, account_name):
 
     reply_to = get_message_id(trade_hash)
     topic = "live_trades" if success else "action_required"
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to)
 
 def send_status_update_alert(trade_hash, owner_username, new_status):
     """Sends a Telegram alert for trade status changes."""
@@ -456,7 +429,7 @@ def send_status_update_alert(trade_hash, owner_username, new_status):
     
     reply_to = get_message_id(trade_hash)
     topic = "action_required" if 'Dispute' in new_status else "live_trades"
-    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_text_alert(message, thread_id=TELEGRAM_TOPICS.get(topic), reply_to_message_id=reply_to)
 
 def send_low_balance_alert(account_name, total_balance_usd, threshold, balance_details_raw):
     """Builds and sends a Telegram alert for low wallet balance using a template."""
@@ -495,7 +468,7 @@ def send_duplicate_receipt_alert(trade_hash, owner_username, image_path, previou
     )
     
     reply_to = get_message_id(trade_hash)
-    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("action_required"), reply_to_message_id=reply_to, reply_markup=get_inline_keyboard(trade_hash))
+    _send_photo_alert(caption_text, image_path, thread_id=TELEGRAM_TOPICS.get("action_required"), reply_to_message_id=reply_to)
 
 
 def send_buyer_risk_flag_alert(trade, platform):

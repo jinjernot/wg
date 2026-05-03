@@ -75,7 +75,6 @@ class Trade:
     def __init__(self, trade_data, account, headers):
         self.account = account
         self.headers = headers
-        self.gmail_service = None
         self.trade_hash = trade_data.get("trade_hash")
         self.owner_username = trade_data.get("owner_username", "unknown_user")
         self.platform = "Noones"
@@ -659,25 +658,23 @@ class Trade:
         if not all_messages:
             return
 
-        owner_usernames = BOT_OWNER_USERNAMES
-        
         # Find the timestamp of the last message from the owner
         last_owner_message_ts = None
         for msg in reversed(all_messages):
-            if msg.get("author") in owner_usernames:
+            if msg.get("author") in BOT_OWNER_USERNAMES:
                 last_owner_message_ts = msg.get("timestamp")
                 break
 
         buyer_messages = [msg for msg in all_messages if msg.get(
-            "author") not in owner_usernames]
+            "author") not in BOT_OWNER_USERNAMES]
 
         if not buyer_messages:
             return
 
-        if all_messages[-1].get("author") not in owner_usernames:
+        if all_messages[-1].get("author") not in BOT_OWNER_USERNAMES:
             consecutive_buyer_messages = 0
             for msg in reversed(all_messages):
-                if msg.get("author") not in owner_usernames:
+                if msg.get("author") not in BOT_OWNER_USERNAMES:
                     consecutive_buyer_messages += 1
                 else:
                     break
@@ -734,10 +731,9 @@ class Trade:
         if not all_messages:
             return
 
-        owner_usernames = BOT_OWNER_USERNAMES
         last_buyer_message_ts = None
         for msg in reversed(all_messages):
-            if msg.get("author") not in owner_usernames:
+            if msg.get("author") not in BOT_OWNER_USERNAMES:
                 last_buyer_message_ts = msg.get("timestamp")
                 break
 

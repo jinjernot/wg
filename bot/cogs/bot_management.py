@@ -119,18 +119,18 @@ class BotManagement(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
+            def _is_nonzero(val):
+                """Returns True for non-zero numeric values (shows non-numeric values too)."""
+                try:
+                    return float(val) != 0
+                except (ValueError, TypeError):
+                    return True  # show it — better visible than silently hidden
+
             for account_name, balance_data in balances.items():
                 if "error" in balance_data:
                     value = f"❌ Error: {balance_data['error']}"
                 else:
                     # Filter out zero balances for a cleaner look.
-                    # Guard against None or non-numeric API values.
-                    def _is_nonzero(val):
-                        try:
-                            return float(val) != 0
-                        except (ValueError, TypeError):
-                            return True  # show it — better visible than silently hidden
-
                     filtered_balances = {
                         code: amount for code, amount in balance_data.items()
                         if _is_nonzero(amount)
