@@ -123,10 +123,17 @@ class BotManagement(commands.Cog):
                 if "error" in balance_data:
                     value = f"❌ Error: {balance_data['error']}"
                 else:
-                    # Filter out zero balances for a cleaner look
+                    # Filter out zero balances for a cleaner look.
+                    # Guard against None or non-numeric API values.
+                    def _is_nonzero(val):
+                        try:
+                            return float(val) != 0
+                        except (ValueError, TypeError):
+                            return True  # show it — better visible than silently hidden
+
                     filtered_balances = {
-                        code: amount for code, amount in balance_data.items() 
-                        if float(amount) != 0
+                        code: amount for code, amount in balance_data.items()
+                        if _is_nonzero(amount)
                     }
 
                     if filtered_balances:

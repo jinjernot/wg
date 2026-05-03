@@ -7,8 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from config import (
     CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
-    EMAIL_CHECK_DURATION, PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
-    ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES
+    PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
+    ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES, BANK_TRANSFER_SLUGS
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
 from core.api.trade_chat import download_attachment, get_all_messages_from_chat
@@ -192,7 +192,7 @@ class Trade:
         send_welcome_message(self.trade_state, self.account, self.headers)
         payment_method_slug = self.trade_state.get(
             "payment_method_slug", "").lower()
-        if payment_method_slug in ["oxxo", "bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
+        if payment_method_slug in ["oxxo"] + BANK_TRANSFER_SLUGS:
             send_payment_details_message(
                 self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username)
         self.trade_state['status_history'] = [
@@ -276,7 +276,7 @@ class Trade:
 
         if slug == "oxxo":
             json_key_slug = "oxxo"
-        elif slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]:
+        elif slug in BANK_TRANSFER_SLUGS:
             json_key_slug = "bank-transfer"
         else:
             return None, None
@@ -318,31 +318,6 @@ class Trade:
         logger.warning(f"No 'name' found for account id {selected_id}")
         return None
 
-    def get_all_credential_identifiers_for_trade(self):
-        """Returns ALL account names for the payment method, with the selected account first."""
-        logger.debug(f"--- Getting All Credential Identifiers for {self.trade_hash} ---")
-        json_key_slug, method_data = self._load_payment_method_data()
-        if method_data is None:
-            return []
-
-        selected_id = str(method_data.get("selected_id", ""))
-        all_accounts = method_data.get("accounts", [])
-
-        # Build list: selected account first, then remaining ones that have credentials
-        account_names = []
-
-        if selected_id:
-            selected_account = next(
-                (acc for acc in all_accounts if str(acc.get("id")) == selected_id),
-                None
-            )
-            if selected_account and "name" in selected_account:
-                account_names.append(selected_account["name"])
-                logger.debug(f"Selected account: {selected_account['name']}")
-
-
-        logger.debug(f"Total accounts to check for email: {len(account_names)}")
-        return account_names
 
     # --- EMAIL MODULE DISABLED ---
     # def check_for_email_confirmation(self):
@@ -580,7 +555,7 @@ class Trade:
         logger.debug(f"--- Checking for OXXO Query in Bank Trade: {self.trade_hash} ---")
         
         payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
-        is_bank_transfer = payment_method_slug in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "domestic-wire-transfer"]
+        is_bank_transfer = payment_method_slug in BANK_TRANSFER_SLUGS
         
         if not is_bank_transfer or self.trade_state.get('oxxo_redirect_sent'):
             return
