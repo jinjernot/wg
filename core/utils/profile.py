@@ -13,7 +13,7 @@ _PROFILE_CACHE_TTL = 300    # seconds (5 minutes)
 logger = logging.getLogger(__name__)
 
 def generate_user_profile(username):
-    """Scans all trade files to generate a trading profile for a specific user for the current month."""
+    """Scans all trade files to generate a trading profile for a specific user (all-time history)."""
     cache_key = username.lower()
     cached = _profile_cache.get(cache_key)
     if cached:
@@ -36,10 +36,6 @@ def generate_user_profile(username):
     }
     
     trade_dates = []
-    
-    now = datetime.now(timezone.utc)
-    current_year = now.year
-    current_month = now.month
 
     try:
         if not os.path.exists(TRADES_STORAGE_DIR):
@@ -72,9 +68,6 @@ def generate_user_profile(username):
                     try:
                         trade_date = parser.isoparse(trade_date_str)
                     except (ValueError, TypeError):
-                        continue
-                        
-                    if trade_date.year != current_year or trade_date.month != current_month:
                         continue
 
                     stats["total_trades"] += 1

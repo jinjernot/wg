@@ -292,7 +292,7 @@ def create_new_trade_embed(trade_data, platform, send=True):
     if buyer_username != 'N/A':
         profile_data = generate_user_profile(buyer_username)
         if profile_data:
-            trades_count = profile_data.get('successful_trades', 0)
+            trades_count = profile_data.get('total_trades', 0)
             volume = profile_data.get('total_volume', 0.0)
             currency = trade_data.get('fiat_currency_code', '')
             volume_formatted = format_currency(volume, currency)
@@ -343,7 +343,7 @@ def create_high_value_trade_embed(trade_data, platform):
     if buyer_username != 'N/A':
         profile_data = generate_user_profile(buyer_username)
         if profile_data:
-            trades_count = profile_data.get('successful_trades', 0)
+            trades_count = profile_data.get('total_trades', 0)
             volume = profile_data.get('total_volume', 0.0)
             currency = trade_data.get('fiat_currency_code', '')
             volume_formatted = format_currency(volume, currency)
