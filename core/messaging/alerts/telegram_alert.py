@@ -249,7 +249,7 @@ def send_telegram_alert(trade, platform):
             volume = profile_data.get('total_volume', 0.0)
             currency = trade.get('fiat_currency_code', '')
             volume_formatted = format_currency(volume, currency)
-            buyer_line = f"*{escape_markdown(buyer_username)}* • {trades_count} trades • ${escape_markdown(volume_formatted)} volume"
+            buyer_line = f"*{escape_markdown(buyer_username)}* ({trades_count} trades, {escape_markdown(volume_formatted)})"
 
 
     # Format amount
