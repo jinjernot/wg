@@ -13,16 +13,15 @@ def format_currency(amount, currency=""):
 # --- New Trade Template ---
 # First line shows in the mobile notification preview → account name visible immediately
 NOONES_ALERT_MESSAGE = """\
-━━━━━ 🔔 NEW TRADE ━━━━━
+🔔 *NEW TRADE*  •  {owner_username}
 👤 {buyer_line}
 💰 *{amount_formatted}*  •  💳 {payment_method_name}
-🏷 {owner_username}  •  🔑 `{trade_hash}`
+🔑 `{trade_hash}`
 """
 
 # --- Chat Message Template ---
 NEW_CHAT_ALERT_MESSAGE = """\
 💬 *{author}*  ›  {owner_username}
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
 {chat_message}
 └ 🔑 `{trade_hash}`
 """
@@ -79,7 +78,6 @@ NAME_VALIDATION_FAILURE_ALERT = """\
 # --- Low Balance Alert ---
 LOW_BALANCE_ALERT_MESSAGE = (
     "💸 *LOW BALANCE*  •  `{account_name}`\n"
-    "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n"
     "Balance `${total_balance_usd}` is below threshold `${threshold}`\n\n"
     "{balance_details}"
 )
@@ -110,31 +108,29 @@ STATUS_UPDATE_OTHER = """\
 
 # --- High-Value Trade Alert (>5000 MXN) ---
 HIGH_VALUE_TRADE_ALERT_MESSAGE = """\
-━━━━ 🚨 HIGH VALUE ━━━━
-👤 {buyer_username}  •  🏷 {owner_username}
+🚨 *HIGH VALUE*  •  {owner_username}
+👤 {buyer_username}
 💰 *{amount_formatted}*  •  💳 {payment_method_name}
 🔑 `{trade_hash}`
 """
 
 # --- Buyer Risk Flag Alert ---
 BUYER_RISK_FLAG_ALERT_MESSAGE = """\
-━━━━━ ⚠️ RISK FLAG ━━━━━
+⚠️ *RISK FLAG*  •  {owner_username}
 👤 {buyer_username} has dispute history\!
 💰 *{amount_formatted}*  •  💳 {payment_method_name}
-🏷 {owner_username}  •  🔑 `{trade_hash}`
+🔑 `{trade_hash}`
 """
 
 # --- Bot Status Alerts ---
 BOT_ONLINE_ALERT_MESSAGE = """\
-🟢 *WILL GANG TRADING — ONLINE*
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-👥 Accounts: {accounts}
+🟢 *BOT ONLINE*  •  Will Gang Trading
+👥 {accounts}
 ⏱ {timestamp}
 """
 
 BOT_OFFLINE_ALERT_MESSAGE = """\
-🔴 *WILL GANG TRADING — OFFLINE*
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+🔴 *BOT OFFLINE*  •  Will Gang Trading
 🔎 Reason: {reason}
 ⏱ {timestamp}
 """
