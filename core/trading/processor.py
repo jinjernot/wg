@@ -92,6 +92,10 @@ def process_trades(account):
             poller.record_activity(found_trades=True)
 
             for trade_data in trades:
+                # Update heartbeat per-trade to prevent false deadlocks when busy
+                with _heartbeat_lock:
+                    _heartbeats[thread_name] = time.time()
+                    
                 try:
                     trade = Trade(trade_data, account, headers)
                     trade.process()
