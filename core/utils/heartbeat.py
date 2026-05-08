@@ -73,7 +73,8 @@ class HeartbeatMonitor:
             response = requests.post(
                 self.webhook_url,
                 json=payload,
-                params={"wait": "true"}  # Get message ID back
+                params={"wait": "true"},  # Get message ID back
+                timeout=10
             )
             
             if response.status_code == 200:
@@ -82,7 +83,7 @@ class HeartbeatMonitor:
                 self._save_state()  # Save message ID
                 logger.info(f"Heartbeat message created: {self.message_id}")
             else:
-                logger.error(f"Failed to create heartbeat message: {response.status_code}")
+                logger.warning(f"Failed to create heartbeat message: {response.status_code}")
         
         except Exception as e:
             logger.error(f"Error sending initial heartbeat: {e}")
@@ -113,12 +114,12 @@ class HeartbeatMonitor:
                 }]
             }
             
-            response = requests.patch(edit_url, json=payload)
+            response = requests.patch(edit_url, json=payload, timeout=10)
             
             if response.status_code == 200:
                 logger.debug("Heartbeat message updated")
             else:
-                logger.error(f"Failed to update heartbeat: {response.status_code}")
+                logger.warning(f"Failed to update heartbeat: {response.status_code}")
                 # Try sending new message
                 self.message_id = None
                 self._send_initial_message()
