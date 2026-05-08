@@ -130,24 +130,31 @@ def send_wallet_fund_meter(balances: dict) -> None:
     message_id = _load_meter_message_id()
     if message_id:
         edit_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}"
-        resp = requests.patch(edit_url, headers=headers, json=payload, timeout=15)
-        if resp.status_code == 200:
-            logger.debug("[FundMeter] Embed updated in active trades channel.")
+        try:
+            resp = requests.patch(edit_url, headers=headers, json=payload, timeout=15)
+            if resp.status_code == 200:
+                logger.debug("[FundMeter] Embed updated in active trades channel.")
+                return
+            logger.warning(
+                f"[FundMeter] Could not edit message {message_id} "
+                f"({resp.status_code}) — will post a new one."
+            )
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"[FundMeter] Failed to reach Discord API (edit): {e}")
             return
-        logger.warning(
-            f"[FundMeter] Could not edit message {message_id} "
-            f"({resp.status_code}) — will post a new one."
-        )
 
     # Post a fresh message and save its ID
     post_url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    resp = requests.post(post_url, headers=headers, json=payload, timeout=15)
-    if resp.status_code == 200:
-        new_id = resp.json()["id"]
-        _save_meter_message_id(new_id)
-        logger.info(f"[FundMeter] Fund meter posted (message ID: {new_id}).")
-    else:
-        logger.error(f"[FundMeter] Failed to post fund meter: {resp.status_code} — {resp.text}")
+    try:
+        resp = requests.post(post_url, headers=headers, json=payload, timeout=15)
+        if resp.status_code == 200:
+            new_id = resp.json()["id"]
+            _save_meter_message_id(new_id)
+            logger.info(f"[FundMeter] Fund meter posted (message ID: {new_id}).")
+        else:
+            logger.error(f"[FundMeter] Failed to post fund meter: {resp.status_code} — {resp.text}")
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"[FundMeter] Failed to reach Discord API (post): {e}")
 
 
 
