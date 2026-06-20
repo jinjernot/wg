@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from config import (
     CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
     PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
-    ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES, BANK_TRANSFER_SLUGS
+    ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES, BANK_TRANSFER_SLUGS,
+    AUTO_MESSAGE_LIMIT
 )
 from core.state.trade_state_loader import load_processed_trades, save_processed_trade
 from core.api.trade_chat import download_attachment, get_all_messages_from_chat
@@ -114,9 +115,9 @@ class Trade:
         self.trade_state['interactive_auto_message_count'] = count
         logger.info(f"Interactive auto-message count for trade {self.trade_hash}: {count}")
 
-        # Check threshold (limit is 5 responses)
-        if count >= 5:
-            logger.warning(f"Trade {self.trade_hash} hit interactive auto-message limit ({count}). Pausing auto-responses.")
+        # Check threshold (configured limit)
+        if count >= AUTO_MESSAGE_LIMIT:
+            logger.warning(f"Trade {self.trade_hash} hit interactive auto-message limit ({count}/{AUTO_MESSAGE_LIMIT}). Pausing auto-responses.")
             # Send the final away message
             send_final_away_message(self.trade_hash, self.account, self.headers)
             self.trade_state['auto_responses_disabled'] = True

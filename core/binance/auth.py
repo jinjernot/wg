@@ -1,10 +1,18 @@
 """
-Binance API Authentication
-Generates authentication headers for Binance API requests using HMAC SHA256
+Binance API Authentication and Request Wrapper
+Generates headers and provides a standardized HTTP request handler.
 """
 import hmac
 import hashlib
 import time
+import requests
+import logging
+from requests.exceptions import RequestException, ConnectionError
+from http.client import RemoteDisconnected
+from urllib3.exceptions import ProtocolError
+import binance_config
+
+logger = logging.getLogger(__name__)
 
 def generate_auth_headers(api_key, api_secret, query_params=None):
     """
@@ -45,3 +53,49 @@ def generate_auth_headers(api_key, api_secret, query_params=None):
         },
         'query_string': signed_query_string
     }
+
+def make_binance_request(user, api_key, api_secret, endpoint, params, max_retries=5, backoff_factor=1.5):
+    """
+    Make an authenticated GET request to Binance API with retry and backoff logic.
+    
+    Args:
+        user: Username identifier
+        api_key: Binance API key
+        api_secret: Binance API secret
+        endpoint: API endpoint (e.g. '/sapi/v1/capital/deposit/hisrec')
+        params: Dictionary of query parameters
+        max_retries: Maximum retry attempts
+        backoff_factor: Exponential backoff multiplier
+        
+    Returns:
+        Parsed JSON response (list or dict), or None on fatal failure
+    """
+    url = binance_config.BASE_URL + endpoint
+    retries = 0
+    while retries < max_retries:
+        try:
+            auth_data = generate_auth_headers(api_key, api_secret, params)
+            response = requests.get(
+                f"{url}?{auth_data['query_string']}", 
+                headers=auth_data['headers'], 
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Binance API error for {user} ({endpoint}): HTTP {response.status_code} - {response.text}")
+                raise RequestException(f"Non-200 response: {response.status_code}")
+        
+        except (ConnectionError, RemoteDisconnected, ProtocolError) as conn_err:
+            logger.warning(f"Binance connection error for {user} ({endpoint}): {conn_err}. Retrying...")
+        except RequestException as req_err:
+            logger.warning(f"Binance request error for {user} ({endpoint}): {req_err}. Retrying...")
+        
+        retries += 1
+        sleep_time = backoff_factor ** retries
+        logger.info(f"Retry {retries}/{max_retries} for {user} - sleeping {sleep_time:.1f} seconds...")
+        time.sleep(sleep_time)
+        
+    logger.error(f"Failed to fetch data from Binance endpoint {endpoint} after {max_retries} retries for user {user}.")
+    return None

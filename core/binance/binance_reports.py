@@ -2,6 +2,7 @@
 Binance Deposit Reports Generator
 Main module for generating deposit reports and charts for multiple Binance accounts
 """
+import logging
 import matplotlib
 matplotlib.use('Agg')  # Use non-GUI backend to prevent threading issues
 import matplotlib.pyplot as plt
@@ -19,6 +20,7 @@ from core.binance.filter_data import filter_deposits_by_month
 from datetime import datetime
 from config import BINANCE_REPORTS_DIR
 
+logger = logging.getLogger(__name__)
 os.makedirs(BINANCE_REPORTS_DIR, exist_ok=True)
 
 
@@ -36,10 +38,10 @@ def process_user_deposits(user: str, api_key: str, api_secret: str, year: int, m
     Returns:
         Tuple of (filtered_deposits_combined, all_deposits_combined)
     """
-    print(f"\nProcessing user: {user}")
+    logger.info(f"Processing user: {user}")
     
     if not api_key or not api_secret:
-        print(f"Missing credentials for {user}. Skipping...")
+        logger.warning(f"Missing credentials for {user}. Skipping...")
         return [], []
     
     # Fetch crypto deposits
@@ -76,7 +78,7 @@ def process_user_deposits(user: str, api_key: str, api_secret: str, year: int, m
                 if local_dt.year == year and local_dt.month == month:
                     filtered_fiat_payments.append(deposit)
             except Exception as e:
-                print(f"Error filtering fiat payment: {e}")
+                logger.error(f"Error filtering fiat payment: {e}")
     
     # Filter fiat orders by the specified month (they use createTime)
     filtered_fiat_orders = []
@@ -90,10 +92,10 @@ def process_user_deposits(user: str, api_key: str, api_secret: str, year: int, m
                 if local_dt.year == year and local_dt.month == month:
                     filtered_fiat_orders.append(deposit)
             except Exception as e:
-                print(f"Error filtering fiat order: {e}")
+                logger.error(f"Error filtering fiat order: {e}")
     
-    print(f"Filtering deposits from {year}-{month:02d}-01 to {year}-{month+1 if month < 12 else 1:02d}-01 (Mexico City time)")
-    print(f"Filtered down to {len(filtered_crypto)} crypto + {len(filtered_fiat_payments)} fiat payments + {len(filtered_fiat_orders)} fiat orders = {len(filtered_crypto) + len(filtered_fiat_payments) + len(filtered_fiat_orders)} total deposit transactions")
+    logger.info(f"Filtering deposits from {year}-{month:02d}-01 to {year}-{month+1 if month < 12 else 1:02d}-01 (Mexico City time)")
+    logger.info(f"Filtered down to {len(filtered_crypto)} crypto + {len(filtered_fiat_payments)} fiat payments + {len(filtered_fiat_orders)} fiat orders = {len(filtered_crypto) + len(filtered_fiat_payments) + len(filtered_fiat_orders)} total deposit transactions")
     
     # Export to CSV files using combined export
     deposits_filename = os.path.join(BINANCE_REPORTS_DIR, f'binance_deposits_{user}.csv')
@@ -111,7 +113,6 @@ def process_user_deposits(user: str, api_key: str, api_secret: str, year: int, m
     return filtered_combined, all_combined
 
 
-
 def generate_growth_chart(all_deposits: list, year: int, month: int, filename: str = 'binance_this_month_income.png'):
     """
     Generates and saves a bar chart of daily deposit income for a specific month
@@ -122,10 +123,10 @@ def generate_growth_chart(all_deposits: list, year: int, month: int, filename: s
         month: Target month
         filename: Output filename for the chart
     """
-    print(f"\nGenerating daily deposit income bar chart for {year}-{month}...")
+    logger.info(f"Generating daily deposit income bar chart for {year}-{month}...")
     
     if not all_deposits:
-        print("No deposit data available to generate a bar chart.")
+        logger.warning("No deposit data available to generate a bar chart.")
         return
     
     # Filter for successful deposits only (status = 1)
@@ -135,7 +136,7 @@ def generate_growth_chart(all_deposits: list, year: int, month: int, filename: s
     ]
     
     if not successful_deposits:
-        print("No successful deposit data found to generate a bar chart.")
+        logger.warning("No successful deposit data found to generate a bar chart.")
         return
     
     # Convert to DataFrame
@@ -154,7 +155,7 @@ def generate_growth_chart(all_deposits: list, year: int, month: int, filename: s
                    (df['insertTime'].dt.month == month)]
     
     if month_df.empty:
-        print(f"No deposit data found for {year}-{month}. Bar chart not generated.")
+        logger.warning(f"No deposit data found for {year}-{month}. Bar chart not generated.")
         return
     
     # Resample by day and sum amounts
@@ -177,5 +178,5 @@ def generate_growth_chart(all_deposits: list, year: int, month: int, filename: s
     # Save chart to the reports directory
     chart_filepath = os.path.join(BINANCE_REPORTS_DIR, filename)
     plt.savefig(chart_filepath)
-    print(f"Success! Daily deposit income bar chart saved to {chart_filepath}")
+    logger.info(f"Success! Daily deposit income bar chart saved to {chart_filepath}")
     plt.close()
