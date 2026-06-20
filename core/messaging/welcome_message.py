@@ -28,50 +28,56 @@ def is_afk_mode_enabled():
 
 
 def send_welcome_message(trade, account, headers, max_retries=3):
-    trade_hash = trade.get("trade_hash")
-    payment_method_slug = trade.get("payment_method_slug", "").lower()
-    owner_username = trade.get("owner_username", "unknown_user")
+    try:
+        trade_hash = trade.get("trade_hash")
+        payment_method_slug = trade.get("payment_method_slug", "").lower()
+        owner_username = trade.get("owner_username", "unknown_user")
 
-    # Determine if night mode or AFK mode is active
-    night_mode_is_active = is_night_mode_enabled()
-    afk_mode_is_active = is_afk_mode_enabled() # Check AFK mode
-    logger.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
+        # Determine if night mode or AFK mode is active
+        night_mode_is_active = is_night_mode_enabled()
+        afk_mode_is_active = is_afk_mode_enabled() # Check AFK mode
+        logger.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
 
-    # Select the appropriate message dictionary based on owner and mode status
-    if owner_username == "davidvs":
-        if afk_mode_is_active:
-            message_dict = WELCOME_AFK_MESSAGES_DAVID
-        elif night_mode_is_active:
-            message_dict = WELCOME_NIGHT_MESSAGES_DAVID
+        # Select the appropriate message dictionary based on owner and mode status
+        if owner_username == "davidvs":
+            if afk_mode_is_active:
+                message_dict = WELCOME_AFK_MESSAGES_DAVID
+            elif night_mode_is_active:
+                message_dict = WELCOME_NIGHT_MESSAGES_DAVID
+            else:
+                message_dict = WELCOME_MESSAGES_DAVID
+        elif owner_username == "JoeWillgang":
+            if afk_mode_is_active:
+                message_dict = WELCOME_AFK_MESSAGES_JOE
+            elif night_mode_is_active:
+                message_dict = WELCOME_NIGHT_MESSAGES_JOE
+            else:
+                message_dict = WELCOME_MESSAGES_JOE
         else:
-            message_dict = WELCOME_MESSAGES_DAVID
-    elif owner_username == "JoeWillgang":
-        if afk_mode_is_active:
-            message_dict = WELCOME_AFK_MESSAGES_JOE
-        elif night_mode_is_active:
-            message_dict = WELCOME_NIGHT_MESSAGES_JOE
+            # Default to David's messages if owner is unknown
+            if afk_mode_is_active:
+                message_dict = WELCOME_AFK_MESSAGES_DAVID
+            elif night_mode_is_active:
+                message_dict = WELCOME_NIGHT_MESSAGES_DAVID
+            else:
+                message_dict = WELCOME_MESSAGES_DAVID
+
+        # Get the appropriate message from the selected dictionary
+        message = message_dict.get(payment_method_slug, message_dict["default"])
+
+        chat_url = CHAT_URL_NOONES
+
+        # Prepare the message body
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        body = {"trade_hash": trade_hash, "message": message}
+
+        # Send the message
+        if send_message_with_retry(chat_url, body, headers, max_retries):
+            logger.info(f"Welcome message sent for trade {trade_hash} ({account['name']})")
+            return True
         else:
-            message_dict = WELCOME_MESSAGES_JOE
-    else:
-        # Default to David's messages if owner is unknown
-        if afk_mode_is_active:
-            message_dict = WELCOME_AFK_MESSAGES_DAVID
-        elif night_mode_is_active:
-            message_dict = WELCOME_NIGHT_MESSAGES_DAVID
-        else:
-            message_dict = WELCOME_MESSAGES_DAVID
-
-    # Get the appropriate message from the selected dictionary
-    message = message_dict.get(payment_method_slug, message_dict["default"])
-
-    chat_url = CHAT_URL_NOONES
-
-    # Prepare the message body
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    body = {"trade_hash": trade_hash, "message": message}
-
-    # Send the message
-    if send_message_with_retry(chat_url, body, headers, max_retries):
-        logger.info(f"Welcome message sent for trade {trade_hash} ({account['name']})")
-    else:
-        logger.error(f"Failed to send welcome message for trade {trade_hash} ({account['name']})")
+            logger.error(f"Failed to send welcome message for trade {trade_hash} ({account['name']})")
+            return False
+    except Exception as e:
+        logger.error(f"Error sending welcome message: {e}")
+        return False

@@ -32,13 +32,13 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
 
         if not selected_id:
             logger.error(f"Missing selected_id in {json_filename} for {owner_username}")
-            return
+            return False
 
         account = next((acc for acc in method_data.get("accounts", []) if str(acc["id"]) == selected_id), None)
 
         if not account:
             logger.error(f"No account found for selected_id: {selected_id} for {owner_username}")
-            return
+            return False
 
         if owner_username == "davidvs":
             message_dict = PAYMENT_MESSAGES_DAVID
@@ -61,8 +61,11 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
 
         if send_message_with_retry(chat_url, body, headers, max_retries):
             logger.info(f"Payment details sent for trade {trade_hash} ({account['name']}) for {owner_username}")
+            return True
         else:
             logger.error(f"Failed to send payment details for trade {trade_hash} ({account['name']}) for {owner_username}")
+            return False
 
     except Exception as e:
         logger.error(f"Error sending payment details: {e}")
+        return False

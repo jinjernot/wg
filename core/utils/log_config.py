@@ -27,17 +27,20 @@ def setup_logging():
     os.makedirs(log_dir, exist_ok=True)
     error_log_path = os.path.join(log_dir, "error.log")
 
-    # Rotate at 50 MB, keep 3 backups — prevents disk-full crashes.
-    # 50 MB cap makes rotation rare for an error-only log, minimising
-    # the risk of Windows multi-process file-rename contention.
-    file_handler = RotatingFileHandler(
-        error_log_path, maxBytes=50 * 1024 * 1024, backupCount=3
-    )
-    
-    file_handler.setLevel(logging.ERROR)
-    file_handler.setFormatter(logging.Formatter(log_format))
-    
-    logging.getLogger().addHandler(file_handler)
+    try:
+        # Rotate at 50 MB, keep 3 backups — prevents disk-full crashes.
+        # 50 MB cap makes rotation rare for an error-only log, minimising
+        # the risk of Windows multi-process file-rename contention.
+        file_handler = RotatingFileHandler(
+            error_log_path, maxBytes=50 * 1024 * 1024, backupCount=3
+        )
+        
+        file_handler.setLevel(logging.ERROR)
+        file_handler.setFormatter(logging.Formatter(log_format))
+        
+        logging.getLogger().addHandler(file_handler)
+    except Exception as e:
+        print(f"CRITICAL WARNING: Failed to initialize file log handler (is another process locking the log file?): {e}")
 
     # --- Discord Handler for Errors ---
     discord_webhook_url = DISCORD_WEBHOOKS.get("logs")

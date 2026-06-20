@@ -142,6 +142,8 @@ class Trade:
         is_new = 'first_seen_utc' not in self.trade_state
         if is_new:
             self.handle_new_trade()
+        else:
+            self.ensure_initial_messages_sent()
         self.check_status_change()
         self.check_for_completion_message()
 
@@ -214,16 +216,110 @@ class Trade:
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
-        if not self.trade_state.get('auto_responses_disabled'):
-            send_welcome_message(self.trade_state, self.account, self.headers)
-        payment_method_slug = self.trade_state.get(
-            "payment_method_slug", "").lower()
-        if payment_method_slug in ["oxxo"] + BANK_TRANSFER_SLUGS:
-            if not self.trade_state.get('auto_responses_disabled'):
-                send_payment_details_message(
-                    self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username)
+        self.ensure_initial_messages_sent()
         self.trade_state['status_history'] = [
             self.trade_state.get("trade_status")]
+
+    def _was_welcome_message_sent_in_chat(self):
+        """Scans chat history to verify if the welcome message has already been sent by the owner."""
+        all_messages = self._get_chat_messages()
+        if not all_messages:
+            return False
+        
+        # Welcome messages have distinctive text patterns across standard, night, and AFK modes
+        for msg in all_messages:
+            author = msg.get("author")
+            if author and (author == self.owner_username or author in BOT_OWNER_USERNAMES):
+                text = str(msg.get("text") or "")
+                if any(kw in text for kw in [
+                    "TRADE STARTED", 
+                    "INSTRUCTIONS:", 
+                    "follow the offer terms", 
+                    "WELCOME", 
+                    "WILL GANG TRADING",
+                    "CURRENTLY OFFLINE",
+                    "TEMPORARILY UNAVAILABLE"
+                ]):
+                    return True
+        return False
+
+    def _was_payment_details_sent_in_chat(self):
+        """Scans chat history to verify if the payment details message has already been sent by the owner."""
+        all_messages = self._get_chat_messages()
+        if not all_messages:
+            return False
+
+        # Load current payment account data to match specific bank details in chat
+        json_key_slug, method_data = self._load_payment_method_data()
+        expected_details = []
+        if method_data:
+            selected_id = str(method_data.get("selected_id", ""))
+            accounts = method_data.get("accounts", [])
+            for acc in accounts:
+                if str(acc.get("id")) == selected_id:
+                    if acc.get("SPEI"):
+                        expected_details.append(str(acc["SPEI"]))
+                    if acc.get("card_number"):
+                        expected_details.append(str(acc["card_number"]))
+                    break
+
+        for msg in all_messages:
+            author = msg.get("author")
+            if author and (author == self.owner_username or author in BOT_OWNER_USERNAMES):
+                text = str(msg.get("text") or "")
+                
+                # Check for active account's SPEI/card number in chat
+                for detail in expected_details:
+                    if detail in text:
+                        return True
+                        
+                # Generic fallback check for common payment structure keywords
+                if "PAYMENT DETAILS" in text or "OXXO PAYMENT" in text or "Payment details sent" in text:
+                    if any(kw in text for kw in ["Bank:", "Store:", "SPEI:", "Card:"]):
+                        return True
+        return False
+
+    def ensure_initial_messages_sent(self):
+        """Ensures welcome and payment details are sent, retrying if they failed or were skipped."""
+        trade_status = str(self.trade_state.get("trade_status", "")).lower()
+        status = str(self.trade_state.get("status", "")).lower()
+        if trade_status in ['released', 'successful'] or status == 'successful':
+            return
+
+        if self.trade_state.get('auto_responses_disabled'):
+            return
+
+        # Ensure welcome message has been sent
+        if not self.trade_state.get('welcome_message_sent'):
+            # Self-healing fallback: verify chat history
+            if self._was_welcome_message_sent_in_chat():
+                logger.info(f"Welcome message already exists in chat for {self.trade_hash}. Marking as sent.")
+                self.trade_state['welcome_message_sent'] = True
+                self.save()
+            else:
+                logger.info(f"Sending missing welcome message for trade {self.trade_hash}...")
+                if send_welcome_message(self.trade_state, self.account, self.headers):
+                    self.trade_state['welcome_message_sent'] = True
+                    self.save()
+
+        # Ensure payment details are sent for bank-transfer/oxxo trades
+        payment_method_slug = self.trade_state.get("payment_method_slug", "").lower()
+        is_supported_payment = payment_method_slug in ["oxxo"] + BANK_TRANSFER_SLUGS
+
+        if is_supported_payment:
+            if not self.trade_state.get('payment_details_sent'):
+                # Self-healing fallback: verify chat history
+                if self._was_payment_details_sent_in_chat():
+                    logger.info(f"Payment details already exist in chat for {self.trade_hash}. Marking as sent.")
+                    self.trade_state['payment_details_sent'] = True
+                    self.save()
+                else:
+                    logger.info(f"Sending missing payment details for trade {self.trade_hash} ({payment_method_slug})...")
+                    if send_payment_details_message(
+                        self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username
+                    ):
+                        self.trade_state['payment_details_sent'] = True
+                        self.save()
 
     def check_status_change(self):
         """Checks for and handles changes in the trade's status."""
