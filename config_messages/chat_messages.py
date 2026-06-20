@@ -12,42 +12,42 @@ TRADE_COMPLETION_MESSAGE = [
 ]
 
 PAYMENT_RECEIVED_MESSAGE = [
-    "Send the receipt screenshot.",
-    "Upload the receipt to continue.",
-    "Need the receipt to verify.",
-    "Please send a photo of the receipt.",
-    "Send proof of payment.",
-    "Upload the payment screenshot.",
-    "Got the payment notification. Send the receipt.",
-    "Receipt needed.",
-    "Attach the receipt.",
-    "Send the receipt when ready.",
+    "send the receipt screenshot please",
+    "can you upload the receipt?",
+    "need the receipt to check",
+    "please send a photo of the receipt",
+    "send proof of payment",
+    "upload the payment screenshot",
+    "send the receipt so I can check",
+    "receipt please",
+    "attach the receipt",
+    "send the receipt when you can",
 ]
 
 PAYMENT_REMINDER_MESSAGE = [
-    "Payment not received yet.",
-    "Still waiting on payment.",
-    "No payment yet.",
-    "Payment still pending.",
-    "Waiting for payment.",
-    "Trade is still open.",
-    "No payment on my end.",
-    "Still waiting.",
-    "Nothing received yet.",
-    "No update on payment.",
+    "payment isn't showing up yet",
+    "still waiting on payment",
+    "no payment yet",
+    "payment still pending",
+    "waiting for payment",
+    "trade is still open",
+    "still don't see the payment",
+    "still waiting",
+    "nothing showing yet",
+    "still nothing showing",
 ]
 
 ATTACHMENT_MESSAGE = [
-    "Got it, checking.",
-    "Received, one moment.",
-    "Got it.",
-    "Checking now.",
-    "On it.",
-    "Looking at it.",
-    "Received.",
-    "Give me a second.",
-    "Got the receipt, verifying.",
-    "Ok, looking at this.",
+    "got it, checking",
+    "checking the receipt, one sec",
+    "got it",
+    "checking now",
+    "on it",
+    "looking at it",
+    "let me check the receipt",
+    "give me a second",
+    "got the receipt, checking it",
+    "ok, looking at this",
 ]
 
 AFK_MESSAGE = [
@@ -77,16 +77,16 @@ EXTENDED_AFK_MESSAGE = [
 ]
 
 NO_ATTACHMENT_MESSAGE = [
-    "Need the receipt to release.",
-    "Send the receipt screenshot.",
-    "Upload the receipt.",
-    "Missing the receipt.",
-    "Still waiting on the receipt.",
-    "Send the payment screenshot.",
-    "Receipt required.",
-    "Send the receipt and I will release.",
-    "No receipt found.",
-    "Need proof of payment.",
+    "need the receipt to release",
+    "send the receipt screenshot please",
+    "can you upload the receipt?",
+    "still need the receipt",
+    "still waiting on the receipt",
+    "send the payment screenshot",
+    "need the receipt please",
+    "send the receipt and I'll release",
+    "can't find the receipt",
+    "need proof of payment please",
 ]
 
 ONLINE_REPLY_MESSAGE = [
@@ -183,4 +183,11 @@ DELAY_MESSAGE = [
     "Working on it.",
     "Give me just a sec.",
     "Hold on.",
+]
+
+FINAL_AWAY_MESSAGE = [
+    "hey, i'm away right now. i'll check this trade and release as soon as i get back.",
+    "stepping away for a bit, i will check this trade as soon as i'm back.",
+    "i'm offline right now, i'll process this trade as soon as i get back.",
+    "hey, i am away from my screen. will check and release as soon as i'm back.",
 ]

@@ -37,7 +37,8 @@ from core.messaging.trade_lifecycle_messages import (
     send_third_party_allowed_message,
     send_release_message,
     send_delay_message,
-    send_spam_warning_message
+    send_spam_warning_message,
+    send_final_away_message
 )
 from core.messaging.alerts.telegram_alert import (
     send_telegram_alert,
@@ -98,6 +99,30 @@ class Trade:
     def save(self):
         """Saves the current, complete state of the trade."""
         save_processed_trade(self.trade_state, self.platform)
+
+    def send_interactive_auto_message(self, send_func, *args, **kwargs):
+        """Sends an interactive auto-message, increments the counter, and handles limits."""
+        if self.trade_state.get('auto_responses_disabled'):
+            logger.debug(f"Skipping auto-message for trade {self.trade_hash} as auto-responses are disabled.")
+            return False
+
+        # Send the actual message
+        send_func(*args, **kwargs)
+
+        # Increment interactive counter
+        count = self.trade_state.get('interactive_auto_message_count', 0) + 1
+        self.trade_state['interactive_auto_message_count'] = count
+        logger.info(f"Interactive auto-message count for trade {self.trade_hash}: {count}")
+
+        # Check threshold (limit is 5 responses)
+        if count >= 5:
+            logger.warning(f"Trade {self.trade_hash} hit interactive auto-message limit ({count}). Pausing auto-responses.")
+            # Send the final away message
+            send_final_away_message(self.trade_hash, self.account, self.headers)
+            self.trade_state['auto_responses_disabled'] = True
+            
+        self.save()
+        return True
 
     def process(self):
         """Main entry point to process a trade's lifecycle."""
@@ -188,12 +213,14 @@ class Trade:
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
-        send_welcome_message(self.trade_state, self.account, self.headers)
+        if not self.trade_state.get('auto_responses_disabled'):
+            send_welcome_message(self.trade_state, self.account, self.headers)
         payment_method_slug = self.trade_state.get(
             "payment_method_slug", "").lower()
         if payment_method_slug in ["oxxo"] + BANK_TRANSFER_SLUGS:
-            send_payment_details_message(
-                self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username)
+            if not self.trade_state.get('auto_responses_disabled'):
+                send_payment_details_message(
+                    self.trade_hash, payment_method_slug, self.headers, CHAT_URL_NOONES, self.owner_username)
         self.trade_state['status_history'] = [
             self.trade_state.get("trade_status")]
 
@@ -244,7 +271,8 @@ class Trade:
                 f"skipping receipt request message."
             )
         else:
-            send_payment_received_message(self.trade_hash, self.account, self.headers)
+            if not self.trade_state.get('auto_responses_disabled'):
+                send_payment_received_message(self.trade_hash, self.account, self.headers)
 
         if 'paid_timestamp' not in self.trade_state:
             self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
@@ -264,7 +292,7 @@ class Trade:
 
                     if not has_attachment:
                         logger.info(f"Trade {self.trade_hash} is 'Paid' for over 2 minutes with no attachment. Sending a reminder.")
-                        send_payment_confirmed_no_attachment_message(self.trade_hash, self.account, self.headers)
+                        self.send_interactive_auto_message(send_payment_confirmed_no_attachment_message, self.trade_hash, self.account, self.headers)
                         self.trade_state['no_attachment_reminder_sent'] = True
                         
     def _load_payment_method_data(self):
@@ -409,7 +437,8 @@ class Trade:
 
         if not self.trade_state.get('attachment_message_sent'):
             logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
-            send_attachment_message(self.trade_hash, self.account, self.headers)
+            if not self.trade_state.get('auto_responses_disabled'):
+                send_attachment_message(self.trade_hash, self.account, self.headers)
             self.trade_state['attachment_message_sent'] = True
 
         credential_identifier = self.get_credential_identifier_for_trade()
@@ -521,7 +550,7 @@ class Trade:
                 f"{recent_buyer_count} buyer messages in the last {spam_window_seconds // 60} minutes. "
                 f"Sending warning."
             )
-            send_spam_warning_message(self.trade_hash, self.account, self.headers)
+            self.send_interactive_auto_message(send_spam_warning_message, self.trade_hash, self.account, self.headers)
             self.trade_state['spam_warning_last_sent_ts'] = now
             self.save()
 
@@ -544,7 +573,7 @@ class Trade:
             message_text = message_text.lower()
             if any(keyword in message_text for keyword in ONLINE_QUERY_KEYWORDS):
                 logger.info(f"Online query detected for trade {self.trade_hash}. Sending reply.")
-                send_online_reply_message(self.trade_hash, self.account, self.headers)
+                self.send_interactive_auto_message(send_online_reply_message, self.trade_hash, self.account, self.headers)
                 self.trade_state['online_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
                 self.save()
                 break
@@ -564,7 +593,7 @@ class Trade:
                 message_text = msg.get("text", "")
                 if isinstance(message_text, str) and "oxxo" in message_text.lower():
                     logger.info(f"OXXO keyword detected in bank transfer trade {self.trade_hash}. Sending redirect message.")
-                    send_oxxo_redirect_message(self.trade_hash, self.account, self.headers)
+                    self.send_interactive_auto_message(send_oxxo_redirect_message, self.trade_hash, self.account, self.headers)
                     self.trade_state['oxxo_redirect_sent'] = True
                     self.save()
                     break 
@@ -584,7 +613,7 @@ class Trade:
                     message_lower = message_text.lower()
                     if any(keyword in message_lower for keyword in third_party_keywords):
                         logger.info(f"Third party query detected for trade {self.trade_hash}. Sending reply.")
-                        send_third_party_allowed_message(self.trade_hash, self.account, self.headers)
+                        self.send_interactive_auto_message(send_third_party_allowed_message, self.trade_hash, self.account, self.headers)
                         self.trade_state['third_party_reply_sent'] = True
                         self.save()
                         break
@@ -618,7 +647,7 @@ class Trade:
                         f"Delay reply triggered for trade {self.trade_hash}: "
                         f"buyer messaged after receipt upload while still Paid."
                     )
-                    send_delay_message(self.trade_hash, self.account, self.headers)
+                    self.send_interactive_auto_message(send_delay_message, self.trade_hash, self.account, self.headers)
                     self.trade_state['delay_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
                     self.save()
                     break
@@ -639,7 +668,7 @@ class Trade:
                 message_text = msg.get("text", "")
                 if isinstance(message_text, str) and "release" in message_text.lower():
                     logger.info(f"Release query detected for trade {self.trade_hash}. Sending reply.")
-                    send_release_message(self.trade_hash, self.account, self.headers)
+                    self.send_interactive_auto_message(send_release_message, self.trade_hash, self.account, self.headers)
                     self.trade_state['release_reply_last_sent_ts'] = datetime.now(timezone.utc).timestamp()
                     self.save()
                     break
@@ -706,7 +735,7 @@ class Trade:
                   time_since_first_message > time_threshold_minutes):
                 logger.info(
                     f"AFK TRIGGERED for trade {self.trade_hash}. Buyer sent {consecutive_buyer_messages} messages over {time_since_first_message:.2f} minutes without owner response. Sending AFK message.")
-                send_afk_message(self.trade_hash, self.account, self.headers)
+                self.send_interactive_auto_message(send_afk_message, self.trade_hash, self.account, self.headers)
                 self.trade_state['afk_message_sent'] = True
                 self.save()
             else:
@@ -750,8 +779,7 @@ class Trade:
         if time_since_last_buyer_message > extended_time_threshold_minutes:
             logger.info(
                 f"EXTENDED AFK TRIGGERED for trade {self.trade_hash}. No response for over {extended_time_threshold_minutes} minutes. Sending extended AFK message.")
-            send_extended_afk_message(
-                self.trade_hash, self.account, self.headers)
+            self.send_interactive_auto_message(send_extended_afk_message, self.trade_hash, self.account, self.headers)
             self.trade_state['extended_afk_message_sent'] = True
             self.save()
 
@@ -776,6 +804,5 @@ class Trade:
         if reference_time and (datetime.now(timezone.utc) - reference_time).total_seconds() > PAYMENT_REMINDER_DELAY:
             logger.info(
                 f"Sending payment reminder for trade {self.trade_hash} due to inactivity.")
-            send_payment_reminder_message(
-                self.trade_hash, self.account, self.headers)
+            self.send_interactive_auto_message(send_payment_reminder_message, self.trade_hash, self.account, self.headers)
             self.trade_state['reminder_sent'] = True

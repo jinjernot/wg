@@ -16,6 +16,7 @@ from config_messages.chat_messages import (
     RELEASE_MESSAGE,
     DELAY_MESSAGE,
     SPAM_WARNING_MESSAGE,
+    FINAL_AWAY_MESSAGE,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,54 +33,24 @@ def _send_lifecycle_message(trade_hash, account, headers, message_list, message_
     else:
         logger.error(f"Failed to send {message_type} message for trade {trade_hash}.")
 
-def send_trade_completion_message(trade_hash, account, headers, max_retries=3):
-    """Sends a thank you and feedback request message when a trade is completed."""
-    _send_lifecycle_message(trade_hash, account, headers, TRADE_COMPLETION_MESSAGE, "Completion", max_retries)
+def _make_sender(message_list, log_label):
+    """Factory to create a sender function for a specific lifecycle message type."""
+    def sender(trade_hash, account, headers, max_retries=3):
+        _send_lifecycle_message(trade_hash, account, headers, message_list, log_label, max_retries)
+    return sender
 
-def send_payment_received_message(trade_hash, account, headers, max_retries=3):
-    """Sends a confirmation that payment has been received."""
-    _send_lifecycle_message(trade_hash, account, headers, PAYMENT_RECEIVED_MESSAGE, "Payment received", max_retries)
-
-def send_payment_reminder_message(trade_hash, account, headers, max_retries=3):
-    """Sends a reminder to the user to complete their payment."""
-    _send_lifecycle_message(trade_hash, account, headers, PAYMENT_REMINDER_MESSAGE, "Payment reminder", max_retries)
-    
-def send_afk_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message to the user to ask them to be patient."""
-    _send_lifecycle_message(trade_hash, account, headers, AFK_MESSAGE, "AFK", max_retries)
-
-def send_extended_afk_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message to the user indicating a longer delay."""
-    _send_lifecycle_message(trade_hash, account, headers, EXTENDED_AFK_MESSAGE, "Extended AFK", max_retries)
-
-def send_payment_confirmed_no_attachment_message(trade_hash, account, headers, max_retries=3):
-    """Sends a reminder to attach proof of payment."""
-    _send_lifecycle_message(trade_hash, account, headers, NO_ATTACHMENT_MESSAGE, "No Attachment Reminder", max_retries)
-
-def send_attachment_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message confirming an attachment was received and is being checked."""
-    _send_lifecycle_message(trade_hash, account, headers, ATTACHMENT_MESSAGE, "Attachment received", max_retries)
-
-def send_online_reply_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message to reply to "are you online?" questions."""
-    _send_lifecycle_message(trade_hash, account, headers, ONLINE_REPLY_MESSAGE, "Online reply", max_retries)
-    
-def send_oxxo_redirect_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message redirecting the user to an OXXO offer."""
-    _send_lifecycle_message(trade_hash, account, headers, OXXO_IN_BANK_TRANSFER_MESSAGE, "OXXO Redirect", max_retries)
-    
-def send_third_party_allowed_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message to the user to inform them that third party is allowed."""
-    _send_lifecycle_message(trade_hash, account, headers, THIRD_PARTY_ALLOWED_MESSAGE, "Third Party Allowed", max_retries)
-
-def send_release_message(trade_hash, account, headers, max_retries=3):
-    """Sends a message to reply when user asks about release."""
-    _send_lifecycle_message(trade_hash, account, headers, RELEASE_MESSAGE, "Release reply", max_retries)
-
-def send_delay_message(trade_hash, account, headers, max_retries=3):
-    """Sends a neutral stalling message while the trade is pending manual review."""
-    _send_lifecycle_message(trade_hash, account, headers, DELAY_MESSAGE, "Delay", max_retries)
-
-def send_spam_warning_message(trade_hash, account, headers, max_retries=3):
-    """Sends a warning message when a buyer sends too many messages in a short period."""
-    _send_lifecycle_message(trade_hash, account, headers, SPAM_WARNING_MESSAGE, "Spam Warning", max_retries)
+# Define the lifecycle message senders statically for type hinting and IDE autocomplete support
+send_trade_completion_message = _make_sender(TRADE_COMPLETION_MESSAGE, "Completion")
+send_payment_received_message = _make_sender(PAYMENT_RECEIVED_MESSAGE, "Payment received")
+send_payment_reminder_message = _make_sender(PAYMENT_REMINDER_MESSAGE, "Payment reminder")
+send_afk_message = _make_sender(AFK_MESSAGE, "AFK")
+send_extended_afk_message = _make_sender(EXTENDED_AFK_MESSAGE, "Extended AFK")
+send_payment_confirmed_no_attachment_message = _make_sender(NO_ATTACHMENT_MESSAGE, "No Attachment Reminder")
+send_attachment_message = _make_sender(ATTACHMENT_MESSAGE, "Attachment received")
+send_online_reply_message = _make_sender(ONLINE_REPLY_MESSAGE, "Online reply")
+send_oxxo_redirect_message = _make_sender(OXXO_IN_BANK_TRANSFER_MESSAGE, "OXXO Redirect")
+send_third_party_allowed_message = _make_sender(THIRD_PARTY_ALLOWED_MESSAGE, "Third Party Allowed")
+send_release_message = _make_sender(RELEASE_MESSAGE, "Release reply")
+send_delay_message = _make_sender(DELAY_MESSAGE, "Delay")
+send_spam_warning_message = _make_sender(SPAM_WARNING_MESSAGE, "Spam Warning")
+send_final_away_message = _make_sender(FINAL_AWAY_MESSAGE, "Final Away")
