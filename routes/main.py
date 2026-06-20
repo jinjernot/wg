@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, jsonify
 import core.utils.web_utils as web_utils
 
 main_bp = Blueprint('main', __name__)
@@ -27,3 +27,15 @@ def index():
 def trades_view():
     """Minimal dashboard showing only active trades for quick monitoring"""
     return render_template("trades_view.html")
+
+
+@main_bp.route("/get_recent_email_alerts")
+def get_recent_email_alerts_route():
+    """
+    Fetches the 10 most recent processed Binance/BBVA email alerts.
+    """
+    from core.binance.email_monitor import load_processed_emails
+    state = load_processed_emails()
+    recent = state.get("recent_alerts", [])
+    return jsonify(recent)
+

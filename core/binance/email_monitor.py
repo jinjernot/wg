@@ -23,23 +23,27 @@ from core.messaging.alerts.discord_alert import send_binance_email_alert as send
 logger = logging.getLogger(__name__)
 
 def load_processed_emails() -> dict:
-    """Loads the set of processed Gmail message IDs from state file."""
+    """Loads the set of processed Gmail message IDs and recent history from state file."""
     if os.path.exists(BINANCE_PROCESSED_EMAILS_FILE):
         try:
             with open(BINANCE_PROCESSED_EMAILS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, dict) and "processed_ids" in data:
-                    return data["processed_ids"]
+                if isinstance(data, dict):
+                    if "processed_ids" not in data:
+                        data["processed_ids"] = {}
+                    if "recent_alerts" not in data:
+                        data["recent_alerts"] = []
+                    return data
         except Exception as e:
             logger.error(f"Failed to load processed Binance emails state: {e}")
-    return {}
+    return {"processed_ids": {}, "recent_alerts": []}
 
-def save_processed_emails(processed_ids: dict):
-    """Saves the set of processed Gmail message IDs to state file."""
+def save_processed_emails(state: dict):
+    """Saves the processed state dict containing message IDs and history."""
     try:
         os.makedirs(os.path.dirname(BINANCE_PROCESSED_EMAILS_FILE), exist_ok=True)
         with open(BINANCE_PROCESSED_EMAILS_FILE, "w", encoding="utf-8") as f:
-            json.dump({"processed_ids": processed_ids}, f, indent=4)
+            json.dump(state, f, indent=4)
     except Exception as e:
         logger.error(f"Failed to save processed Binance emails state: {e}")
 
@@ -92,7 +96,9 @@ def check_binance_emails():
         logger.warning("No Gmail accounts configured or auto-detected for Binance email monitoring.")
         return
 
-    processed_ids = load_processed_emails()
+    state = load_processed_emails()
+    processed_ids = state["processed_ids"]
+    recent_alerts = state["recent_alerts"]
     new_emails_processed = False
 
     for account in accounts:
@@ -153,8 +159,19 @@ def check_binance_emails():
                 except Exception as e:
                     logger.error(f"Failed to send Discord alert for Binance email: {e}")
 
-                # Mark as processed
-                processed_ids[msg_id] = datetime.now(timezone.utc).isoformat()
+                # Mark as processed and save history
+                ts_iso = datetime.now(timezone.utc).isoformat()
+                processed_ids[msg_id] = ts_iso
+                
+                alert_item = {
+                    "id": msg_id,
+                    "timestamp": ts_iso,
+                    "subject": subject,
+                    "sender": sender,
+                    "account": account,
+                    "is_bbva": "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
+                }
+                recent_alerts.insert(0, alert_item)
                 new_emails_processed = True
 
         except Exception as e:
@@ -162,4 +179,5 @@ def check_binance_emails():
 
     if new_emails_processed:
         prune_old_entries(processed_ids)
-        save_processed_emails(processed_ids)
+        state["recent_alerts"] = recent_alerts[:10]  # Cap history at 10 items
+        save_processed_emails(state)

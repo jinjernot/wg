@@ -951,16 +951,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function fetchRecentEmailAlerts() {
+        const listContainer = document.getElementById('email-alerts-list');
+        if (!listContainer) return;
+        try {
+            const response = await fetch('/get_recent_email_alerts');
+            const alerts = await response.json();
+            
+            if (!alerts || alerts.length === 0) {
+                listContainer.innerHTML = '<div class="empty-alerts">No recent email alerts.</div>';
+                return;
+            }
+            
+            listContainer.innerHTML = '';
+            alerts.forEach(alert => {
+                const item = document.createElement('div');
+                const isBbva = alert.is_bbva;
+                item.className = `email-alert-item ${isBbva ? 'bbva-alert' : 'binance-alert'}`;
+                
+                const icon = isBbva ? '🔹' : '🔸';
+                
+                let timeStr = 'N/A';
+                if (alert.timestamp) {
+                    try {
+                        const date = new Date(alert.timestamp);
+                        timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {
+                        timeStr = alert.timestamp;
+                    }
+                }
+                
+                item.innerHTML = `
+                    <span class="email-alert-icon">${icon}</span>
+                    <div class="email-alert-details">
+                        <span class="email-alert-subject" title="${alert.subject || ''}">${alert.subject || 'No Subject'}</span>
+                        <div class="email-alert-meta">
+                            <span>${alert.account || 'default'}</span>
+                            <span>${timeStr}</span>
+                        </div>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Failed to fetch recent email alerts:', error);
+            listContainer.innerHTML = '<div class="empty-alerts" style="color:var(--red);">Error loading alerts.</div>';
+        }
+    }
+
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
     fetchOffers();
     fetchWalletBalances();
     fetchWeeklyVolume();
+    fetchRecentEmailAlerts();
     setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
     setInterval(fetchWeeklyVolume, 600000); // refresh every 10 min
+    setInterval(fetchRecentEmailAlerts, 30000); // refresh every 30 seconds
 });
 
