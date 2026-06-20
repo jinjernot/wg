@@ -518,3 +518,16 @@ def send_bot_offline_alert(reason="Shutdown"):
         reason=escape_markdown(reason)
     )
     _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
+
+
+def send_binance_email_alert(account_name, subject, sender, date_str, snippet):
+    """Sends a Telegram alert for a Binance email notification."""
+    message = (
+        "🔸 *BINANCE EMAIL ALERT* 🔸\n"
+        f"📧 Account: *{escape_markdown(account_name)}*\n"
+        f"👤 From: `{escape_markdown(sender)}`\n"
+        f"📝 Subject: *{escape_markdown(subject)}*\n\n"
+        f"Snippet:\n`{escape_markdown(snippet)}`"
+    )
+    topic = TELEGRAM_TOPICS.get("live_trades")
+    _send_text_alert(message, thread_id=topic)

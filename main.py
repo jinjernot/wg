@@ -14,6 +14,7 @@ from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_al
 from core.messaging.alerts.telegram_alert import send_bot_online_alert, send_bot_offline_alert
 from core.utils.connection_guard import wait_for_internet
 from core.utils.startup_checks import validate_config
+from core.binance.email_monitor import check_binance_emails
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -131,11 +132,18 @@ def main():
         logger.info("Performing initial wallet balance check on startup...")
         check_wallet_balances_and_alert()
 
+        logger.info("Performing initial Binance email check on startup...")
+        try:
+            check_binance_emails()
+        except Exception as e:
+            logger.error(f"Failed to perform initial Binance email check: {e}")
+
         scheduler = BackgroundScheduler(timezone='America/Mexico_City')
         scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
         scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
         scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
         scheduler.add_job(check_disk_space_job, 'interval', hours=1)
+        scheduler.add_job(check_binance_emails, 'interval', seconds=30)
         scheduler.start()
         logger.info(
             "Scheduler started. Offers will be turned on daily at 8:30 AM and off at 2:00 AM Central Time.")

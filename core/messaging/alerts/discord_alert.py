@@ -537,3 +537,25 @@ def create_duplicate_receipt_embed(trade_hash, owner_username, image_path, platf
         "footer": {"text": "🤖 WillGang Bot"}
     }
     send_discord_embed_with_image(embed_data, image_path, alert_type="attachments", trade_hash=trade_hash)
+
+
+def send_binance_email_alert(account_name, subject, sender, date_str, snippet):
+    """Sends a Discord embed for a Binance email notification."""
+    webhook_url = DISCORD_WEBHOOKS.get("binance") or DISCORD_WEBHOOKS.get("default")
+    if not webhook_url:
+        logger.error("No Discord webhook configured for Binance email alert.")
+        return
+
+    embed = {
+        "title": f"🔸 BINANCE EMAIL ALERT — {account_name}",
+        "color": 15776011, # Binance yellow #F0B90B
+        "description": f"👤 **From**: {sender}\n📝 **Subject**: {subject}\n\n**Content Snippet**:\n{snippet}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "footer": {"text": "🤖 WillGang Binance Notification"}
+    }
+    
+    success, error_msg, _ = _send_discord_request(webhook_url, {"embeds": [embed]})
+    if success:
+        logger.info(f"Discord Binance email alert sent successfully.")
+    else:
+        logger.error(f"Failed to send Discord Binance email alert: {error_msg}")

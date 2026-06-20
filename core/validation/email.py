@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-def get_gmail_service(name_identifier):
+def get_gmail_service(name_identifier, interactive=True):
     """Authenticates with the Gmail API using a specific name identifier."""
-    if not name_identifier:
-        logger.error("No name identifier provided for Gmail service.")
-        return None
-
-    sanitized_name = name_identifier.replace(" ", "_")
-    creds = None
-    token_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"token_{sanitized_name}.json")
-    creds_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"credentials_{sanitized_name}.json")
+    if name_identifier in ["", "default", "Default", None]:
+        sanitized_name = "default"
+        token_file = os.path.join(GMAIL_CREDENTIALS_DIR, "token.json")
+        creds_file = os.path.join(GMAIL_CREDENTIALS_DIR, "credentials.json")
+    else:
+        sanitized_name = name_identifier.replace(" ", "_")
+        token_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"token_{sanitized_name}.json")
+        creds_file = os.path.join(GMAIL_CREDENTIALS_DIR, f"credentials_{sanitized_name}.json")
 
     if os.path.exists(token_file):
         creds = Credentials.from_authorized_user_file(token_file, SCOPES)
@@ -39,6 +39,9 @@ def get_gmail_service(name_identifier):
                 logger.error(f"Failed to refresh token for {sanitized_name}: {e}")
                 creds = None
         if not creds:
+            if not interactive:
+                logger.warning(f"Gmail credentials for '{sanitized_name}' are missing or expired and interactive authentication is disabled.")
+                return None
             if os.path.exists(creds_file):
                 flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
                 creds = flow.run_local_server(port=0)
