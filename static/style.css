@@ -1382,32 +1382,97 @@ tr.high-value td:nth-child(4)::after {
 }
 
 /* ============================================================
-   WALLET LOGO AREA
+   EMAIL ALERTS AREA (Binance & BBVA notifications feed)
    ============================================================ */
-.wallet-logo-area {
+.email-alerts-area {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     flex: 1;
-    padding: 20px 0 8px;
-    gap: 10px;
-    opacity: 0.18;
-    transition: opacity var(--ease);
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    min-height: 180px;
 }
-.wallet-logo-area:hover { opacity: 0.35; }
-.wallet-logo {
-    width: 72px;
-    height: 72px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 12px rgba(99,102,241,0.5));
+.email-alerts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
 }
-.wallet-logo-label {
-    font-size: 0.72rem;
+.email-alerts-title {
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    color: var(--text-2);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--indigo);
+}
+#email-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 220px;
+    padding-right: 4px;
+}
+/* Scrollbar styling */
+#email-alerts-list::-webkit-scrollbar { width: 4px; }
+#email-alerts-list::-webkit-scrollbar-track { background: transparent; }
+#email-alerts-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.email-alert-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    transition: all var(--ease);
+}
+.email-alert-item:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.04);
+}
+.email-alert-item.bbva-alert {
+    border-left: 3px solid #004481; /* BBVA blue */
+}
+.email-alert-item.binance-alert {
+    border-left: 3px solid #FBBF24; /* Binance yellow */
+}
+.email-alert-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.email-alert-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0; /* allows text truncation */
+}
+.email-alert-subject {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.email-alert-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--text-3);
+}
+.email-alert-meta span {
+    font-weight: 500;
+}
+.empty-alerts {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--text-3);
+    font-size: 0.75rem;
 }
 
 /* Wallet card flexes so logo fills leftover height */

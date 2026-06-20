@@ -167,9 +167,14 @@
             <div id="joe-balances-col"><div class="skeleton skeleton-card"></div></div>
         </div>
 
-        <!-- Logo watermark in empty space -->
-        <div class="wallet-logo-area">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="WillGang" class="wallet-logo">
+        <!-- Recent Email Notifications Feed -->
+        <div class="email-alerts-area" id="email-alerts-container">
+            <div class="email-alerts-header">
+                <span class="email-alerts-title">🔔 Recent Email Alerts</span>
+            </div>
+            <div id="email-alerts-list">
+                <div class="empty-alerts">Waiting for updates...</div>
+            </div>
         </div>
     </div>
 

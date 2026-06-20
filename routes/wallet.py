@@ -34,4 +34,4 @@ def get_wallet_balances_route():
         
         effective_balances[account_name] = {k: str(v) for k, v in account_balances.items()}
 
-    return jsonify(effective_balances)
+    return jsonify(effective_balances)
