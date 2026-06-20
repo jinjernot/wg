@@ -128,7 +128,7 @@ def check_binance_emails():
                 date_str = next((h["value"] for h in headers if h["name"].lower() == "date"), "")
                 snippet = msg.get("snippet", "")
 
-                logger.info(f"New Binance email detected on account '{account}': {subject} from {sender}")
+                logger.info(f"New email notification detected on account '{account}': {subject} from {sender}")
 
                 # Send alerts to Telegram and Discord
                 try:
