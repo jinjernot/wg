@@ -1,12 +1,16 @@
 import os
-import json
 import logging
-from config import PAYMENT_ACCOUNTS_PATH
 from config_messages.payment_david import PAYMENT_MESSAGES_DAVID
 from config_messages.payment_joe import PAYMENT_MESSAGES_JOE
 from core.messaging.message_sender import send_message_with_retry
+from core.utils.config_cache import get_cached_payment_account
 
 logger = logging.getLogger(__name__)
+
+OWNERS_PAYMENT_CONFIG = {
+    "davidvs": PAYMENT_MESSAGES_DAVID,
+    "JoeWillgang": PAYMENT_MESSAGES_JOE
+}
 
 def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_url, owner_username, max_retries=3):
     try:
@@ -21,10 +25,11 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             json_key_slug = payment_method_slug
 
         json_filename = f"{normalized_slug}.json"
-        json_path = os.path.join(PAYMENT_ACCOUNTS_PATH, json_filename)
-
-        with open(json_path, "r") as f:
-            payment_data = json.load(f)
+        
+        payment_data = get_cached_payment_account(json_filename)
+        if payment_data is None:
+            logger.error(f"Failed to load payment data for {json_filename}")
+            return False
 
         user_data = payment_data.get(owner_username, {})
         method_data = user_data.get(json_key_slug, {})
@@ -40,12 +45,12 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             logger.error(f"No account found for selected_id: {selected_id} for {owner_username}")
             return False
 
-        if owner_username == "davidvs":
-            message_dict = PAYMENT_MESSAGES_DAVID
-        elif owner_username == "JoeWillgang":
-            message_dict = PAYMENT_MESSAGES_JOE
-        else:
-            message_dict = PAYMENT_MESSAGES_DAVID
+        # If a required bank field is missing, fail safely
+        if account.get("bank") is None:
+            logger.error(f"Missing 'bank' detail for selected_id {selected_id} for {owner_username}. Aborting message to avoid sending broken details.")
+            return False
+
+        message_dict = OWNERS_PAYMENT_CONFIG.get(owner_username, PAYMENT_MESSAGES_DAVID)
 
         template = message_dict.get(payment_method_slug, message_dict["default"])
 

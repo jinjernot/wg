@@ -8,22 +8,35 @@ from config import APP_SETTINGS_FILE, CHAT_URL_NOONES
 
 logger = logging.getLogger(__name__)
 
-from core.utils.web_utils import get_app_settings
+from core.utils.config_cache import get_cached_app_settings
+
+OWNERS_CONFIG = {
+    "davidvs": {
+        "afk": WELCOME_AFK_MESSAGES_DAVID,
+        "night": WELCOME_NIGHT_MESSAGES_DAVID,
+        "default": WELCOME_MESSAGES_DAVID
+    },
+    "JoeWillgang": {
+        "afk": WELCOME_AFK_MESSAGES_JOE,
+        "night": WELCOME_NIGHT_MESSAGES_JOE,
+        "default": WELCOME_MESSAGES_JOE
+    }
+}
 
 def is_night_mode_enabled():
     """
-    Checks the settings file to see if nighttime messaging is enabled.
+    Checks the settings cache to see if nighttime messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    settings = get_app_settings()
+    settings = get_cached_app_settings()
     return settings.get("night_mode_enabled", False)
 
 def is_afk_mode_enabled():
     """
-    Checks the settings file to see if AFK messaging is enabled.
+    Checks the settings cache to see if AFK messaging is enabled.
     Defaults to False if the file or key is missing.
     """
-    settings = get_app_settings()
+    settings = get_cached_app_settings()
     return settings.get("afk_mode_enabled", False)
 
 
@@ -38,29 +51,16 @@ def send_welcome_message(trade, account, headers, max_retries=3):
         afk_mode_is_active = is_afk_mode_enabled() # Check AFK mode
         logger.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
 
-        # Select the appropriate message dictionary based on owner and mode status
-        if owner_username == "davidvs":
-            if afk_mode_is_active:
-                message_dict = WELCOME_AFK_MESSAGES_DAVID
-            elif night_mode_is_active:
-                message_dict = WELCOME_NIGHT_MESSAGES_DAVID
-            else:
-                message_dict = WELCOME_MESSAGES_DAVID
-        elif owner_username == "JoeWillgang":
-            if afk_mode_is_active:
-                message_dict = WELCOME_AFK_MESSAGES_JOE
-            elif night_mode_is_active:
-                message_dict = WELCOME_NIGHT_MESSAGES_JOE
-            else:
-                message_dict = WELCOME_MESSAGES_JOE
+        # Map owner configuration, default to davidvs
+        owner_config = OWNERS_CONFIG.get(owner_username, OWNERS_CONFIG["davidvs"])
+
+        # Select the appropriate message dictionary
+        if afk_mode_is_active:
+            message_dict = owner_config["afk"]
+        elif night_mode_is_active:
+            message_dict = owner_config["night"]
         else:
-            # Default to David's messages if owner is unknown
-            if afk_mode_is_active:
-                message_dict = WELCOME_AFK_MESSAGES_DAVID
-            elif night_mode_is_active:
-                message_dict = WELCOME_NIGHT_MESSAGES_DAVID
-            else:
-                message_dict = WELCOME_MESSAGES_DAVID
+            message_dict = owner_config["default"]
 
         # Get the appropriate message from the selected dictionary
         message = message_dict.get(payment_method_slug, message_dict["default"])
