@@ -408,6 +408,7 @@ class Trade:
         else:
             return None, None
 
+        json_filename = f"{json_key_slug}.json"
         payment_data = get_cached_payment_account(json_filename)
         if payment_data is None:
             return None, None
