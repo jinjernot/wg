@@ -520,10 +520,15 @@ def send_bot_offline_alert(reason="Shutdown"):
     _send_text_alert(message, disable_web_page_preview=True, thread_id=TELEGRAM_TOPICS.get("action_required"))
 
 
-def send_binance_email_alert(account_name, subject, sender, date_str, snippet):
-    """Sends a Telegram alert for a Binance or BBVA email notification."""
+def send_binance_email_alert(account_name, subject, sender, date_str, snippet, is_banorte=False):
+    """Sends a Telegram alert for a Binance, BBVA, or Banorte email notification."""
     is_bbva = "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
-    title = "🔹 *BBVA BANK ALERT* 🔹" if is_bbva else "🔸 *BINANCE EMAIL ALERT* 🔸"
+    if is_banorte:
+        title = "🏦 *BANORTE BANK ALERT* 🏦"
+    elif is_bbva:
+        title = "🔹 *BBVA BANK ALERT* 🔹"
+    else:
+        title = "🔸 *BINANCE EMAIL ALERT* 🔸"
     
     message = (
         f"{title}\n"

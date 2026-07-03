@@ -539,17 +539,26 @@ def create_duplicate_receipt_embed(trade_hash, owner_username, image_path, platf
     send_discord_embed_with_image(embed_data, image_path, alert_type="attachments", trade_hash=trade_hash)
 
 
-def send_binance_email_alert(account_name, subject, sender, date_str, snippet):
-    """Sends a Discord embed for a Binance or BBVA email notification."""
+def send_binance_email_alert(account_name, subject, sender, date_str, snippet, is_banorte=False):
+    """Sends a Discord embed for a Binance, BBVA, or Banorte email notification."""
     webhook_url = DISCORD_WEBHOOKS.get("binance") or DISCORD_WEBHOOKS.get("default")
     if not webhook_url:
         logger.error("No Discord webhook configured for Binance email alert.")
         return
 
     is_bbva = "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
-    title = f"🔹 BBVA BANK ALERT — {account_name}" if is_bbva else f"🔸 BINANCE EMAIL ALERT — {account_name}"
-    color = 17537 if is_bbva else 15776011 # BBVA Blue #004481 or Binance Yellow #F0B90B
-    footer_text = "🤖 WillGang BBVA Notification" if is_bbva else "🤖 WillGang Binance Notification"
+    if is_banorte:
+        title = f"🏦 BANORTE BANK ALERT — {account_name}"
+        color = 11674146  # #B22222 dark red — Banorte brand color
+        footer_text = "🤖 WillGang Banorte Notification"
+    elif is_bbva:
+        title = f"🔹 BBVA BANK ALERT — {account_name}"
+        color = 17537  # #004481 BBVA Blue
+        footer_text = "🤖 WillGang BBVA Notification"
+    else:
+        title = f"🔸 BINANCE EMAIL ALERT — {account_name}"
+        color = 15776011  # #F0B90B Binance Yellow
+        footer_text = "🤖 WillGang Binance Notification"
 
     embed = {
         "title": title,

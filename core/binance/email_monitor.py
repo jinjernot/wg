@@ -136,6 +136,8 @@ def check_binance_emails():
 
                 logger.info(f"New email notification detected on account '{account}': {subject} from {sender}")
 
+                is_banorte = "banorte" in sender.lower() or "notificacionesbanorte" in sender.lower()
+
                 # Send alerts to Telegram and Discord
                 try:
                     send_tg(
@@ -143,7 +145,8 @@ def check_binance_emails():
                         subject=subject,
                         sender=sender,
                         date_str=date_str,
-                        snippet=snippet
+                        snippet=snippet,
+                        is_banorte=is_banorte
                     )
                 except Exception as e:
                     logger.error(f"Failed to send Telegram alert for Binance email: {e}")
@@ -154,7 +157,8 @@ def check_binance_emails():
                         subject=subject,
                         sender=sender,
                         date_str=date_str,
-                        snippet=snippet
+                        snippet=snippet,
+                        is_banorte=is_banorte
                     )
                 except Exception as e:
                     logger.error(f"Failed to send Discord alert for Binance email: {e}")
@@ -169,7 +173,8 @@ def check_binance_emails():
                     "subject": subject,
                     "sender": sender,
                     "account": account,
-                    "is_bbva": "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
+                    "is_bbva": "bbva" in sender.lower() or "bbvabancomer" in sender.lower(),
+                    "is_banorte": is_banorte
                 }
                 recent_alerts.insert(0, alert_item)
                 new_emails_processed = True
