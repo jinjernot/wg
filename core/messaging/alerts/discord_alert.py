@@ -541,12 +541,23 @@ def create_duplicate_receipt_embed(trade_hash, owner_username, image_path, platf
 
 def send_binance_email_alert(account_name, subject, sender, date_str, snippet, is_banorte=False):
     """Sends a Discord embed for a Binance, BBVA, or Banorte email notification."""
-    webhook_url = DISCORD_WEBHOOKS.get("binance") or DISCORD_WEBHOOKS.get("default")
+    is_bbva = "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
+    is_bank = is_banorte or is_bbva
+
+    # Bank payments (Banorte, BBVA) go to their own channel; Binance stays on the binance channel
+    if is_bank:
+        webhook_url = (
+            DISCORD_WEBHOOKS.get("bank_payments")
+            or DISCORD_WEBHOOKS.get("binance")
+            or DISCORD_WEBHOOKS.get("default")
+        )
+    else:
+        webhook_url = DISCORD_WEBHOOKS.get("binance") or DISCORD_WEBHOOKS.get("default")
+
     if not webhook_url:
-        logger.error("No Discord webhook configured for Binance email alert.")
+        logger.error("No Discord webhook configured for email alert.")
         return
 
-    is_bbva = "bbva" in sender.lower() or "bbvabancomer" in sender.lower()
     if is_banorte:
         title = f"🏦 BANORTE BANK ALERT — {account_name}"
         color = 11674146  # #B22222 dark red — Banorte brand color
