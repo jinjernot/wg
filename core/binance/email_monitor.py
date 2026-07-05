@@ -11,6 +11,8 @@ import re
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 import pytz
+import email.utils
+
 
 from config import (
     BINANCE_EMAIL_ALERTS_ENABLED,
@@ -112,12 +114,30 @@ def prune_old_entries(state: dict, max_age_days: int = 14):
             pass
     state["pending_banorte_deposits"] = pruned_banorte
 
+def parse_date_header(date_str, fallback_ms=0):
+    """Parses standard email Date header or falls back to Gmail internalDate (ms epoch)."""
+    try:
+        if date_str:
+            dt = email.utils.parsedate_to_datetime(date_str)
+            return dt.astimezone(timezone.utc).isoformat()
+    except Exception as e:
+        logger.error(f"Error parsing date header '{date_str}': {e}")
+        
+    if fallback_ms:
+        try:
+            return datetime.fromtimestamp(fallback_ms / 1000.0, tz=timezone.utc).isoformat()
+        except Exception:
+            pass
+            
+    return datetime.now(timezone.utc).isoformat()
+
 def parse_banorte_email(html_body):
     """Parses Banorte HTML email to extract transaction details."""
     try:
         soup = BeautifulSoup(html_body, 'html.parser')
         text = soup.get_text()
         
+        # 1. Extract Amount
         amount = None
         tds = soup.find_all('td')
         for i, td in enumerate(tds):
@@ -131,30 +151,29 @@ def parse_banorte_email(html_body):
                         break
                         
         if amount is None:
+            # Fallback 1: ABONO SPEI format (e.g., realizo un ABONO SPEI de $             3,600.00 MN)
+            match = re.search(r'ABONO SPEI de\s*\$\s*([\d,]+\.\d{2})', text, re.IGNORECASE)
+            if match:
+                amount = float(match.group(1).replace(',', ''))
+                
+        if amount is None:
+            # Fallback 2: general amount search
             importe_match = re.search(r'Importe:\s*\$?\s*([\d,]+\.\d{2})', text)
             if importe_match:
                 amount = float(importe_match.group(1).replace(',', ''))
         
-        op_date = None
-        op_time = None
-        for i, td in enumerate(tds):
-            td_text = td.get_text(strip=True)
-            if td_text == "Fecha de Operacion:":
-                if i + 1 < len(tds):
-                    op_date = tds[i+1].get_text(strip=True)
-            elif td_text == "Hora de Operacion:":
-                if i + 1 < len(tds):
-                    op_time = tds[i+1].get_text(strip=True).replace("horas", "").strip()
-        
+        # 2. Extract Customer Name
         name = None
-        name_match = re.search(r'Estimado\(a\):\s*\n*([^\n<]+)', html_body)
+        name_match = re.search(r'Estimado\(a\)\s*\n*([A-Z\s]+?)(?:\s*:|\n|$)', text, re.IGNORECASE)
         if name_match:
             name = name_match.group(1).strip()
-        else:
-            name_match_text = re.search(r'Estimado\(a\):\s*([^\n]+)', text)
-            if name_match_text:
-                name = name_match_text.group(1).strip()
+            
+        if not name:
+            name_match = re.search(r'Estimado\(a\):\s*\n*([^\n<]+)', html_body)
+            if name_match:
+                name = name_match.group(1).strip()
                 
+        # 3. Extract Operation/Rastreo ID
         op_id = None
         for i, td in enumerate(tds):
             td_text = td.get_text(strip=True)
@@ -162,28 +181,14 @@ def parse_banorte_email(html_body):
                 if i + 1 < len(tds):
                     op_id = tds[i+1].get_text(strip=True)
                     
-        timestamp = None
-        if op_date and op_time:
-            months_map = {
-                'ene': 'Jan', 'feb': 'Feb', 'mar': 'Mar', 'abr': 'Apr', 'may': 'May', 'jun': 'Jun',
-                'jul': 'Jul', 'ago': 'Aug', 'sep': 'Sep', 'oct': 'Oct', 'nov': 'Nov', 'dic': 'Dec'
-            }
-            parts = op_date.split('/')
-            if len(parts) == 3:
-                month_es = parts[1].lower()[:3]
-                month_en = months_map.get(month_es, parts[1])
-                date_en = f"{parts[0]}/{month_en}/{parts[2]}"
-                dt_str = f"{date_en} {op_time}"
-                try:
-                    local_tz = pytz.timezone('America/Mexico_City')
-                    naive_dt = datetime.strptime(dt_str, "%d/%b/%Y %H:%M:%S")
-                    timestamp = local_tz.localize(naive_dt)
-                except Exception as e:
-                    logger.error(f"Error parsing date/time for Banorte: {e}")
-                    
+        if not op_id:
+            # Fallback for SPEI: Clave de Rastreo
+            rastreo_match = re.search(r'Clave de Rastreo\s*\n*([A-Z0-9]+)', text, re.IGNORECASE)
+            if rastreo_match:
+                op_id = rastreo_match.group(1).strip()
+                
         return {
             "amount": amount,
-            "timestamp": timestamp.isoformat() if timestamp else None,
             "name": name,
             "operation_id": op_id
         }
@@ -211,20 +216,9 @@ def parse_binance_email(html_body, subject=""):
             if subject_match:
                 order_number = subject_match.group(1)
                 
-        order_time = None
-        if subject:
-            time_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*\(UTC\)', subject)
-            if time_match:
-                try:
-                    naive_dt = datetime.strptime(time_match.group(1), "%Y-%m-%d %H:%M:%S")
-                    order_time = naive_dt.replace(tzinfo=timezone.utc)
-                except Exception as e:
-                    logger.error(f"Error parsing time from Binance subject: {e}")
-                    
         return {
             "amount": amount,
-            "order_number": order_number,
-            "timestamp": order_time.isoformat() if order_time else None
+            "order_number": order_number
         }
     except Exception as e:
         logger.error(f"Error parsing Binance email: {e}")
@@ -384,15 +378,8 @@ def check_binance_emails():
                         if is_binance:
                             binance_details = parse_binance_email(email_body, subject)
                             if binance_details and binance_details.get("amount") and binance_details.get("order_number"):
-                                if not binance_details.get("timestamp"):
-                                    try:
-                                        internal_date_ms = int(msg_full.get('internalDate', 0))
-                                        if internal_date_ms > 0:
-                                            binance_details["timestamp"] = datetime.fromtimestamp(internal_date_ms / 1000.0, tz=timezone.utc).isoformat()
-                                    except Exception:
-                                        pass
-                                if not binance_details.get("timestamp"):
-                                    binance_details["timestamp"] = datetime.now(timezone.utc).isoformat()
+                                internal_date_ms = int(msg_full.get('internalDate', 0))
+                                binance_details["timestamp"] = parse_date_header(date_str, internal_date_ms)
                                 
                                 binance_details["email_id"] = msg_id
                                 state["pending_binance_orders"].append(binance_details)
@@ -402,8 +389,9 @@ def check_binance_emails():
                         elif is_banorte:
                             banorte_details = parse_banorte_email(email_body)
                             if banorte_details and banorte_details.get("amount") and banorte_details.get("name"):
-                                if not banorte_details.get("timestamp"):
-                                    banorte_details["timestamp"] = datetime.now(timezone.utc).isoformat()
+                                internal_date_ms = int(msg_full.get('internalDate', 0))
+                                banorte_details["timestamp"] = parse_date_header(date_str, internal_date_ms)
+                                
                                 banorte_details["email_id"] = msg_id
                                 state["pending_banorte_deposits"].append(banorte_details)
                                 logger.info(f"Added pending Banorte deposit: {banorte_details}")
