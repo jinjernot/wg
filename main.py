@@ -138,12 +138,15 @@ def main():
         except Exception as e:
             logger.error(f"Failed to perform initial Binance email check: {e}")
 
+        from core.messaging.alerts.promoted_leaderboard_alert import check_promoted_leaderboard_and_alert
+
         scheduler = BackgroundScheduler(timezone='America/Mexico_City')
         scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
         scheduler.add_job(turn_off_offers_job, 'cron', hour=2, minute=0)
         scheduler.add_job(check_wallet_balances_and_alert, 'interval', minutes=30)
         scheduler.add_job(check_disk_space_job, 'interval', hours=1)
         scheduler.add_job(check_binance_emails, 'interval', seconds=30)
+        scheduler.add_job(check_promoted_leaderboard_and_alert, 'interval', minutes=3)
         scheduler.start()
         logger.info(
             "Scheduler started. Offers will be turned on daily at 8:30 AM and off at 2:00 AM Central Time.")

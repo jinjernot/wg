@@ -41,8 +41,8 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     
     payload = {
         "crypto_currency_code": crypto_code.upper(),
-        "fiat_currency_code": fiat_code.upper(),
-        "payment_method_slug": payment_method_slug,
+        "currency_code": fiat_code.upper(),
+        "payment_method": payment_method_slug,
         "offer_type": trade_direction,
         "sort_by": "best_price",
         "limit": 50
