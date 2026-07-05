@@ -539,3 +539,22 @@ def send_binance_email_alert(account_name, subject, sender, date_str, snippet, i
     )
     topic = TELEGRAM_TOPICS.get("binance") or TELEGRAM_TOPICS.get("live_trades")
     _send_text_alert(message, thread_id=topic)
+
+
+def send_payment_match_alert(binance_order, banorte_deposit, time_diff_str):
+    """Sends a Telegram alert when a Binance order and Banorte deposit match."""
+    message = (
+        f"✅ *PAYMENT VALIDATED (Binance ↔️ Banorte Match)* ✅\n\n"
+        f"🔸 *Binance P2P Order*:\n"
+        f"  • Order ID: `{escape_markdown(binance_order['order_number'])}`\n"
+        f"  • Amount: *{escape_markdown(str(binance_order['amount']))} MXN*\n"
+        f"  • Order Time: `{escape_markdown(binance_order['timestamp'])}`\n\n"
+        f"🏦 *Banorte Deposit*:\n"
+        f"  • Customer Name: *{escape_markdown(banorte_deposit['name'])}*\n"
+        f"  • Operation ID: `{escape_markdown(banorte_deposit['operation_id'])}`\n"
+        f"  • Deposit Time: `{escape_markdown(banorte_deposit['timestamp'])}`\n\n"
+        f"⏱️ *Timing Difference*: `{escape_markdown(time_diff_str)}`"
+    )
+    topic = TELEGRAM_TOPICS.get("binance") or TELEGRAM_TOPICS.get("live_trades")
+    _send_text_alert(message, thread_id=topic)
+

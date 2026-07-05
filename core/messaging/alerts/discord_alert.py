@@ -584,3 +584,46 @@ def send_binance_email_alert(account_name, subject, sender, date_str, snippet, i
         logger.info(f"Discord email alert sent successfully.")
     else:
         logger.error(f"Failed to send Discord email alert: {error_msg}")
+
+
+def send_payment_match_alert(binance_order, banorte_deposit, time_diff_str):
+    """Sends a Discord embed when a Binance order and Banorte deposit match."""
+    webhooks = [
+        DISCORD_WEBHOOKS.get("bank_payments"),
+        DISCORD_WEBHOOKS.get("binance"),
+        DISCORD_WEBHOOKS.get("default")
+    ]
+    unique_webhooks = list(set([w for w in webhooks if w]))
+    
+    embed = {
+        "title": "✅ PAYMENT VALIDATED (Binance ↔️ Banorte Match)",
+        "color": 3066993,  # Green (#2ECC71)
+        "description": "Successfully matched a Binance P2P order with a Banorte bank deposit.",
+        "fields": [
+            {
+                "name": "🔸 Binance P2P Order",
+                "value": f"**Order ID**: `{binance_order['order_number']}`\n**Amount**: `${binance_order['amount']:.2f} MXN`\n**Order Time**: `{binance_order['timestamp']}`",
+                "inline": True
+            },
+            {
+                "name": "🏦 Banorte Deposit",
+                "value": f"**Customer**: `{banorte_deposit['name']}`\n**Operation ID**: `{banorte_deposit['operation_id']}`\n**Deposit Time**: `{banorte_deposit['timestamp']}`",
+                "inline": True
+            },
+            {
+                "name": "⏱️ Validation Summary",
+                "value": f"**Time Difference**: `{time_diff_str}`\n**Status**: `Match Confirmed`",
+                "inline": False
+            }
+        ],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "footer": {"text": "🤖 WillGang Payment Validation Monitor"}
+    }
+    
+    for webhook_url in unique_webhooks:
+        success, error_msg, _ = _send_discord_request(webhook_url, {"embeds": [embed]})
+        if success:
+            logger.info(f"Discord match alert sent successfully to webhook.")
+        else:
+            logger.error(f"Failed to send Discord match alert to webhook: {error_msg}")
+
