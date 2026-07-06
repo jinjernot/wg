@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from config import BASE_DIR, BOT_OWNER_USERNAMES, TELEGRAM_TOPICS
 from core.api.offers import get_all_offers, search_public_offers, update_offer_margin
 from core.messaging.alerts.telegram_alert import _send_text_alert, escape_markdown
@@ -15,6 +16,8 @@ def load_settings():
         "enabled": True,
         "min_competitor_max_limit": 5000.0,
         "undercut_percentage": 0.1,
+        "min_competitor_positive_feedback": 10,
+        "min_competitor_feedback_ratio": 0.90,
         "rules": {
             "BTC": {
                 "bank-transfer": {
@@ -65,7 +68,9 @@ def update_dynamic_pricing_job():
         return
 
     min_competitor_max_limit = float(settings.get("min_competitor_max_limit", 5000.0))
-    undercut_percentage = float(settings.get("undercut_percentage", 1.0))
+    undercut_percentage = float(settings.get("undercut_percentage", 0.1))
+    min_competitor_positive_feedback = int(settings.get("min_competitor_positive_feedback", 10))
+    min_competitor_feedback_ratio = float(settings.get("min_competitor_feedback_ratio", 0.90))
     rules = settings.get("rules", {})
 
     for offer in own_offers:
@@ -116,8 +121,9 @@ def update_dynamic_pricing_job():
                 logger.warning(f"[DynamicPricing] Failed to fetch public offers for {crypto}/{fiat}/{payment_method}.")
                 continue
                 
-            # Filter out own offers and offers with low limits
+            # Filter out own offers, low limits, inactive, and low-reputation competitors
             competitors = []
+            now_ts = time.time()
             for o in public_offers:
                 username = o.get("offer_owner_username")
                 if username in BOT_OWNER_USERNAMES:
@@ -128,6 +134,39 @@ def update_dynamic_pricing_job():
                 max_limit = float(max_limit_val) if max_limit_val is not None else 0.0
                 if max_limit < min_competitor_max_limit:
                     continue
+                    
+                # 1. Ignore inactive/offline competitors (not active in last 30 minutes)
+                last_seen_ts = o.get("last_seen_timestamp")
+                last_seen_status = o.get("last_seen")
+                if last_seen_ts:
+                    try:
+                        seconds_offline = now_ts - float(last_seen_ts)
+                        if seconds_offline > 1800:  # 30 minutes
+                            continue
+                    except (ValueError, TypeError):
+                        if last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+                            continue
+                elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+                    continue
+                    
+                # 3. Filter out low-reputation / price-baiting competitors
+                try:
+                    pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
+                    neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
+                except (ValueError, TypeError):
+                    pos_feedback = 0
+                    neg_feedback = 0
+                
+                # Check minimum positive feedback count
+                if pos_feedback < min_competitor_positive_feedback:
+                    continue
+                    
+                # Check feedback ratio (e.g. at least 90% positive)
+                total_feedback = pos_feedback + neg_feedback
+                if total_feedback > 0:
+                    ratio = pos_feedback / total_feedback
+                    if ratio < min_competitor_feedback_ratio:
+                        continue
                     
                 competitors.append(o)
                 
@@ -158,10 +197,14 @@ def update_dynamic_pricing_job():
                 comp_max_limit_val = lowest_comp.get("fiat_amount_range_max")
                 comp_max_limit = float(comp_max_limit_val) if comp_max_limit_val is not None else 0.0
                 
-                # Target is exactly undercut_percentage lower
-                target_margin = comp_margin - undercut_percentage
+                # Get rule-specific undercut_percentage or default to the global settings one
+                rule_undercut = rule.get("undercut_percentage")
+                current_undercut = float(rule_undercut) if rule_undercut is not None else undercut_percentage
+
+                # Target is exactly current_undercut lower
+                target_margin = comp_margin - current_undercut
                 reason_msg = (
-                    f"Set {escape_markdown(str(undercut_percentage))}% below closest competitor "
+                    f"Set {escape_markdown(str(current_undercut))}% below closest competitor "
                     f"`{escape_markdown(comp_username)}` at `{escape_markdown(str(comp_margin))}%` "
                     f"\\(max limit: {escape_markdown(f'{comp_max_limit:,.0f}')} MXN\\)\\."
                 )
@@ -212,6 +255,8 @@ def send_market_status_report():
         return
 
     min_competitor_max_limit = float(settings.get("min_competitor_max_limit", 5000.0))
+    min_competitor_positive_feedback = int(settings.get("min_competitor_positive_feedback", 10))
+    min_competitor_feedback_ratio = float(settings.get("min_competitor_feedback_ratio", 0.90))
     rules = settings.get("rules", {})
     
     report_lines = []
@@ -260,7 +305,50 @@ def send_market_status_report():
             val = o.get("fiat_amount_range_max")
             return float(val) if val is not None else 0.0
             
-        competitors = [o for o in public_offers if o.get("offer_owner_username") not in BOT_OWNER_USERNAMES and get_max_limit_val(o) >= min_competitor_max_limit]
+        competitors = []
+        now_ts = time.time()
+        for o in public_offers:
+            username = o.get("offer_owner_username")
+            if username in BOT_OWNER_USERNAMES:
+                continue
+                
+            if get_max_limit_val(o) < min_competitor_max_limit:
+                continue
+                
+            # 1. Ignore inactive/offline competitors (not active in last 30 minutes)
+            last_seen_ts = o.get("last_seen_timestamp")
+            last_seen_status = o.get("last_seen")
+            if last_seen_ts:
+                try:
+                    seconds_offline = now_ts - float(last_seen_ts)
+                    if seconds_offline > 1800:  # 30 minutes
+                        continue
+                except (ValueError, TypeError):
+                    if last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+                        continue
+            elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+                continue
+                
+            # 3. Filter out low-reputation / price-baiting competitors
+            try:
+                pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
+                neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
+            except (ValueError, TypeError):
+                pos_feedback = 0
+                neg_feedback = 0
+                
+            # Check minimum positive feedback count
+            if pos_feedback < min_competitor_positive_feedback:
+                continue
+                
+            # Check feedback ratio (e.g. at least 90% positive)
+            total_feedback = pos_feedback + neg_feedback
+            if total_feedback > 0:
+                ratio = pos_feedback / total_feedback
+                if ratio < min_competitor_feedback_ratio:
+                    continue
+                
+            competitors.append(o)
         
         # Look up min_margin for this offer
         crypto_rules = rules.get(crypto, {})
