@@ -14,7 +14,7 @@ def load_settings():
     default_settings = {
         "enabled": True,
         "min_competitor_max_limit": 5000.0,
-        "undercut_percentage": 1.0,
+        "undercut_percentage": 0.1,
         "rules": {
             "BTC": {
                 "bank-transfer": {
@@ -174,7 +174,7 @@ def update_dynamic_pricing_job():
                 target_margin = max_margin
                 reason_msg += f" Capped at Max safety Margin \\({escape_markdown(str(max_margin))}%\\)\\."
                 
-            target_margin = float(round(target_margin))
+            target_margin = float(round(target_margin, 2))
             
             # 4. Update offer if there is a meaningful change
             if abs(target_margin - current_margin) >= 0.05:
