@@ -255,36 +255,44 @@ def send_market_status_report():
                 owner_rank = idx + 1
                 break
                 
-        # Find competitor lowest margin
+        # Find competitor closest margin (at or above min_margin)
         def get_max_limit_val(o):
             val = o.get("fiat_amount_range_max")
             return float(val) if val is not None else 0.0
             
         competitors = [o for o in public_offers if o.get("offer_owner_username") not in BOT_OWNER_USERNAMES and get_max_limit_val(o) >= min_competitor_max_limit]
         
+        # Look up min_margin for this offer
+        crypto_rules = rules.get(crypto, {})
+        rule = crypto_rules.get(payment_method, {})
+        min_margin = float(rule.get("min_margin", 11.0))
+        
+        def get_comp_margin_val(x):
+            val = x.get("margin")
+            return float(val) if val is not None else 999.0
+            
+        valid_competitors = [c for c in competitors if get_comp_margin_val(c) >= min_margin]
+        
         own_price_val = offer.get("fiat_price_per_crypto")
         own_price = float(own_price_val) if own_price_val is not None else 0.0
 
-        lowest_comp_margin_str = "None"
-        if competitors:
-            def get_comp_margin_val(x):
-                val = x.get("margin")
-                return float(val) if val is not None else 999.0
-            lowest_comp = min(competitors, key=get_comp_margin_val)
+        closest_comp_margin_str = "None"
+        if valid_competitors:
+            closest_comp = min(valid_competitors, key=get_comp_margin_val)
             
-            comp_price_val = lowest_comp.get("fiat_price_per_crypto")
+            comp_price_val = closest_comp.get("fiat_price_per_crypto")
             comp_price = float(comp_price_val) if comp_price_val is not None else 0.0
             
-            lowest_comp_margin_str = (
-                f"`{lowest_comp.get('margin')}%` \\(`{comp_price:,.2f} {fiat}`\\) "
-                f"by `{escape_markdown(lowest_comp.get('offer_owner_username'))}`"
+            closest_comp_margin_str = (
+                f"`{closest_comp.get('margin')}%` \\(`{comp_price:,.2f} {fiat}`\\) "
+                f"by `{escape_markdown(closest_comp.get('offer_owner_username'))}`"
             )
             
         rank_str = f"Rank \\#{owner_rank} Promoted" if owner_rank else "Not Promoted"
         report_lines.append(
             f"• *{crypto}/{fiat}/{payment_method}*:\n"
             f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\) \\({rank_str}\\)\n"
-            f"  - Lowest Competitor: {lowest_comp_margin_str}\n"
+            f"  - Closest Competitor: {closest_comp_margin_str}\n"
         )
         
     if not report_lines:

@@ -141,11 +141,12 @@ def main():
         from core.messaging.alerts.promoted_leaderboard_alert import check_promoted_leaderboard_and_alert
         from core.trading.dynamic_pricing import update_dynamic_pricing_job, send_market_status_report, send_hourly_market_report
 
-        logger.info("Sending initial market status report on startup...")
+        logger.info("Running initial dynamic pricing update and market status report on startup...")
         try:
+            update_dynamic_pricing_job()
             send_market_status_report()
         except Exception as e:
-            logger.error(f"Failed to send initial market status report: {e}")
+            logger.error(f"Failed to perform initial startup pricing/report check: {e}")
 
         scheduler = BackgroundScheduler(timezone='America/Mexico_City')
         scheduler.add_job(turn_on_offers_job, 'cron', hour=8, minute=30)
