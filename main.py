@@ -139,7 +139,7 @@ def main():
             logger.error(f"Failed to perform initial Binance email check: {e}")
 
         from core.messaging.alerts.promoted_leaderboard_alert import check_promoted_leaderboard_and_alert
-        from core.trading.dynamic_pricing import update_dynamic_pricing_job, send_market_status_report
+        from core.trading.dynamic_pricing import update_dynamic_pricing_job, send_market_status_report, send_hourly_market_report
 
         logger.info("Sending initial market status report on startup...")
         try:
@@ -156,6 +156,7 @@ def main():
         scheduler.add_job(check_promoted_leaderboard_and_alert, 'interval', minutes=3)
         scheduler.add_job(update_dynamic_pricing_job, 'interval', minutes=5)
         scheduler.add_job(send_market_status_report, 'interval', hours=4)
+        scheduler.add_job(send_hourly_market_report, 'interval', hours=1)
         scheduler.start()
         logger.info(
             "Scheduler started. Offers will be turned on daily at 8:30 AM and off at 2:00 AM Central Time.")

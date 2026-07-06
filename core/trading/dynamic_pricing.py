@@ -131,18 +131,25 @@ def update_dynamic_pricing_job():
                     
                 competitors.append(o)
                 
-            # 3. Find the lowest competitor margin
+            # 3. Find the closest competitor margin that we can outbid
+            # Filter competitors to only those at or above our min safety margin
+            def get_comp_margin(x):
+                val = x.get("margin")
+                return float(val) if val is not None else 999.0
+
+            valid_competitors = [c for c in competitors if get_comp_margin(c) >= min_margin]
+
             if not competitors:
                 logger.info(f"[DynamicPricing] No competitors found in our weight class (max_limit >= {min_competitor_max_limit}). Resetting to max margin.")
                 target_margin = max_margin
                 reason_msg = f"No competitors found in weight class \\(limit \\>\\= {escape_markdown(str(min_competitor_max_limit))} MXN\\)\\. Reset to Max Margin\\."
+            elif not valid_competitors:
+                logger.info(f"[DynamicPricing] All competitors are below our floor of {min_margin}%. Setting to min margin.")
+                target_margin = min_margin
+                reason_msg = f"All competitors are below Min Safety Margin \\({escape_markdown(str(min_margin))}%\\)\\. Capped at safety floor\\."
             else:
-                # Find competitor with lowest margin
-                def get_comp_margin(x):
-                    val = x.get("margin")
-                    return float(val) if val is not None else 999.0
-                    
-                lowest_comp = min(competitors, key=get_comp_margin)
+                # Find the closest competitor (the lowest among those above min_margin)
+                lowest_comp = min(valid_competitors, key=get_comp_margin)
                 comp_username = lowest_comp.get("offer_owner_username")
                 
                 comp_margin_val = lowest_comp.get("margin")
@@ -154,7 +161,7 @@ def update_dynamic_pricing_job():
                 # Target is exactly undercut_percentage lower
                 target_margin = comp_margin - undercut_percentage
                 reason_msg = (
-                    f"Set {escape_markdown(str(undercut_percentage))}% below lowest competitor "
+                    f"Set {escape_markdown(str(undercut_percentage))}% below closest competitor "
                     f"`{escape_markdown(comp_username)}` at `{escape_markdown(str(comp_margin))}%` "
                     f"\\(max limit: {escape_markdown(f'{comp_max_limit:,.0f}')} MXN\\)\\."
                 )
@@ -255,18 +262,28 @@ def send_market_status_report():
             
         competitors = [o for o in public_offers if o.get("offer_owner_username") not in BOT_OWNER_USERNAMES and get_max_limit_val(o) >= min_competitor_max_limit]
         
+        own_price_val = offer.get("fiat_price_per_crypto")
+        own_price = float(own_price_val) if own_price_val is not None else 0.0
+
         lowest_comp_margin_str = "None"
         if competitors:
             def get_comp_margin_val(x):
                 val = x.get("margin")
                 return float(val) if val is not None else 999.0
             lowest_comp = min(competitors, key=get_comp_margin_val)
-            lowest_comp_margin_str = f"`{lowest_comp.get('margin')}%` by `{escape_markdown(lowest_comp.get('offer_owner_username'))}`"
+            
+            comp_price_val = lowest_comp.get("fiat_price_per_crypto")
+            comp_price = float(comp_price_val) if comp_price_val is not None else 0.0
+            
+            lowest_comp_margin_str = (
+                f"`{lowest_comp.get('margin')}%` \\(`{comp_price:,.2f} {fiat}`\\) "
+                f"by `{escape_markdown(lowest_comp.get('offer_owner_username'))}`"
+            )
             
         rank_str = f"Rank \\#{owner_rank} Promoted" if owner_rank else "Not Promoted"
         report_lines.append(
             f"• *{crypto}/{fiat}/{payment_method}*:\n"
-            f"  - Your Margin: `{current_margin}%` \\({rank_str}\\)\n"
+            f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\) \\({rank_str}\\)\n"
             f"  - Lowest Competitor: {lowest_comp_margin_str}\n"
         )
         
@@ -274,5 +291,71 @@ def send_market_status_report():
         return
         
     message = "📊 *Noones Market Status Report* 📊\n\n" + "\n".join(report_lines)
+    topic_id = TELEGRAM_TOPICS.get("action_required")
+    _send_text_alert(message, thread_id=topic_id)
+
+def send_hourly_market_report():
+    """
+    Sends a consolidated market overview of the Top 10 offers for BTC and USDT to Telegram.
+    """
+    logger.info("[DynamicPricing] Generating hourly market report...")
+    
+    cryptos = ["BTC", "USDT"]
+    payment_method = "bank-transfer"
+    fiat = "MXN"
+    
+    report_lines = []
+    
+    for crypto in cryptos:
+        payment_method_country_iso = "MX"
+        country_code = "MX"
+        
+        offers = search_public_offers(
+            crypto_code=crypto,
+            fiat_code=fiat,
+            payment_method_slug=payment_method,
+            trade_direction="buy",
+            payment_method_country_iso=payment_method_country_iso,
+            country_code=country_code
+        )
+        
+        if not offers:
+            report_lines.append(f"• *{crypto} / {fiat} / {payment_method}*:\n  `Error fetching market data`\n")
+            continue
+            
+        report_lines.append(f"🟢 *{crypto} / {fiat} / {payment_method} (Top 10)*:")
+        
+        # Take the top 10 offers
+        top_10 = offers[:10]
+        for idx, offer in enumerate(top_10):
+            username = offer.get("offer_owner_username")
+            is_sticky = offer.get("is_sticky") == True
+            
+            margin_val = offer.get("margin")
+            margin = float(margin_val) if margin_val is not None else 0.0
+            
+            price_val = offer.get("fiat_price_per_crypto")
+            price = float(price_val) if price_val is not None else 0.0
+            
+            min_amount_val = offer.get("fiat_amount_range_min")
+            min_amount = float(min_amount_val) if min_amount_val is not None else 0.0
+            
+            max_amount_val = offer.get("fiat_amount_range_max")
+            max_amount = float(max_amount_val) if max_amount_val is not None else 0.0
+            
+            # Format username (bold if it's us, otherwise code format)
+            if username in BOT_OWNER_USERNAMES:
+                user_str = f"*{escape_markdown(username)}* \\(You\\)"
+            else:
+                user_str = f"`{escape_markdown(username)}`"
+                
+            sticky_tag = "⭐ " if is_sticky else ""
+            
+            report_lines.append(
+                f"  {idx+1}\\. {sticky_tag}{user_str} \\| `{margin}%` \\| `{price:,.2f} {fiat}` \\| Limits: `{min_amount:,.0f}`\\-`{max_amount:,.0f}`"
+            )
+        report_lines.append("") # empty line separator
+        
+    message = "📊 *Hourly Market Report* 📊\n\n" + "\n".join(report_lines)
     topic_id = TELEGRAM_TOPICS.get("action_required")
     _send_text_alert(message, thread_id=topic_id)
