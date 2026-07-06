@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import time
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
 from config import PLATFORM_ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -246,6 +247,8 @@ def update_offer_margin(account_name: str, offer_hash: str, margin: float):
     
     http_client = get_http_client()
     try:
+        logger.info(f"Applying 5-second cooldown before updating offer {offer_hash}...")
+        time.sleep(5)
         response = http_client.post(url, headers=headers, data=data, timeout=15)
 
         if response.status_code == 200 and response.json().get("status") == "success":
