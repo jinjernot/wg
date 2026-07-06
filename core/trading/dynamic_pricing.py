@@ -74,7 +74,10 @@ def update_dynamic_pricing_job():
             crypto = offer.get("crypto_currency_code")
             fiat = offer.get("currency_code")
             payment_method = offer.get("payment_method_slug")
-            current_margin = float(offer.get("margin", 0.0))
+            
+            current_margin_val = offer.get("margin")
+            current_margin = float(current_margin_val) if current_margin_val is not None else 0.0
+            
             account_name = offer.get("account_name")
             
             # Skip if there is no rule configured for this crypto
@@ -121,7 +124,8 @@ def update_dynamic_pricing_job():
                     continue
                     
                 # Exclude micro-offers that don't match our tier
-                max_limit = float(o.get("fiat_amount_range_max", 0.0))
+                max_limit_val = o.get("fiat_amount_range_max")
+                max_limit = float(max_limit_val) if max_limit_val is not None else 0.0
                 if max_limit < min_competitor_max_limit:
                     continue
                     
@@ -134,10 +138,18 @@ def update_dynamic_pricing_job():
                 reason_msg = f"No competitors found in weight class \\(limit \\>\\= {escape_markdown(str(min_competitor_max_limit))} MXN\\)\\. Reset to Max Margin\\."
             else:
                 # Find competitor with lowest margin
-                lowest_comp = min(competitors, key=lambda x: float(x.get("margin", 999.0)))
+                def get_comp_margin(x):
+                    val = x.get("margin")
+                    return float(val) if val is not None else 999.0
+                    
+                lowest_comp = min(competitors, key=get_comp_margin)
                 comp_username = lowest_comp.get("offer_owner_username")
-                comp_margin = float(lowest_comp.get("margin"))
-                comp_max_limit = float(lowest_comp.get("fiat_amount_range_max"))
+                
+                comp_margin_val = lowest_comp.get("margin")
+                comp_margin = float(comp_margin_val) if comp_margin_val is not None else 0.0
+                
+                comp_max_limit_val = lowest_comp.get("fiat_amount_range_max")
+                comp_max_limit = float(comp_max_limit_val) if comp_max_limit_val is not None else 0.0
                 
                 # Target is exactly undercut_percentage lower
                 target_margin = comp_margin - undercut_percentage
@@ -201,7 +213,10 @@ def send_market_status_report():
         crypto = offer.get("crypto_currency_code")
         fiat = offer.get("currency_code")
         payment_method = offer.get("payment_method_slug")
-        current_margin = float(offer.get("margin", 0.0))
+        
+        current_margin_val = offer.get("margin")
+        current_margin = float(current_margin_val) if current_margin_val is not None else 0.0
+        
         offer_hash = offer.get("offer_id")
         
         # Only report on offers that have pricing rules configured
@@ -234,11 +249,18 @@ def send_market_status_report():
                 break
                 
         # Find competitor lowest margin
-        competitors = [o for o in public_offers if o.get("offer_owner_username") not in BOT_OWNER_USERNAMES and float(o.get("fiat_amount_range_max", 0.0)) >= min_competitor_max_limit]
+        def get_max_limit_val(o):
+            val = o.get("fiat_amount_range_max")
+            return float(val) if val is not None else 0.0
+            
+        competitors = [o for o in public_offers if o.get("offer_owner_username") not in BOT_OWNER_USERNAMES and get_max_limit_val(o) >= min_competitor_max_limit]
         
         lowest_comp_margin_str = "None"
         if competitors:
-            lowest_comp = min(competitors, key=lambda x: float(x.get("margin", 999.0)))
+            def get_comp_margin_val(x):
+                val = x.get("margin")
+                return float(val) if val is not None else 999.0
+            lowest_comp = min(competitors, key=get_comp_margin_val)
             lowest_comp_margin_str = f"`{lowest_comp.get('margin')}%` by `{escape_markdown(lowest_comp.get('offer_owner_username'))}`"
             
         rank_str = f"Rank \\#{owner_rank} Promoted" if owner_rank else "Not Promoted"
