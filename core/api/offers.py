@@ -223,6 +223,43 @@ def toggle_single_offer(account_name, offer_hash, turn_on):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def update_offer_margin(account_name: str, offer_hash: str, margin: float):
+    """Updates the margin of a single offer."""
+    target_account = next((acc for acc in PLATFORM_ACCOUNTS if acc["name"] == account_name), None)
+    if not target_account:
+        return {"success": False, "error": f"Account '{account_name}' not found."}
+
+    token = fetch_token_with_retry(target_account)
+    if not token:
+        return {"success": False, "error": "Could not authenticate."}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    
+    url = "https://api.noones.com/noones/v1/offer/update"
+    data = {
+        "offer_hash": offer_hash,
+        "margin": margin
+    }
+    
+    http_client = get_http_client()
+    try:
+        response = http_client.post(url, headers=headers, data=data, timeout=15)
+
+        if response.status_code == 200 and response.json().get("status") == "success":
+            # Invalidate offers cache so next fetch is fresh
+            get_response_cache().invalidate("all_offers")
+            return {"success": True}
+        else:
+            error_message = response.json().get("error", {}).get("message", "Unknown API error")
+            if isinstance(error_message, dict):
+                error_message = str(error_message)
+            return {"success": False, "error": error_message}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 def set_offer_status(turn_on):
     """
     Turns all offers on or off for all configured accounts using the correct endpoints.
