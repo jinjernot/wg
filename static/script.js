@@ -703,10 +703,18 @@ document.addEventListener('DOMContentLoaded', () => {
         offers.forEach(offer => {
             const isEnabled = offer.enabled;
             const row = document.createElement('tr');
+            
+            const ourMargin = offer.margin !== undefined ? `${offer.margin}%` : 'N/A';
+            let marketMarginStr = '';
+            if (offer.market_margin !== undefined && offer.market_margin !== null) {
+                const compNameStr = offer.market_competitor ? ` by ${offer.market_competitor}` : '';
+                marketMarginStr = `<br><span style="font-size:0.75rem;color:var(--text-3);">Market: <strong>${offer.market_margin}%</strong>${compNameStr}</span>`;
+            }
+            
             row.innerHTML = `
                 <td>${offer.account_name || 'N/A'}</td>
                 <td>${offer.payment_method_name || 'N/A'}</td>
-                <td>${offer.margin || 'N/A'}%</td>
+                <td><strong>${ourMargin}</strong>${marketMarginStr}</td>
                 <td>${offer.fiat_amount_range_min || 'N/A'} - ${offer.fiat_amount_range_max || 'N/A'} ${offer.fiat_currency_code || ''}</td>
                 <td><span class="status-indicator ${isEnabled ? 'running' : 'stopped'}">${isEnabled ? 'Enabled' : 'Disabled'}</span></td>
                 <td>
@@ -963,12 +971,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // Capture currently focused slider details to preserve user focus while moving sliders
-            const activeElement = document.activeElement;
-            const focusedId = activeElement ? activeElement.id : null;
             const scrollPos = listContainer.scrollTop;
-            
             listContainer.innerHTML = '';
+            
             result.market_data.forEach(rule => {
                 const item = document.createElement('div');
                 item.className = 'pricing-rule-item';
@@ -989,92 +994,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     compText = `online: <strong>${compMargin}%</strong> ($${compPrice} MXN) by <strong>${compName}</strong>`;
                 }
                 
-                // Unique IDs for sliders
-                const minId = `slider-min-${crypto}-${pm}`;
-                const maxId = `slider-max-${crypto}-${pm}`;
-                
                 item.innerHTML = `
                     <div class="pricing-rule-meta">
                         <span class="pricing-rule-title">${title}</span>
-                        <span class="pricing-rule-competitor">${compText}</span>
+                        <span class="pricing-rule-limits">Limits: ${rule.min_margin}% - ${rule.max_margin}%</span>
                     </div>
-                    <div class="slider-group">
-                        <div class="slider-row">
-                            <label for="${minId}">Min</label>
-                            <input type="range" id="${minId}" min="0" max="30" step="0.5" value="${rule.min_margin}" data-crypto="${crypto}" data-pm="${pm}" data-type="min">
-                            <span class="slider-val" id="${minId}-val">${rule.min_margin}%</span>
-                        </div>
-                        <div class="slider-row">
-                            <label for="${maxId}">Max</label>
-                            <input type="range" id="${maxId}" min="0" max="35" step="0.5" value="${rule.max_margin}" data-crypto="${crypto}" data-pm="${pm}" data-type="max">
-                            <span class="slider-val" id="${maxId}-val">${rule.max_margin}%</span>
-                        </div>
+                    <div class="pricing-rule-competitor" style="font-size:0.75rem;margin-top:2px;">
+                        Competitor: ${compText}
                     </div>
                 `;
                 listContainer.appendChild(item);
-                
-                // Attach event listeners to sliders
-                const minSlider = item.querySelector(`#${minId}`);
-                const maxSlider = item.querySelector(`#${maxId}`);
-                
-                const updateSliderVal = (slider, valSpan) => {
-                    valSpan.textContent = `${slider.value}%`;
-                };
-                
-                // On sliding (input event) - update label dynamically
-                minSlider.addEventListener('input', () => updateSliderVal(minSlider, item.querySelector(`#${minId}-val`)));
-                maxSlider.addEventListener('input', () => updateSliderVal(maxSlider, item.querySelector(`#${maxId}-val`)));
-                
-                // Save settings on release/change
-                const handleSliderChange = async (slider, otherSlider, type) => {
-                    let minVal = type === 'min' ? parseFloat(slider.value) : parseFloat(otherSlider.value);
-                    let maxVal = type === 'max' ? parseFloat(slider.value) : parseFloat(otherSlider.value);
-                    
-                    if (minVal > maxVal) {
-                        showToast('Invalid Margins', 'Minimum margin cannot exceed maximum margin.', 'warning');
-                        // Reset slider
-                        if (type === 'min') {
-                            slider.value = maxVal;
-                            updateSliderVal(slider, item.querySelector(`#${minId}-val`));
-                        } else {
-                            slider.value = minVal;
-                            updateSliderVal(slider, item.querySelector(`#${maxId}-val`));
-                        }
-                        return;
-                    }
-                    
-                    try {
-                        const res = await fetch('/update_pricing_rules', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                crypto: crypto,
-                                payment_method: pm,
-                                min_margin: minVal,
-                                max_margin: maxVal
-                            })
-                        });
-                        const saveResult = await res.json();
-                        if (saveResult.success) {
-                            showToast('Pricing Rule Updated', `${crypto} ${displayMethod} set to ${minVal}% - ${maxVal}%`, 'success');
-                        } else {
-                            showToast('Error Saving Settings', saveResult.error, 'error');
-                        }
-                    } catch (e) {
-                        console.error('Failed to update rule:', e);
-                        showToast('Error', 'Unexpected error saving rule settings.', 'error');
-                    }
-                };
-                
-                minSlider.addEventListener('change', () => handleSliderChange(minSlider, maxSlider, 'min'));
-                maxSlider.addEventListener('change', () => handleSliderChange(maxSlider, minSlider, 'max'));
             });
             
-            // Restore focus and scroll position to prevent UI glitches during periodic polling
-            if (focusedId) {
-                const elementToFocus = document.getElementById(focusedId);
-                if (elementToFocus) elementToFocus.focus();
-            }
             listContainer.scrollTop = scrollPos;
             
         } catch (error) {

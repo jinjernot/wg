@@ -83,34 +83,6 @@ def get_pricing_settings():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@settings_bp.route("/update_pricing_rules", methods=["POST"])
-def update_pricing_rules():
-    data = request.json
-    crypto = data.get("crypto")
-    pm = data.get("payment_method")
-    min_m = data.get("min_margin")
-    max_m = data.get("max_margin")
-
-    if not all([crypto, pm, min_m is not None, max_m is not None]):
-        return jsonify({"success": False, "error": "Missing parameters (crypto, payment_method, min_margin, max_margin)."}), 400
-
-    from core.trading.dynamic_pricing import load_settings, SETTINGS_FILE
-    
-    try:
-        settings = load_settings()
-        if crypto in settings.get("rules", {}) and pm in settings["rules"][crypto]:
-            settings["rules"][crypto][pm]["min_margin"] = float(min_m)
-            settings["rules"][crypto][pm]["max_margin"] = float(max_m)
-            
-            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(settings, f, indent=4)
-                
-            return jsonify({"success": True, "message": f"Updated rules for {crypto}/{pm} successfully."})
-        return jsonify({"success": False, "error": f"Rule not found for {crypto}/{pm}."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @settings_bp.route("/get_market_prices", methods=["GET"])
 def get_market_prices():
     from core.trading.dynamic_pricing import load_settings
