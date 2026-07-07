@@ -951,51 +951,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchRecentEmailAlerts() {
-        const listContainer = document.getElementById('email-alerts-list');
+    async function fetchMarketPricingRules() {
+        const listContainer = document.getElementById('market-pricing-list');
         if (!listContainer) return;
         try {
-            const response = await fetch('/get_recent_email_alerts');
-            const alerts = await response.json();
+            const response = await fetch('/get_market_prices');
+            const result = await response.json();
             
-            if (!alerts || alerts.length === 0) {
-                listContainer.innerHTML = '<div class="empty-alerts">No recent email alerts.</div>';
+            if (!result.success || !result.market_data || result.market_data.length === 0) {
+                listContainer.innerHTML = '<div class="empty-alerts">No active dynamic pricing rules found.</div>';
                 return;
             }
             
+            // Capture currently focused slider details to preserve user focus while moving sliders
+            const activeElement = document.activeElement;
+            const focusedId = activeElement ? activeElement.id : null;
+            const scrollPos = listContainer.scrollTop;
+            
             listContainer.innerHTML = '';
-            alerts.forEach(alert => {
+            result.market_data.forEach(rule => {
                 const item = document.createElement('div');
-                const isBbva = alert.is_bbva;
-                item.className = `email-alert-item ${isBbva ? 'bbva-alert' : 'binance-alert'}`;
+                item.className = 'pricing-rule-item';
                 
-                const icon = isBbva ? '🔹' : '🔸';
+                const crypto = rule.crypto;
+                const pm = rule.payment_method;
                 
-                let timeStr = 'N/A';
-                if (alert.timestamp) {
-                    try {
-                        const date = new Date(alert.timestamp);
-                        timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                    } catch (e) {
-                        timeStr = alert.timestamp;
-                    }
+                // Format name
+                const displayMethod = pm.replace(/-/g, ' ').toUpperCase();
+                const title = `${crypto} · ${displayMethod}`;
+                
+                // Format competitor
+                let compText = 'offline / none';
+                if (rule.closest_competitor) {
+                    const compName = rule.closest_competitor.username;
+                    const compMargin = rule.closest_competitor.margin;
+                    const compPrice = rule.closest_competitor.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    compText = `online: <strong>${compMargin}%</strong> ($${compPrice} MXN) by <strong>${compName}</strong>`;
                 }
                 
+                // Unique IDs for sliders
+                const minId = `slider-min-${crypto}-${pm}`;
+                const maxId = `slider-max-${crypto}-${pm}`;
+                
                 item.innerHTML = `
-                    <span class="email-alert-icon">${icon}</span>
-                    <div class="email-alert-details">
-                        <span class="email-alert-subject" title="${alert.subject || ''}">${alert.subject || 'No Subject'}</span>
-                        <div class="email-alert-meta">
-                            <span>${alert.account || 'default'}</span>
-                            <span>${timeStr}</span>
+                    <div class="pricing-rule-meta">
+                        <span class="pricing-rule-title">${title}</span>
+                        <span class="pricing-rule-competitor">${compText}</span>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-row">
+                            <label for="${minId}">Min</label>
+                            <input type="range" id="${minId}" min="0" max="30" step="0.5" value="${rule.min_margin}" data-crypto="${crypto}" data-pm="${pm}" data-type="min">
+                            <span class="slider-val" id="${minId}-val">${rule.min_margin}%</span>
+                        </div>
+                        <div class="slider-row">
+                            <label for="${maxId}">Max</label>
+                            <input type="range" id="${maxId}" min="0" max="35" step="0.5" value="${rule.max_margin}" data-crypto="${crypto}" data-pm="${pm}" data-type="max">
+                            <span class="slider-val" id="${maxId}-val">${rule.max_margin}%</span>
                         </div>
                     </div>
                 `;
                 listContainer.appendChild(item);
+                
+                // Attach event listeners to sliders
+                const minSlider = item.querySelector(`#${minId}`);
+                const maxSlider = item.querySelector(`#${maxId}`);
+                
+                const updateSliderVal = (slider, valSpan) => {
+                    valSpan.textContent = `${slider.value}%`;
+                };
+                
+                // On sliding (input event) - update label dynamically
+                minSlider.addEventListener('input', () => updateSliderVal(minSlider, item.querySelector(`#${minId}-val`)));
+                maxSlider.addEventListener('input', () => updateSliderVal(maxSlider, item.querySelector(`#${maxId}-val`)));
+                
+                // Save settings on release/change
+                const handleSliderChange = async (slider, otherSlider, type) => {
+                    let minVal = type === 'min' ? parseFloat(slider.value) : parseFloat(otherSlider.value);
+                    let maxVal = type === 'max' ? parseFloat(slider.value) : parseFloat(otherSlider.value);
+                    
+                    if (minVal > maxVal) {
+                        showToast('Invalid Margins', 'Minimum margin cannot exceed maximum margin.', 'warning');
+                        // Reset slider
+                        if (type === 'min') {
+                            slider.value = maxVal;
+                            updateSliderVal(slider, item.querySelector(`#${minId}-val`));
+                        } else {
+                            slider.value = minVal;
+                            updateSliderVal(slider, item.querySelector(`#${maxId}-val`));
+                        }
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch('/update_pricing_rules', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                crypto: crypto,
+                                payment_method: pm,
+                                min_margin: minVal,
+                                max_margin: maxVal
+                            })
+                        });
+                        const saveResult = await res.json();
+                        if (saveResult.success) {
+                            showToast('Pricing Rule Updated', `${crypto} ${displayMethod} set to ${minVal}% - ${maxVal}%`, 'success');
+                        } else {
+                            showToast('Error Saving Settings', saveResult.error, 'error');
+                        }
+                    } catch (e) {
+                        console.error('Failed to update rule:', e);
+                        showToast('Error', 'Unexpected error saving rule settings.', 'error');
+                    }
+                };
+                
+                minSlider.addEventListener('change', () => handleSliderChange(minSlider, maxSlider, 'min'));
+                maxSlider.addEventListener('change', () => handleSliderChange(maxSlider, minSlider, 'max'));
             });
+            
+            // Restore focus and scroll position to prevent UI glitches during periodic polling
+            if (focusedId) {
+                const elementToFocus = document.getElementById(focusedId);
+                if (elementToFocus) elementToFocus.focus();
+            }
+            listContainer.scrollTop = scrollPos;
+            
         } catch (error) {
-            console.error('Failed to fetch recent email alerts:', error);
-            listContainer.innerHTML = '<div class="empty-alerts" style="color:var(--red);">Error loading alerts.</div>';
+            console.error('Failed to fetch pricing rules:', error);
+            listContainer.innerHTML = '<div class="empty-alerts" style="color:var(--red);">Error loading pricing rules.</div>';
         }
     }
 
@@ -1005,12 +1089,12 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchOffers();
     fetchWalletBalances();
     fetchWeeklyVolume();
-    fetchRecentEmailAlerts();
+    fetchMarketPricingRules();
     setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
     setInterval(fetchWeeklyVolume, 600000); // refresh every 10 min
-    setInterval(fetchRecentEmailAlerts, 30000); // refresh every 30 seconds
+    setInterval(fetchMarketPricingRules, 30000); // refresh every 30 seconds
 });
 

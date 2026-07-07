@@ -1382,97 +1382,148 @@ tr.high-value td:nth-child(4)::after {
 }
 
 /* ============================================================
-   EMAIL ALERTS AREA (Binance & BBVA notifications feed)
+   DYNAMIC PRICING & MARKET PANEL
    ============================================================ */
-.email-alerts-area {
+.market-pricing-area {
     display: flex;
     flex-direction: column;
     flex: 1;
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid var(--border);
-    min-height: 180px;
+    min-height: 240px;
 }
-.email-alerts-header {
+.market-pricing-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
-.email-alerts-title {
+.market-pricing-title {
     font-size: 0.8rem;
     font-weight: 700;
     color: var(--text-2);
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
-#email-alerts-list {
+#market-pricing-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     overflow-y: auto;
-    max-height: 220px;
+    max-height: 380px;
     padding-right: 4px;
 }
 /* Scrollbar styling */
-#email-alerts-list::-webkit-scrollbar { width: 4px; }
-#email-alerts-list::-webkit-scrollbar-track { background: transparent; }
-#email-alerts-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#market-pricing-list::-webkit-scrollbar { width: 4px; }
+#market-pricing-list::-webkit-scrollbar-track { background: transparent; }
+#market-pricing-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-.email-alert-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 10px;
-    transition: all var(--ease);
-}
-.email-alert-item:hover {
-    border-color: rgba(99, 102, 241, 0.25);
-    background: rgba(99, 102, 241, 0.04);
-}
-.email-alert-item.bbva-alert {
-    border-left: 3px solid #004481; /* BBVA blue */
-}
-.email-alert-item.binance-alert {
-    border-left: 3px solid #FBBF24; /* Binance yellow */
-}
-.email-alert-icon {
-    font-size: 1.1rem;
-    flex-shrink: 0;
-}
-.email-alert-details {
-    flex: 1;
+.pricing-rule-item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-width: 0; /* allows text truncation */
+    gap: 8px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: all var(--ease);
 }
-.email-alert-subject {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-1);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.pricing-rule-item:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.02);
 }
-.email-alert-meta {
+.pricing-rule-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.65rem;
-    color: var(--text-3);
+    font-size: 0.78rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
 }
-.email-alert-meta span {
+.pricing-rule-title {
+    font-weight: 700;
+    color: var(--text-1);
+}
+.pricing-rule-competitor {
+    font-size: 0.7rem;
+    color: var(--text-3);
     font-weight: 500;
 }
-.empty-alerts {
-    text-align: center;
-    padding: 30px 0;
+.pricing-rule-competitor strong {
+    color: #a5b4fc;
+}
+.slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.slider-row label {
+    font-size: 0.65rem;
+    font-weight: 600;
     color: var(--text-3);
+    width: 32px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Range slider styling */
+.slider-row input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    outline: none;
+    transition: background 0.15s ease;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: 2px solid #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    transition: transform 0.1s ease, background-color 0.15s ease;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    background: var(--violet);
+    box-shadow: 0 0 8px rgba(99,102,241,0.6);
+}
+.slider-row input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: 2px solid #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    transition: transform 0.1s ease, background-color 0.15s ease;
+}
+.slider-row input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.25);
+    background: var(--violet);
+    box-shadow: 0 0 8px rgba(99,102,241,0.6);
+}
+
+.slider-val {
     font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--indigo);
+    width: 44px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Wallet card flexes so logo fills leftover height */
