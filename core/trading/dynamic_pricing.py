@@ -240,13 +240,18 @@ def update_dynamic_pricing_job():
                 if res.get("success"):
                     logger.info(f"[DynamicPricing] Successfully updated offer {offer_hash} to {target_margin}%.")
                     
+                    user_clean = account_name.split("_")[0] if account_name else "Unknown"
+                    
                     # Send Telegram alert
                     alert_msg = (
                         f"🔄 *\\[{crypto}\\] Dynamic Pricing Update\\!* 🔄\n\n"
                         f"Your offer `\\[{offer_hash}\\]` margin has been updated\\:\n"
                         f"• *Old Margin*: `{escape_markdown(str(current_margin))}%`\n"
                         f"• *New Margin*: `{escape_markdown(str(target_margin))}%`\n"
-                        f"• *Reason*: {reason_msg}"
+                        f"• *Reason*: {reason_msg}\n\n"
+                        f"*Details*:\n"
+                        f"• *User*: `{escape_markdown(user_clean)}`\n"
+                        f"• *Slug*: `{escape_markdown(payment_method)}`"
                     )
                     topic_id = TELEGRAM_TOPICS.get("pricing_updates") or TELEGRAM_TOPICS.get("action_required")
                     _send_text_alert(alert_msg, thread_id=topic_id)
