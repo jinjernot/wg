@@ -248,7 +248,7 @@ def update_dynamic_pricing_job():
                         f"• *New Margin*: `{escape_markdown(str(target_margin))}%`\n"
                         f"• *Reason*: {reason_msg}"
                     )
-                    topic_id = TELEGRAM_TOPICS.get("action_required")
+                    topic_id = TELEGRAM_TOPICS.get("pricing_updates") or TELEGRAM_TOPICS.get("action_required")
                     _send_text_alert(alert_msg, thread_id=topic_id)
                 else:
                     logger.error(f"[DynamicPricing] Failed to update margin for {offer_hash}: {res.get('error')}")
@@ -264,7 +264,8 @@ def send_market_status_report():
     settings = load_settings()
     own_offers = get_all_offers()
     if not own_offers:
-        _send_text_alert("📊 *Noones Market Status Report* 📊\n\nNo active offers found.", thread_id=TELEGRAM_TOPICS.get("action_required"))
+        topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
+        _send_text_alert("📊 *Noones Market Status Report* 📊\n\nNo active offers found.", thread_id=topic_id)
         return
 
     min_competitor_max_limit = float(settings.get("min_competitor_max_limit", 5000.0))
@@ -400,7 +401,7 @@ def send_market_status_report():
         return
         
     message = "📊 *Noones Market Status Report* 📊\n\n" + "\n".join(report_lines)
-    topic_id = TELEGRAM_TOPICS.get("action_required")
+    topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
     _send_text_alert(message, thread_id=topic_id)
 
 def send_hourly_market_report():
@@ -466,5 +467,5 @@ def send_hourly_market_report():
         report_lines.append("") # empty line separator
         
     message = "📊 *Hourly Market Report* 📊\n\n" + "\n".join(report_lines)
-    topic_id = TELEGRAM_TOPICS.get("action_required")
+    topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
     _send_text_alert(message, thread_id=topic_id)

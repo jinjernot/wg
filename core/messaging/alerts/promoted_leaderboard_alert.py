@@ -150,8 +150,8 @@ def check_promoted_leaderboard_and_alert():
                         
                     if alert_triggered and alert_msg:
                         logger.warning(f"[LeaderboardWatchdog] Alert for {username}: {alert_msg}")
-                        # Send alert to Telegram 'action_required' topic
-                        topic_id = TELEGRAM_TOPICS.get("action_required")
+                        # Send alert to Telegram 'promoted_leaderboard' topic
+                        topic_id = TELEGRAM_TOPICS.get("promoted_leaderboard") or TELEGRAM_TOPICS.get("action_required")
                         _send_text_alert(alert_msg, thread_id=topic_id)
                         
         except Exception as e:
