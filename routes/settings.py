@@ -183,3 +183,23 @@ def get_market_prices():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@settings_bp.route("/update_pricing_settings", methods=["POST"])
+def update_pricing_settings():
+    from core.trading.dynamic_pricing import load_settings, SETTINGS_FILE
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "No data payload provided."}), 400
+    try:
+        settings = load_settings()
+        for key in ["david_min_margin", "joe_min_margin"]:
+            if key in data:
+                settings[key] = float(data[key])
+                
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=4)
+            
+        return jsonify({"success": True, "message": "Pricing settings updated successfully."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+

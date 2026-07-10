@@ -354,3 +354,61 @@ tr.high-value {
     color: #c7d2fe;
     box-shadow: 0 0 10px rgba(99,102,241,0.25);
 }
+
+/* Segmented Controls for Margin Floor */
+.margin-toggles-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0 4px 0;
+}
+.margin-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 14px 20px;
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+.margin-toggle-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.margin-toggle-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-1);
+}
+.segmented-control {
+    display: flex;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 3px;
+}
+.segment-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-3);
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: none;
+    box-shadow: none !important;
+    transition: all 0.2s ease;
+}
+.segment-btn::before {
+    display: none !important;
+}
+.segment-btn:hover {
+    color: var(--text-1);
+    background: rgba(255, 255, 255, 0.05);
+}
+.segment-btn.active {
+    background: linear-gradient(135deg, #05d5ff, var(--indigo)) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(9, 137, 240, 0.3) !important;
+}

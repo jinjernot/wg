@@ -18,6 +18,8 @@ def load_settings():
         "undercut_percentage": 0.1,
         "min_competitor_positive_feedback": 10,
         "min_competitor_feedback_ratio": 0.90,
+        "david_min_margin": 11.0,
+        "joe_min_margin": 11.0,
         "rules": {
             "BTC": {
                 "bank-transfer": {
@@ -44,7 +46,12 @@ def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                # Ensure defaults for top-level keys
+                for k, v in default_settings.items():
+                    if k not in data:
+                        data[k] = v
+                return data
         except Exception as e:
             logger.error(f"Error loading dynamic pricing settings: {e}")
     return default_settings
@@ -101,6 +108,12 @@ def update_dynamic_pricing_job():
             min_margin = float(rule.get("min_margin", 11.0))
             max_margin = float(rule.get("max_margin", 24.5))
             
+            # Apply user-specific safety floor override for bank transfer / SPEI
+            if payment_method in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
+                if account_name and "david" in str(account_name).lower():
+                    min_margin = float(settings.get("david_min_margin", 11.0))
+                elif account_name and "joe" in str(account_name).lower():
+                    min_margin = float(settings.get("joe_min_margin", 11.0))            
             logger.info(f"[DynamicPricing] Scanning competition for offer {offer_hash} ({crypto}/{fiat}/{payment_method}) on account {account_name}...")
             
             # Check country ISO parameters (specifically for MXN)

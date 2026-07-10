@@ -959,59 +959,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchMarketPricingRules() {
-        const listContainer = document.getElementById('market-pricing-list');
-        if (!listContainer) return;
+    async function fetchPricingSettings() {
         try {
-            const response = await fetch('/get_market_prices');
+            const response = await fetch('/get_pricing_settings');
             const result = await response.json();
-            
-            if (!result.success || !result.market_data || result.market_data.length === 0) {
-                listContainer.innerHTML = '<div class="empty-alerts">No active dynamic pricing rules found.</div>';
-                return;
-            }
-            
-            const scrollPos = listContainer.scrollTop;
-            listContainer.innerHTML = '';
-            
-            result.market_data.forEach(rule => {
-                const item = document.createElement('div');
-                item.className = 'pricing-rule-item';
-                
-                const crypto = rule.crypto;
-                const pm = rule.payment_method;
-                
-                // Format name
-                const displayMethod = pm.replace(/-/g, ' ').toUpperCase();
-                const title = `${crypto} · ${displayMethod}`;
-                
-                // Format competitor
-                let compText = 'offline / none';
-                if (rule.closest_competitor) {
-                    const compName = rule.closest_competitor.username;
-                    const compMargin = rule.closest_competitor.margin;
-                    const compPrice = rule.closest_competitor.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    compText = `online: <strong>${compMargin}%</strong> ($${compPrice} MXN) by <strong>${compName}</strong>`;
+            if (result.success && result.settings) {
+                const settings = result.settings;
+                const davidVal = parseFloat(settings.david_min_margin || 11.0);
+                const davidControl = document.getElementById('david-margin-control');
+                if (davidControl) {
+                    davidControl.querySelectorAll('.segment-btn').forEach(btn => {
+                        const val = parseFloat(btn.getAttribute('data-value'));
+                        if (val === davidVal) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
                 }
-                
-                item.innerHTML = `
-                    <div class="pricing-rule-meta">
-                        <span class="pricing-rule-title">${title}</span>
-                        <span class="pricing-rule-limits">Limits: ${rule.min_margin}% - ${rule.max_margin}%</span>
-                    </div>
-                    <div class="pricing-rule-competitor" style="font-size:0.75rem;margin-top:2px;">
-                        Competitor: ${compText}
-                    </div>
-                `;
-                listContainer.appendChild(item);
-            });
-            
-            listContainer.scrollTop = scrollPos;
-            
+                const joeVal = parseFloat(settings.joe_min_margin || 11.0);
+                const joeControl = document.getElementById('joe-margin-control');
+                if (joeControl) {
+                    joeControl.querySelectorAll('.segment-btn').forEach(btn => {
+                        const val = parseFloat(btn.getAttribute('data-value'));
+                        if (val === joeVal) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                }
+            }
         } catch (error) {
-            console.error('Failed to fetch pricing rules:', error);
-            listContainer.innerHTML = '<div class="empty-alerts" style="color:var(--red);">Error loading pricing rules.</div>';
+            console.error('Failed to fetch pricing settings:', error);
         }
+    }
+
+    async function handleMarginToggleClick(user, val) {
+        try {
+            const payload = {};
+            payload[`${user}_min_margin`] = parseFloat(val);
+            const response = await fetch('/update_pricing_settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('Margin Cap Updated', `${user.charAt(0).toUpperCase() + user.slice(1)}'s safety floor set to ${val}%`, 'success');
+                fetchPricingSettings();
+            } else {
+                showToast('Update Failed', result.error || 'Unknown error occurred.', 'error');
+            }
+        } catch (error) {
+            console.error(`Failed to update margin for ${user}:`, error);
+            showToast('Network Error', 'Could not save dynamic pricing settings.', 'error');
+        }
+    }
+
+    const davidControl = document.getElementById('david-margin-control');
+    if (davidControl) {
+        davidControl.querySelectorAll('.segment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.getAttribute('data-value');
+                handleMarginToggleClick('david', val);
+            });
+        });
+    }
+
+    const joeControl = document.getElementById('joe-margin-control');
+    if (joeControl) {
+        joeControl.querySelectorAll('.segment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.getAttribute('data-value');
+                handleMarginToggleClick('joe', val);
+            });
+        });
     }
 
     // --- Initial and Periodic Updates ---
@@ -1020,12 +1043,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchOffers();
     fetchWalletBalances();
     fetchWeeklyVolume();
-    fetchMarketPricingRules();
+    fetchPricingSettings();
     setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
-    setInterval(fetchWeeklyVolume, 600000); // refresh every 10 min
-    setInterval(fetchMarketPricingRules, 30000); // refresh every 30 seconds
+    setInterval(fetchWeeklyVolume, 600000);
+    setInterval(fetchPricingSettings, 30000);
 });
-

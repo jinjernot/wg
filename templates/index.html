@@ -167,13 +167,26 @@
             <div id="joe-balances-col"><div class="skeleton skeleton-card"></div></div>
         </div>
 
-        <!-- Dynamic Pricing Rules & Competitor Prices -->
+        <!-- Minimum Margin Controls -->
         <div class="market-pricing-area" id="market-pricing-container">
             <div class="market-pricing-header">
-                <span class="market-pricing-title">📊 Live Competitor Prices & Margin Rules</span>
+                <span class="market-pricing-title">⚙️ Minimum Margin Controls</span>
             </div>
-            <div id="market-pricing-list">
-                <div class="empty-alerts">Loading market pricing...</div>
+            <div class="margin-toggles-wrap">
+                <div class="margin-toggle-row">
+                    <span class="margin-toggle-label">👤 David's Min Margin</span>
+                    <div class="segmented-control" id="david-margin-control">
+                        <button class="segment-btn" data-value="8.0">8%</button>
+                        <button class="segment-btn" data-value="11.0">11%</button>
+                    </div>
+                </div>
+                <div class="margin-toggle-row">
+                    <span class="margin-toggle-label">👤 Joe's Min Margin</span>
+                    <div class="segmented-control" id="joe-margin-control">
+                        <button class="segment-btn" data-value="8.0">8%</button>
+                        <button class="segment-btn" data-value="11.0">11%</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
