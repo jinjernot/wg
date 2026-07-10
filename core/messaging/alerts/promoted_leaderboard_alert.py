@@ -43,14 +43,16 @@ def check_promoted_leaderboard_and_alert():
         current_state[username] = {}
         
     cryptos = ["BTC", "USDT"]
+    fiat_code = "MXN"
+    payment_method_slug = "bank-transfer"
     
     for crypto in cryptos:
         try:
             # Fetch public sell offers ( visitor buying BTC/USDT with MXN via bank-transfer )
             offers = search_public_offers(
                 crypto_code=crypto,
-                fiat_code="MXN",
-                payment_method_slug="bank-transfer",
+                fiat_code=fiat_code,
+                payment_method_slug=payment_method_slug,
                 trade_direction="buy", # visitor buys -> returns traders selling
                 payment_method_country_iso="MX",
                 country_code="MX"
@@ -78,6 +80,14 @@ def check_promoted_leaderboard_and_alert():
                         owner_rank = idx + 1
                         owner_offer = offer
                         break
+                
+                # Find owner's offer in the full list to get its ID / details
+                owner_offer_in_full = next((o for o in offers if o.get("offer_owner_username") == username), None)
+                offer_id = None
+                if owner_offer:
+                    offer_id = owner_offer.get("offer_id")
+                elif owner_offer_in_full:
+                    offer_id = owner_offer_in_full.get("offer_id")
                 
                 # Formulate status
                 if owner_rank == 1:
@@ -149,6 +159,14 @@ def check_promoted_leaderboard_and_alert():
                         )
                         
                     if alert_triggered and alert_msg:
+                        details_msg = (
+                            f"\n\n*Details*:\n"
+                            f"• *Coin*: `{escape_markdown(crypto)}`\n"
+                            f"• *Payment Method*: `{escape_markdown(payment_method_slug)}`\n"
+                            f"• *Offer ID*: `{escape_markdown(offer_id if offer_id else 'Not Found')}`"
+                        )
+                        alert_msg += details_msg
+
                         logger.warning(f"[LeaderboardWatchdog] Alert for {username}: {alert_msg}")
                         # Send alert to Telegram 'promoted_leaderboard' topic
                         topic_id = TELEGRAM_TOPICS.get("promoted_leaderboard") or TELEGRAM_TOPICS.get("action_required")
