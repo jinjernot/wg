@@ -306,6 +306,12 @@ def send_market_status_report():
         if crypto not in rules or payment_method not in rules[crypto]:
             continue
             
+        coin_icon = "🪙"
+        if crypto and crypto.upper() == "BTC":
+            coin_icon = "🔸"
+        elif crypto and crypto.upper() == "USDT":
+            coin_icon = "🟢"
+            
         payment_method_country_iso = "MX" if fiat.upper() == "MXN" else None
         country_code = "MX" if fiat.upper() == "MXN" else None
         
@@ -321,9 +327,9 @@ def send_market_status_report():
         
         if not public_offers:
             report_lines.append(
-                f"• *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
-                f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\)\n"
-                f"  - Status: `Offline / Error fetching market`\n"
+                f"• {coin_icon} *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
+                f"  - 📊 *Your Margin*: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\)\n"
+                f"  - ⚠️ *Status*: `Offline / Error fetching market`\n"
             )
             continue
             
@@ -408,11 +414,23 @@ def send_market_status_report():
                 f"by `{escape_markdown(closest_comp.get('offer_owner_username'))}`"
             )
             
-        rank_str = f"Rank \\#{owner_rank} Promoted" if owner_rank else "Not Promoted"
+        if owner_rank:
+            if owner_rank == 1:
+                rank_emoji = "🥇"
+            elif owner_rank == 2:
+                rank_emoji = "🥈"
+            elif owner_rank == 3:
+                rank_emoji = "🥉"
+            else:
+                rank_emoji = "🎖️"
+            rank_str = f"{rank_emoji} Rank \\#{owner_rank} Promoted"
+        else:
+            rank_str = "❌ Not Promoted"
+
         report_lines.append(
-            f"• *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
-            f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\) \\({rank_str}\\)\n"
-            f"  - Closest Competitor: {closest_comp_margin_str}\n"
+            f"• {coin_icon} *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
+            f"  - 📊 *Your Margin*: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\) \\({rank_str}\\)\n"
+            f"  - 👥 *Closest Competitor*: {closest_comp_margin_str}\n"
         )
         
     if not report_lines:
