@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-from config import PLATFORM_ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import PLATFORM_ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
 from core.messaging.alerts.telegram_alert import escape_markdown
 from core.utils.http_client import get_http_client
 from core.utils.response_cache import get_response_cache
@@ -310,6 +310,12 @@ def send_scheduled_task_alert(message):
         "text": escape_markdown(message),
         "parse_mode": "MarkdownV2"
     }
+    
+    # Send to the action_required (Important) topic/thread if configured
+    thread_id = TELEGRAM_TOPICS.get("action_required")
+    if thread_id is not None:
+        payload["message_thread_id"] = thread_id
+
     http_client = get_http_client()
     try:
         response = http_client.post(url, json=payload)
