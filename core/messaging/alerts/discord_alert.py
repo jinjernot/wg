@@ -627,3 +627,26 @@ def send_payment_match_alert(binance_order, banorte_deposit, time_diff_str):
         else:
             logger.error(f"Failed to send Discord match alert to webhook: {error_msg}")
 
+
+def send_discord_text(message, alert_type="default"):
+    """
+    Sends a raw text message to Discord using a resolved webhook.
+    Converts Telegram MarkdownV2 escaping to clean Discord markdown.
+    """
+    import re
+    webhook_url_base, thread_id, webhook_url = _resolve_webhook(alert_type, None)
+    if not webhook_url_base:
+        return False
+        
+    # Clean Telegram markdown backslashes for Discord
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    cleaned_message = re.sub(f'\\\\([{re.escape(escape_chars)}])', r'\1', message)
+    
+    payload = {"content": cleaned_message}
+    success, err_msg, _ = _send_discord_request(webhook_url, payload)
+    if success:
+        logger.info(f"Discord text alert ('{alert_type}') sent successfully.")
+    else:
+        logger.error(f"Failed to send Discord text alert ('{alert_type}'): {err_msg}")
+    return success
+

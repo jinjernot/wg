@@ -5,6 +5,7 @@ import time
 from config import BASE_DIR, BOT_OWNER_USERNAMES, TELEGRAM_TOPICS
 from core.api.offers import get_all_offers, search_public_offers, update_offer_margin
 from core.messaging.alerts.telegram_alert import _send_text_alert, escape_markdown
+from core.messaging.alerts.discord_alert import send_discord_text
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +263,7 @@ def update_dynamic_pricing_job():
                     )
                     topic_id = TELEGRAM_TOPICS.get("pricing_updates") or TELEGRAM_TOPICS.get("action_required")
                     _send_text_alert(alert_msg, thread_id=topic_id)
+                    send_discord_text(alert_msg, alert_type="pricing_updates")
                 else:
                     logger.error(f"[DynamicPricing] Failed to update margin for {offer_hash}: {res.get('error')}")
             else:
@@ -277,7 +279,9 @@ def send_market_status_report():
     own_offers = get_all_offers()
     if not own_offers:
         topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
-        _send_text_alert("📊 *Noones Market Status Report* 📊\n\nNo active offers found.", thread_id=topic_id)
+        msg = "📊 *Noones Market Status Report* 📊\n\nNo active offers found."
+        _send_text_alert(msg, thread_id=topic_id)
+        send_discord_text(msg, alert_type="market_reports")
         return
 
     min_competitor_max_limit = float(settings.get("min_competitor_max_limit", 5000.0))
@@ -439,6 +443,7 @@ def send_market_status_report():
     message = "📊 *Noones Market Status Report* 📊\n\n" + "\n".join(report_lines)
     topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
     _send_text_alert(message, thread_id=topic_id)
+    send_discord_text(message, alert_type="market_reports")
 
 def send_hourly_market_report():
     """
@@ -505,3 +510,4 @@ def send_hourly_market_report():
     message = "📊 *Hourly Market Report* 📊\n\n" + "\n".join(report_lines)
     topic_id = TELEGRAM_TOPICS.get("market_reports") or TELEGRAM_TOPICS.get("action_required")
     _send_text_alert(message, thread_id=topic_id)
+    send_discord_text(message, alert_type="market_reports")

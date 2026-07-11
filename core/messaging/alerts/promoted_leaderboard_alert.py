@@ -4,6 +4,7 @@ import logging
 from config import STATE_DIR, BOT_OWNER_USERNAMES, TELEGRAM_TOPICS
 from core.api.offers import search_public_offers
 from core.messaging.alerts.telegram_alert import _send_text_alert, escape_markdown
+from core.messaging.alerts.discord_alert import send_discord_text
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,8 @@ def check_promoted_leaderboard_and_alert():
                         # Send alert to Telegram 'promoted_leaderboard' topic
                         topic_id = TELEGRAM_TOPICS.get("promoted_leaderboard") or TELEGRAM_TOPICS.get("action_required")
                         _send_text_alert(alert_msg, thread_id=topic_id)
+                        # Send alert to Discord
+                        send_discord_text(alert_msg, alert_type="promoted_leaderboard")
                         
         except Exception as e:
             logger.error(f"Error checking promoted leaderboard for {crypto}: {e}", exc_info=True)
