@@ -242,9 +242,16 @@ def update_dynamic_pricing_job():
                     
                     user_clean = account_name.split("_")[0] if account_name else "Unknown"
                     
+                    if target_margin > current_margin:
+                        direction_icon = "📈"
+                    elif target_margin < current_margin:
+                        direction_icon = "📉"
+                    else:
+                        direction_icon = "🔄"
+                    
                     # Send Telegram alert
                     alert_msg = (
-                        f"🔄 *\\[{crypto}\\] Dynamic Pricing Update\\!* 🔄\n\n"
+                        f"{direction_icon} *\\[{crypto}\\] Dynamic Pricing Update\\!* {direction_icon}\n\n"
                         f"Your offer `\\[{offer_hash}\\]` margin has been updated\\:\n"
                         f"• *Old Margin*: `{escape_markdown(str(current_margin))}%`\n"
                         f"• *New Margin*: `{escape_markdown(str(target_margin))}%`\n"
@@ -289,6 +296,11 @@ def send_market_status_report():
         current_margin = float(current_margin_val) if current_margin_val is not None else 0.0
         
         offer_hash = offer.get("offer_id")
+        account_name = offer.get("account_name")
+        user_clean = account_name.split("_")[0] if account_name else "Unknown"
+        
+        own_price_val = offer.get("fiat_price_per_crypto")
+        own_price = float(own_price_val) if own_price_val is not None else 0.0
         
         # Only report on offers that have pricing rules configured
         if crypto not in rules or payment_method not in rules[crypto]:
@@ -308,7 +320,11 @@ def send_market_status_report():
         )
         
         if not public_offers:
-            report_lines.append(f"• *{crypto}/{fiat}/{payment_method}*:\n  - Your Margin: `{current_margin}%` \\(`{offer_hash}`\\)\n  - Status: `Offline / Error fetching market`\n")
+            report_lines.append(
+                f"• *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
+                f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\)\n"
+                f"  - Status: `Offline / Error fetching market`\n"
+            )
             continue
             
         # Find our rank in the promoted section
@@ -379,9 +395,6 @@ def send_market_status_report():
             return float(val) if val is not None else 999.0
             
         valid_competitors = [c for c in competitors if get_comp_margin_val(c) >= min_margin]
-        
-        own_price_val = offer.get("fiat_price_per_crypto")
-        own_price = float(own_price_val) if own_price_val is not None else 0.0
 
         closest_comp_margin_str = "None"
         if valid_competitors:
@@ -397,7 +410,7 @@ def send_market_status_report():
             
         rank_str = f"Rank \\#{owner_rank} Promoted" if owner_rank else "Not Promoted"
         report_lines.append(
-            f"• *{crypto}/{fiat}/{payment_method}*:\n"
+            f"• *{crypto}/{fiat}/{payment_method}* \\({escape_markdown(user_clean)} \\| `{escape_markdown(offer_hash)}`\\):\n"
             f"  - Your Margin: `{current_margin}%` \\(`{own_price:,.2f} {fiat}`\\) \\({rank_str}\\)\n"
             f"  - Closest Competitor: {closest_comp_margin_str}\n"
         )
