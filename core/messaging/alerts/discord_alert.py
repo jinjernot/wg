@@ -632,6 +632,7 @@ def send_discord_text(message, alert_type="default"):
     """
     Sends a raw text message to Discord using a resolved webhook.
     Converts Telegram MarkdownV2 escaping to clean Discord markdown.
+    Splits messages longer than 2000 characters into smaller chunks.
     """
     import re
     webhook_url_base, thread_id, webhook_url = _resolve_webhook(alert_type, None)
@@ -642,11 +643,36 @@ def send_discord_text(message, alert_type="default"):
     escape_chars = r'_*[]()~`>#+-=|{}.!'
     cleaned_message = re.sub(f'\\\\([{re.escape(escape_chars)}])', r'\1', message)
     
-    payload = {"content": cleaned_message}
-    success, err_msg, _ = _send_discord_request(webhook_url, payload)
-    if success:
-        logger.info(f"Discord text alert ('{alert_type}') sent successfully.")
-    else:
-        logger.error(f"Failed to send Discord text alert ('{alert_type}'): {err_msg}")
-    return success
+    # Discord text length limit is 2000 characters.
+    # Split the message into chunks of <= 1900 characters to be safe, splitting on newlines.
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    lines = cleaned_message.split("\n")
+    for line in lines:
+        if current_length + len(line) + 1 > 1900:
+            if current_chunk:
+                chunks.append("\n".join(current_chunk))
+            current_chunk = [line]
+            current_length = len(line)
+        else:
+            current_chunk.append(line)
+            current_length += len(line) + 1
+            
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
+        
+    # Send each chunk as a separate message
+    all_success = True
+    for chunk in chunks:
+        payload = {"content": chunk}
+        success, err_msg, _ = _send_discord_request(webhook_url, payload)
+        if success:
+            logger.info(f"Discord text alert ('{alert_type}') chunk sent successfully.")
+        else:
+            logger.error(f"Failed to send Discord text alert ('{alert_type}') chunk: {err_msg}")
+            all_success = False
+            
+    return all_success
 
