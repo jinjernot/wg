@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from flask import Blueprint, jsonify, request
 from core.api.auth import fetch_token_with_retry
 from core.messaging.message_sender import send_message_with_retry
@@ -22,8 +23,23 @@ def get_active_trades():
         if filename.endswith("_trades.json"):
             try:
                 filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                data = None
+                for attempt in range(5):
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        break
+                    except (PermissionError, FileNotFoundError) as e:
+                        if attempt == 4:
+                            raise
+                        time.sleep(0.05 * (attempt + 1))
+                    except json.JSONDecodeError:
+                        # If JSON is partially written, wait a moment and try again
+                        if attempt == 4:
+                            raise
+                        time.sleep(0.05 * (attempt + 1))
+                
+                if data is not None:
                     trades_list = data.get("data", {}).get("trades", [])
                     if trades_list:
                         account_name_source = filename.replace(

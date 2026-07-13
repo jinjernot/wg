@@ -42,15 +42,25 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 try:
                     with open(temp_filepath, "w", encoding="utf-8") as json_file:
                         json.dump(trades_data, json_file, indent=4)
-                    try:
-                        os.replace(temp_filepath, filepath)
-                    except PermissionError:
-                        if os.path.exists(filepath):
-                            try:
+                    success = False
+                    last_err = None
+                    for attempt in range(5):
+                        try:
+                            os.replace(temp_filepath, filepath)
+                            success = True
+                            break
+                        except PermissionError as e:
+                            last_err = e
+                            delay = 0.1 * (2 ** attempt)
+                            time.sleep(delay)
+                    
+                    if not success:
+                        try:
+                            if os.path.exists(filepath):
                                 os.remove(filepath)
-                            except Exception:
-                                pass
-                        os.rename(temp_filepath, filepath)
+                            os.replace(temp_filepath, filepath)
+                        except Exception as e:
+                            raise last_err or e
                 except Exception as e:
                     logger.error(f"Failed to write trades file atomically for {account['name']}: {e}")
                     if os.path.exists(temp_filepath):
