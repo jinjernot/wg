@@ -13,7 +13,8 @@ def get_app_settings():
             "afk_mode_enabled": False,
             "verbose_logging_enabled": True,
             "offers_enabled": False,
-            "wallet_alerts_enabled": True
+            "wallet_alerts_enabled": True,
+            "force_welcome_chat_check": True
         }
         with open(APP_SETTINGS_FILE, "w") as f:
             json.dump(default_settings, f)
@@ -26,6 +27,7 @@ def get_app_settings():
             settings.setdefault("verbose_logging_enabled", True)
             settings.setdefault("offers_enabled", False)
             settings.setdefault("wallet_alerts_enabled", True)
+            settings.setdefault("force_welcome_chat_check", True)
             return settings
     except (json.JSONDecodeError, FileNotFoundError):
         return {
@@ -33,7 +35,8 @@ def get_app_settings():
             "afk_mode_enabled": False,
             "verbose_logging_enabled": True,
             "offers_enabled": False,
-            "wallet_alerts_enabled": True
+            "wallet_alerts_enabled": True,
+            "force_welcome_chat_check": True
         }
 
 def update_app_settings(new_settings):

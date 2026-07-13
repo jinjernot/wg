@@ -27,7 +27,7 @@ from core.validation.ocr import (
 from core.trading.chat_processor import ChatProcessor
 from core.messaging.welcome_message import send_welcome_message, is_afk_mode_enabled
 from core.messaging.payment_details import send_payment_details_message
-from core.utils.config_cache import get_cached_payment_account
+from core.utils.config_cache import get_cached_payment_account, get_cached_app_settings
 from core.messaging.trade_lifecycle_messages import (
     send_trade_completion_message,
     send_payment_received_message,
@@ -78,13 +78,16 @@ atexit.register(_notification_executor.shutdown, wait=True, cancel_futures=False
 
 
 class Trade:
-    def __init__(self, trade_data, account, headers):
+    def __init__(self, trade_data, account, headers, loaded_trades=None):
         self.account = account
         self.headers = headers
         self.trade_hash = trade_data.get("trade_hash")
         self.owner_username = trade_data.get("owner_username", "unknown_user")
         self.platform = "Noones"
-        all_trades = load_processed_trades(self.owner_username, self.platform)
+        if loaded_trades is None:
+            all_trades = load_processed_trades(self.owner_username, self.platform)
+        else:
+            all_trades = loaded_trades
         existing_data = all_trades.get(self.trade_hash, {})
         self.trade_state = {**existing_data, **trade_data}
         self._messages_cache = None  # Cleared each process() cycle
@@ -221,7 +224,7 @@ class Trade:
 
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
-        self.ensure_initial_messages_sent()
+        self.ensure_initial_messages_sent(is_new=True)
         self.trade_state['status_history'] = [
             self.trade_state.get("trade_status")]
 
@@ -284,7 +287,7 @@ class Trade:
                         return True
         return False
 
-    def ensure_initial_messages_sent(self):
+    def ensure_initial_messages_sent(self, is_new=False):
         """Ensures welcome and payment details are sent, retrying if they failed or were skipped."""
         trade_status = str(self.trade_state.get("trade_status", "")).lower()
         status = str(self.trade_state.get("status", "")).lower()
@@ -294,10 +297,15 @@ class Trade:
         if self.trade_state.get('auto_responses_disabled'):
             return
 
+        # Check if we should force verify the chat even on new trades
+        settings = get_cached_app_settings()
+        force_check = settings.get("force_welcome_chat_check", True)
+
         # Ensure welcome message has been sent
         if not self.trade_state.get('welcome_message_sent'):
             # Self-healing fallback: verify chat history
-            if self._was_welcome_message_sent_in_chat():
+            # For brand new trades, skip the slow chat check unless force_check is enabled.
+            if (not is_new or force_check) and self._was_welcome_message_sent_in_chat():
                 logger.info(f"Welcome message already exists in chat for {self.trade_hash}. Marking as sent.")
                 self.trade_state['welcome_message_sent'] = True
                 self.save()
@@ -314,7 +322,8 @@ class Trade:
         if is_supported_payment:
             if not self.trade_state.get('payment_details_sent'):
                 # Self-healing fallback: verify chat history
-                if self._was_payment_details_sent_in_chat():
+                # For brand new trades, skip the slow chat check unless force_check is enabled.
+                if (not is_new or force_check) and self._was_payment_details_sent_in_chat():
                     logger.info(f"Payment details already exist in chat for {self.trade_hash}. Marking as sent.")
                     self.trade_state['payment_details_sent'] = True
                     self.save()

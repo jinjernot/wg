@@ -1,13 +1,25 @@
 import time
 import threading
 import logging
+import atexit
+from concurrent.futures import ThreadPoolExecutor
 from core.api.auth import fetch_token_with_retry
 from core.api.trade_list import get_trade_list
 from core.trading.trade import Trade
 from core.utils.adaptive_polling import AdaptivePoller
 from core.messaging.alerts.telegram_alert import send_scheduled_task_alert
+from core.state.trade_state_loader import load_processed_trades
 
 logger = logging.getLogger(__name__)
+
+# Concurrency controls to prevent parallel runs of the same trade
+_active_processing_hashes = set()
+_active_processing_lock = threading.Lock()
+
+# Thread pool for existing trade processing.
+# Using a small number of workers to avoid rate-limiting Noones API.
+_existing_trade_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="existing-trader")
+atexit.register(_existing_trade_executor.shutdown, wait=True, cancel_futures=False)
 
 # How long to pause before retrying after a run of consecutive auth failures
 AUTH_BACKOFF_SECONDS = 5 * 60  # 5 minutes
@@ -91,19 +103,76 @@ def process_trades(account):
             logger.info(f"Found {len(trades)} trades to process for {account['name']}.")
             poller.record_activity(found_trades=True)
 
+            # Local cache for loaded trade states to avoid redundant disk reads
+            loaded_trades_cache = {}
+
+            trade_objects = []
             for trade_data in trades:
-                # Update heartbeat per-trade to prevent false deadlocks when busy
+                try:
+                    owner_username = trade_data.get("owner_username", "unknown_user")
+                    if owner_username not in loaded_trades_cache:
+                        loaded_trades_cache[owner_username] = load_processed_trades(owner_username, "Noones")
+                    
+                    trade = Trade(
+                        trade_data, account, headers,
+                        loaded_trades=loaded_trades_cache[owner_username]
+                    )
+                    trade_objects.append(trade)
+                except Exception as e:
+                    logger.error(f"Error instantiating Trade object: {e}")
+
+            # Separate into new and existing trades
+            new_trades = []
+            existing_trades = []
+            for trade in trade_objects:
+                is_new = 'first_seen_utc' not in trade.trade_state
+                if is_new:
+                    new_trades.append(trade)
+                else:
+                    # Only process existing trade if it's not already running
+                    with _active_processing_lock:
+                        if trade.trade_hash not in _active_processing_hashes:
+                            existing_trades.append(trade)
+
+            # 1. Process new trades synchronously and sequentially in the main thread
+            # This ensures welcome messages are sent immediately without latency.
+            for trade in new_trades:
+                with _active_processing_lock:
+                    if trade.trade_hash in _active_processing_hashes:
+                        logger.warning(f"New trade {trade.trade_hash} is already processing. Skipping.")
+                        continue
+                    _active_processing_hashes.add(trade.trade_hash)
+
+                # Stamp heartbeat
                 with _heartbeat_lock:
                     _heartbeats[thread_name] = time.time()
-                    
+
                 try:
-                    trade = Trade(trade_data, account, headers)
+                    logger.info(f"Processing new trade {trade.trade_hash} synchronously in main thread.")
                     trade.process()
                 except Exception as e:
-                    logger.error(
-                        f"An unexpected error occurred processing trade "
-                        f"{trade_data.get('trade_hash')}: {e}", exc_info=True
-                    )
+                    logger.error(f"Error processing new trade {trade.trade_hash}: {e}", exc_info=True)
+                finally:
+                    with _active_processing_lock:
+                        _active_processing_hashes.discard(trade.trade_hash)
+
+            # 2. Process existing trades in background thread pool to avoid blocking the main thread.
+            def _run_existing_trade(t):
+                try:
+                    logger.debug(f"Starting background processing for trade {t.trade_hash}.")
+                    t.process()
+                except Exception as ex:
+                    logger.error(f"Error processing existing trade {t.trade_hash} in background: {ex}", exc_info=True)
+                finally:
+                    with _active_processing_lock:
+                        _active_processing_hashes.discard(t.trade_hash)
+
+            for trade in existing_trades:
+                with _active_processing_lock:
+                    _active_processing_hashes.add(trade.trade_hash)
+                logger.info(f"Submitting existing trade {trade.trade_hash} to background pool.")
+                _existing_trade_executor.submit(_run_existing_trade, trade)
+
         else:
             logger.debug(f"No active trades found for {account['name']}.")
             poller.record_activity(found_trades=False)
