@@ -160,9 +160,12 @@ def extract_text_from_image(image_path):
         # 'psm 6' assumes a single uniform block of text.
         # 'oem 3' is the default and most accurate engine.
         custom_config = r'--oem 3 --psm 6'
-        text = pytesseract.image_to_string(img_to_process, config=custom_config)
+        text = pytesseract.image_to_string(img_to_process, config=custom_config, timeout=30)
         logger.info(f"Successfully extracted text from {image_path}")
         return text
+    except pytesseract.TesseractTimeoutError as e:
+        logger.error(f"Tesseract OCR timed out for image {image_path}: {e}")
+        return ""
     except Exception as e:
         logger.error(f"Could not read or process image {image_path}: {e}")
         return ""

@@ -38,8 +38,26 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 trades_data = response.json()
                 filename = f"{account['name'].replace(' ', '_')}_trades.json"
                 filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
-                with open(filepath, "w", encoding="utf-8") as json_file:
-                    json.dump(trades_data, json_file, indent=4)
+                temp_filepath = filepath + ".tmp"
+                try:
+                    with open(temp_filepath, "w", encoding="utf-8") as json_file:
+                        json.dump(trades_data, json_file, indent=4)
+                    try:
+                        os.replace(temp_filepath, filepath)
+                    except PermissionError:
+                        if os.path.exists(filepath):
+                            try:
+                                os.remove(filepath)
+                            except Exception:
+                                pass
+                        os.rename(temp_filepath, filepath)
+                except Exception as e:
+                    logger.error(f"Failed to write trades file atomically for {account['name']}: {e}")
+                    if os.path.exists(temp_filepath):
+                        try:
+                            os.remove(temp_filepath)
+                        except Exception:
+                            pass
                 logger.debug(f"Saved raw trade data to {filepath}")
 
                 if trades_data.get("status") == "success" and trades_data["data"].get("trades"):
