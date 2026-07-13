@@ -75,39 +75,72 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
                 else:
                     response = requests.post(webhook_url, json=payload, timeout=15)
 
-                if response.status_code in [200, 204]:
-                    return True, "Success", None
+            if response.status_code in [200, 204]:
+                return True, "Success", None
 
-                if response.status_code == 429:
-                    try:
-                        retry_after = float(response.json().get("retry_after", 1.0))
-                    except (json.JSONDecodeError, AttributeError, ValueError):
-                        retry_after = 1.0
-                    
-                    # Add exponential jitter to avoid thundering herds
-                    jitter = random.uniform(0.1, 0.5) * (attempt + 1)
-                    total_sleep = retry_after + jitter
-                    
-                    logger.warning(
-                        f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
-                        f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
-                    )
-                    time.sleep(total_sleep)
-                    continue  # retry
-
-                # Non-retryable error
-                error_code = None
+            if response.status_code == 429:
                 try:
-                    error_code = response.json().get("code")
-                except json.JSONDecodeError:
-                    pass
-                return False, f"{response.status_code} - {response.text}", error_code
+                    retry_after = float(response.json().get("retry_after", 1.0))
+                except (json.JSONDecodeError, AttributeError, ValueError):
+                    retry_after = 1.0
+                
+                # Add exponential jitter to avoid thundering herds
+                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                total_sleep = retry_after + jitter
+                
+                logger.warning(
+                    f"[RATE LIMIT] Discord rate limited (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter)."
+                )
+                time.sleep(total_sleep)
+                continue  # retry
+
+            # Non-retryable error
+            error_code = None
+            try:
+                error_code = response.json().get("code")
+            except json.JSONDecodeError:
+                pass
+            return False, f"{response.status_code} - {response.text}", error_code
 
         except Exception as e:
             return False, str(e), None
 
     # All retries exhausted on rate limit
     return False, f"Rate limited after {max_retries} retries.", None
+
+
+def _send_discord_bot_request(url, headers, payload, max_retries=5):
+    """Send a request as the Discord bot (not webhook) with rate-limit retry."""
+    for attempt in range(max_retries):
+        try:
+            with _discord_api_lock:
+                response = requests.post(url, headers=headers, json=payload, timeout=15)
+
+            if response.status_code == 200:
+                return True, response
+
+            if response.status_code == 429:
+                try:
+                    retry_after = float(response.json().get("retry_after", 1.0))
+                except (json.JSONDecodeError, AttributeError, ValueError):
+                    retry_after = 1.0
+                jitter = random.uniform(0.1, 0.5) * (attempt + 1)
+                total_sleep = retry_after + jitter
+                logger.warning(
+                    f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
+                    f"Retrying after {total_sleep:.2f}s."
+                )
+                time.sleep(total_sleep)
+                continue
+
+            return False, response
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"An error occurred while sending message as bot: {e}")
+            return False, None
+
+    return False, response if 'response' in dir() else None
 
 def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
     """
@@ -133,67 +166,37 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
         headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
         url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
         payload = {"embeds": [embed_data]}
-        
-        try:
-            max_retries = 5
-            response = None
-            for attempt in range(max_retries):
-                with _discord_api_lock:
-                    response = requests.post(url, headers=headers, json=payload, timeout=15)
-                    if response.status_code == 429:
-                        try:
-                            retry_after = float(response.json().get("retry_after", 1.0))
-                        except (json.JSONDecodeError, AttributeError, ValueError):
-                            retry_after = 1.0
-                        
-                        # Add exponential jitter to avoid thundering herds
-                        jitter = random.uniform(0.1, 0.5) * (attempt + 1)
-                        total_sleep = retry_after + jitter
-                        
-                        logger.warning(
-                            f"[RATE LIMIT] Discord bot rate limited (attempt {attempt + 1}/{max_retries}). "
-                            f"Retrying after {total_sleep:.2f}s (base {retry_after:.2f}s + jitter). Lock held."
-                        )
-                        time.sleep(total_sleep)
-                        continue
-                    break
 
-            if response is not None and response.status_code == 200:
-                message_id = response.json()["id"]
-                logger.info(f"Successfully sent chat message {message_id} as bot.")
+        success, response = _send_discord_bot_request(url, headers, payload)
 
-                # Add reactions based on the message type
-                title = embed_data.get("title", "")
-                if "AUTOMATED MESSAGE" in title:
-                    emoji = "🤖"
-                elif "MESSAGE SENT" in title:
-                    emoji = "📤"
-                else:  # Default reaction for buyer messages
-                    emoji = "💬"
+        if success and response is not None:
+            message_id = response.json()["id"]
+            logger.info(f"Successfully sent chat message {message_id} as bot.")
 
-                if emoji:
-                    time.sleep(0.5)
-                    reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
-                    with requests.Session() as session:
-                        session.headers.update(headers)
-                        reaction_response = session.put(reaction_url, timeout=10)
-                        if reaction_response.status_code == 204:
-                            logger.info(f"Successfully added reaction to message {message_id}.")
-                        else:
-                            # Reactions are cosmetic — don't spam ERROR logs for rate limits
-                            logger.debug(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
-            elif response is not None and response.status_code == 429:
-                logger.error(
-                    f"Failed to send chat message as bot: rate limited after {max_retries} retries. "
-                    f"Last retry_after was in the response body."
-                )
-            else:
-                status = response.status_code if response is not None else "N/A"
-                text   = response.text       if response is not None else "No response"
-                logger.error(f"Failed to send chat message as bot: {status} - {text}")
+            # Add reactions based on the message type
+            title = embed_data.get("title", "")
+            if "AUTOMATED MESSAGE" in title:
+                emoji = "🤖"
+            elif "MESSAGE SENT" in title:
+                emoji = "📤"
+            else:  # Default reaction for buyer messages
+                emoji = "💬"
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"An error occurred while sending message as bot: {e}")
+            if emoji:
+                time.sleep(0.5)
+                reaction_url = f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me"
+                with requests.Session() as session:
+                    session.headers.update(headers)
+                    reaction_response = session.put(reaction_url, timeout=10)
+                    if reaction_response.status_code == 204:
+                        logger.info(f"Successfully added reaction to message {message_id}.")
+                    else:
+                        # Reactions are cosmetic — don't spam ERROR logs for rate limits
+                        logger.debug(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
+        else:
+            status = response.status_code if response is not None else "N/A"
+            text   = response.text       if response is not None else "No response"
+            logger.error(f"Failed to send chat message as bot: {status} - {text}")
 
     else:
         webhook_url_base, thread_id, webhook_url = _resolve_webhook(alert_type, trade_hash)

@@ -5,6 +5,7 @@ import time
 import os
 import json
 from datetime import datetime, timezone
+from config import HEARTBEAT_STATE_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class HeartbeatMonitor:
         self.start_time = time.time()
         self.running = False
         self.thread = None
-        self.state_file = os.path.join('data', 'heartbeat_state.json')
+        self.state_file = HEARTBEAT_STATE_FILE
         
         # Load previous message ID if exists
         self._load_state()

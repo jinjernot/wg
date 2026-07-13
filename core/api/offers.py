@@ -4,8 +4,7 @@ import os
 import time
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-from config import PLATFORM_ACCOUNTS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOPICS
-from core.messaging.alerts.telegram_alert import escape_markdown
+from config import PLATFORM_ACCOUNTS
 from core.utils.http_client import get_http_client
 from core.utils.response_cache import get_response_cache
 
@@ -40,7 +39,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
 
     url = "https://api.noones.com/noones/v1/offer/all"
     
-    payload = {
+    request_body = {
         "crypto_currency_code": crypto_code.upper(),
         "currency_code": fiat_code.upper(),
         "payment_method": payment_method_slug,
@@ -50,10 +49,10 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
     }
     
     if payment_method_country_iso:
-        payload["payment_method_country_iso"] = payment_method_country_iso.upper()
+        request_body["payment_method_country_iso"] = payment_method_country_iso.upper()
     
     if country_code:
-        payload["country_code"] = country_code.upper()
+        request_body["country_code"] = country_code.upper()
     
     headers = {
         "Authorization": f"Bearer {token}",
@@ -61,11 +60,11 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "Accept": "application/json"
     }
 
-    logger.info(f"Sending public offer search payload: {json.dumps(payload, indent=2)}")
+    logger.info(f"Sending public offer search payload: {json.dumps(request_body, indent=2)}")
 
     http_client = get_http_client()
     try:
-        response = http_client.post(url, headers=headers, json=payload, timeout=15)
+        response = http_client.post(url, headers=headers, json=request_body, timeout=15)
         
         # --- Save log regardless of API success (for debugging) ---
         try:
@@ -299,29 +298,3 @@ def set_offer_status(turn_on):
         get_response_cache().invalidate("all_offers")
     
     return results
-
-def send_scheduled_task_alert(message):
-    """
-    Sends a simple text alert to Telegram.
-    """
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": escape_markdown(message),
-        "parse_mode": "MarkdownV2"
-    }
-    
-    # Send to the action_required (Important) topic/thread if configured
-    thread_id = TELEGRAM_TOPICS.get("action_required")
-    if thread_id is not None:
-        payload["message_thread_id"] = thread_id
-
-    http_client = get_http_client()
-    try:
-        response = http_client.post(url, json=payload)
-        if response.status_code == 200:
-            logger.info("Scheduled task alert sent successfully.")
-        else:
-            logger.error(f"Failed to send scheduled task alert: {response.text}")
-    except Exception as e:
-        logger.error(f"Exception sending Telegram alert: {e}")

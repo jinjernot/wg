@@ -2,10 +2,11 @@ import json
 import os
 import threading
 import logging
+from config import CHAT_STATE_FILE
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE_PATH = os.path.join("data", "chat_state.json")
+STATE_FILE_PATH = CHAT_STATE_FILE
 _state_lock = threading.Lock()
 
 

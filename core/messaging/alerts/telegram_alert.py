@@ -558,3 +558,28 @@ def send_payment_match_alert(binance_order, banorte_deposit, time_diff_str):
     topic = TELEGRAM_TOPICS.get("binance") or TELEGRAM_TOPICS.get("live_trades")
     _send_text_alert(message, thread_id=topic)
 
+def send_scheduled_task_alert(message):
+    """
+    Sends a simple text alert to Telegram for scheduled tasks.
+    Routes to the action_required topic if configured.
+    """
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": escape_markdown(message),
+        "parse_mode": "MarkdownV2"
+    }
+    
+    # Send to the action_required (Important) topic/thread if configured
+    thread_id = TELEGRAM_TOPICS.get("action_required")
+    if thread_id is not None:
+        payload["message_thread_id"] = thread_id
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            logger.info("Scheduled task alert sent successfully.")
+        else:
+            logger.error(f"Failed to send scheduled task alert: {response.text}")
+    except Exception as e:
+        logger.error(f"Exception sending Telegram alert: {e}")

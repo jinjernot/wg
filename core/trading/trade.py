@@ -3,6 +3,7 @@
 import logging
 import json
 import os
+import atexit
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from config import (
@@ -73,6 +74,7 @@ logger = logging.getLogger(__name__)
 # Shared thread pool for fire-and-forget notification sends (Telegram/Discord).
 # Keeps the main trade-processing loop from blocking on network I/O.
 _notification_executor = ThreadPoolExecutor(max_workers=30, thread_name_prefix="notif")
+atexit.register(_notification_executor.shutdown, wait=True, cancel_futures=False)
 
 
 class Trade:

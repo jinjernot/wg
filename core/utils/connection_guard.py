@@ -16,11 +16,13 @@ _CHECK_TIMEOUT = 5  # seconds per attempt
 def is_internet_available() -> bool:
     """Returns True if we can reach the internet right now."""
     try:
-        socket.setdefaulttimeout(_CHECK_TIMEOUT)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
-            (_CHECK_HOST, _CHECK_PORT)
-        )
-        return True
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(_CHECK_TIMEOUT)
+        try:
+            s.connect((_CHECK_HOST, _CHECK_PORT))
+            return True
+        finally:
+            s.close()
     except OSError:
         return False
 

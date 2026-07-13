@@ -35,22 +35,22 @@ def load_processed_trades(owner_username, platform):
     """Loads all processed trades for a specific user and platform."""
     with _lock:
         file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
-    try:
-        # Check if file exists and is not empty
-        if not os.path.exists(file_path):
-            return {}
-        
-        if os.path.getsize(file_path) == 0:
-            logger.warning(f"Trade file for {owner_username}_{platform} is empty. Returning empty dict.")
-            return {}
+        try:
+            # Check if file exists and is not empty
+            if not os.path.exists(file_path):
+                return {}
             
-        with open(file_path, "r") as file:
-            return json.load(file)
-    except json.JSONDecodeError as e:
-        logger.error(f"Could not parse trades file for {owner_username}_{platform}: {e}")
-        return {}
-    except FileNotFoundError:
-        return {}
+            if os.path.getsize(file_path) == 0:
+                logger.warning(f"Trade file for {owner_username}_{platform} is empty. Returning empty dict.")
+                return {}
+                
+            with open(file_path, "r") as file:
+                return json.load(file)
+        except json.JSONDecodeError as e:
+            logger.error(f"Could not parse trades file for {owner_username}_{platform}: {e}")
+            return {}
+        except FileNotFoundError:
+            return {}
 
 @retry_on_permission_error(max_retries=5)
 def save_processed_trade(trade_data, platform):

@@ -4,19 +4,13 @@ import time
 import os
 import re
 from config import (
-    CHAT_URL_NOONES,
     GET_CHAT_URL_NOONES,
     CHAT_LOG_PATH, ATTACHMENT_PATH
 )
-from core.messaging.alerts.telegram_alert import send_chat_message_alert
-from core.messaging.alerts.discord_alert import create_chat_message_embed
-from core.state.persistent_state import load_last_message_ids, save_last_message_id
 from core.api.auth import fetch_token_with_retry
 from core.utils.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
-
-LAST_MESSAGE_IDS = load_last_message_ids()
 
 def save_chat_log(trade_hash, messages, account_name):
     account_log_path = os.path.join(CHAT_LOG_PATH, account_name)
@@ -31,59 +25,7 @@ def save_chat_log(trade_hash, messages, account_name):
     except Exception as e:
         logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
 
-def get_new_messages(trade_hash, account, headers, max_retries=3):
-    # Use GET endpoint for reading messages
-    chat_url = GET_CHAT_URL_NOONES
-    account_name = account.get("name")
-    data = {"trade_hash": trade_hash}
 
-    for attempt in range(max_retries):
-        try:
-            http_client = get_http_client()
-            response = http_client.post(chat_url, data=data, headers=headers, timeout=20)
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch chat for {trade_hash}: {response.status_code}")
-                if attempt < max_retries -1:
-                    time.sleep(2 ** attempt)
-                    continue
-                else:
-                    return None, None
-
-
-            chat_data = response.json()
-            if chat_data.get("status") != "success":
-                logger.error(f"API returned error fetching chat: {chat_data}")
-                return None, None
-
-            messages = chat_data.get("data", {}).get("messages", [])
-            if not messages:
-                return [], None
-
-            save_chat_log(trade_hash, messages, account_name)
-
-            last_processed_id = LAST_MESSAGE_IDS.get(trade_hash)
-            if last_processed_id is None:
-                return messages, messages[-1].get("id")
-
-            last_index = -1
-            for i, msg in enumerate(messages):
-                if str(msg.get("id")) == str(last_processed_id):
-                    last_index = i
-                    break
-            
-            if last_index != -1:
-                return messages[last_index + 1:], messages[-1].get("id")
-            else:
-                logger.warning(f"Last processed message ID {last_processed_id} not found for trade {trade_hash}. Not processing chat.")
-                return [], None
-        
-        except Exception as e:
-            logger.error(f"Request failed for {trade_hash}: {e}")
-        
-        if attempt < max_retries - 1:
-            time.sleep(2 ** attempt)
-
-    return None, None
 
 
 def download_attachment(image_url_path, image_api_url, trade_hash, headers):

@@ -1,7 +1,4 @@
 import logging
-import json
-import os
-from datetime import datetime
 from core.api.auth import fetch_token_with_retry
 from config import PLATFORM_ACCOUNTS
 from core.utils.http_client import get_http_client
@@ -9,9 +6,6 @@ from core.utils.response_cache import get_response_cache
 
 
 logger = logging.getLogger(__name__)
-
-API_LOG_PATH = os.path.join('data', 'logs', 'api_logs')
-os.makedirs(API_LOG_PATH, exist_ok=True)
 
 def _log_api_response(account_name, response):
     """Logs the raw API response status for debugging (no disk writes)."""

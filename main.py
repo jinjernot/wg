@@ -8,10 +8,10 @@ import signal
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trading.processor import process_trades, get_thread_heartbeats
 from config import PLATFORM_ACCOUNTS, TRADES_STORAGE_DIR
-from core.api.offers import set_offer_status, send_scheduled_task_alert
+from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
 from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
-from core.messaging.alerts.telegram_alert import send_bot_online_alert, send_bot_offline_alert
+from core.messaging.alerts.telegram_alert import send_scheduled_task_alert, send_bot_online_alert, send_bot_offline_alert
 from core.utils.connection_guard import wait_for_internet
 from core.utils.startup_checks import validate_config
 from core.binance.email_monitor import check_binance_emails
@@ -99,7 +99,7 @@ def turn_off_offers_job():
 def check_disk_space_job():
     """Alerts via Telegram if free disk space drops below _DISK_WARN_MB."""
     try:
-        usage = shutil.disk_usage("/")
+        usage = shutil.disk_usage(".")
         free_mb = usage.free / (1024 * 1024)
         if free_mb < _DISK_WARN_MB:
             msg = (
@@ -253,6 +253,7 @@ if __name__ == "__main__":
 
     while True:
         try:
+            backoff = _RESTART_BACKOFF_INITIAL  # Reset backoff on each fresh start
             main()
             # main() returned cleanly (only happens on clean KeyboardInterrupt re-raise)
             logger.info("Trading bot exited cleanly.")

@@ -1,7 +1,6 @@
 import time
 import threading
 import logging
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 

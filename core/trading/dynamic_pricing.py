@@ -57,6 +57,59 @@ def load_settings():
             logger.error(f"Error loading dynamic pricing settings: {e}")
     return default_settings
 
+def filter_competitors(public_offers, min_competitor_max_limit, min_competitor_positive_feedback, min_competitor_feedback_ratio):
+    """
+    Filter competitor offers out based on limit, status, seen timeframe, and feedback.
+    """
+    competitors = []
+    now_ts = time.time()
+    for o in public_offers:
+        username = o.get("offer_owner_username")
+        if username in BOT_OWNER_USERNAMES:
+            continue
+            
+        # Exclude micro-offers that don't match our tier
+        max_limit_val = o.get("fiat_amount_range_max")
+        max_limit = float(max_limit_val) if max_limit_val is not None else 0.0
+        if max_limit < min_competitor_max_limit:
+            continue
+            
+        # 1. Ignore inactive/offline competitors (not active in last 30 minutes)
+        last_seen_ts = o.get("last_seen_timestamp")
+        last_seen_status = o.get("last_seen")
+        if last_seen_ts:
+            try:
+                seconds_offline = now_ts - float(last_seen_ts)
+                if seconds_offline > 1800:  # 30 minutes
+                    continue
+            except (ValueError, TypeError):
+                if last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+                    continue
+        elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
+            continue
+            
+        # 3. Filter out low-reputation / price-baiting competitors
+        try:
+            pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
+            neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
+        except (ValueError, TypeError):
+            pos_feedback = 0
+            neg_feedback = 0
+        
+        # Check minimum positive feedback count
+        if pos_feedback < min_competitor_positive_feedback:
+            continue
+            
+        # Check feedback ratio (e.g. at least 90% positive)
+        total_feedback = pos_feedback + neg_feedback
+        if total_feedback > 0:
+            ratio = pos_feedback / total_feedback
+            if ratio < min_competitor_feedback_ratio:
+                continue
+            
+        competitors.append(o)
+    return competitors
+
 def update_dynamic_pricing_job():
     """
     Background job that scans the competition for all active offers
@@ -136,53 +189,12 @@ def update_dynamic_pricing_job():
                 continue
                 
             # Filter out own offers, low limits, inactive, and low-reputation competitors
-            competitors = []
-            now_ts = time.time()
-            for o in public_offers:
-                username = o.get("offer_owner_username")
-                if username in BOT_OWNER_USERNAMES:
-                    continue
-                    
-                # Exclude micro-offers that don't match our tier
-                max_limit_val = o.get("fiat_amount_range_max")
-                max_limit = float(max_limit_val) if max_limit_val is not None else 0.0
-                if max_limit < min_competitor_max_limit:
-                    continue
-                    
-                # 1. Ignore inactive/offline competitors (not active in last 30 minutes)
-                last_seen_ts = o.get("last_seen_timestamp")
-                last_seen_status = o.get("last_seen")
-                if last_seen_ts:
-                    try:
-                        seconds_offline = now_ts - float(last_seen_ts)
-                        if seconds_offline > 1800:  # 30 minutes
-                            continue
-                    except (ValueError, TypeError):
-                        if last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
-                            continue
-                elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
-                    continue
-                    
-                # 3. Filter out low-reputation / price-baiting competitors
-                try:
-                    pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
-                    neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
-                except (ValueError, TypeError):
-                    pos_feedback = 0
-                    neg_feedback = 0
-                
-                # Check minimum positive feedback count
-                if pos_feedback < min_competitor_positive_feedback:
-                    continue
-                    
-                # Check feedback ratio (e.g. at least 90% positive)
-                total_feedback = pos_feedback + neg_feedback
-                if total_feedback > 0:
-                    ratio = pos_feedback / total_feedback
-                    if ratio < min_competitor_feedback_ratio:
-                        continue
-                    
-                competitors.append(o)
+            competitors = filter_competitors(
+                public_offers,
+                min_competitor_max_limit,
+                min_competitor_positive_feedback,
+                min_competitor_feedback_ratio
+            )
                 
             # 3. Find the closest competitor margin that we can outbid
             # Filter competitors to only those at or above our min safety margin
@@ -345,55 +357,12 @@ def send_market_status_report():
                 owner_rank = idx + 1
                 break
                 
-        # Find competitor closest margin (at or above min_margin)
-        def get_max_limit_val(o):
-            val = o.get("fiat_amount_range_max")
-            return float(val) if val is not None else 0.0
-            
-        competitors = []
-        now_ts = time.time()
-        for o in public_offers:
-            username = o.get("offer_owner_username")
-            if username in BOT_OWNER_USERNAMES:
-                continue
-                
-            if get_max_limit_val(o) < min_competitor_max_limit:
-                continue
-                
-            # 1. Ignore inactive/offline competitors (not active in last 30 minutes)
-            last_seen_ts = o.get("last_seen_timestamp")
-            last_seen_status = o.get("last_seen")
-            if last_seen_ts:
-                try:
-                    seconds_offline = now_ts - float(last_seen_ts)
-                    if seconds_offline > 1800:  # 30 minutes
-                        continue
-                except (ValueError, TypeError):
-                    if last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
-                        continue
-            elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
-                continue
-                
-            # 3. Filter out low-reputation / price-baiting competitors
-            try:
-                pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
-                neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
-            except (ValueError, TypeError):
-                pos_feedback = 0
-                neg_feedback = 0
-                
-            # Check minimum positive feedback count
-            if pos_feedback < min_competitor_positive_feedback:
-                continue
-                
-            # Check feedback ratio (e.g. at least 90% positive)
-            total_feedback = pos_feedback + neg_feedback
-            if total_feedback > 0:
-                ratio = pos_feedback / total_feedback
-                if ratio < min_competitor_feedback_ratio:
-                    continue
-                
-            competitors.append(o)
+        competitors = filter_competitors(
+            public_offers,
+            min_competitor_max_limit,
+            min_competitor_positive_feedback,
+            min_competitor_feedback_ratio
+        )
         
         # Look up min_margin for this offer
         crypto_rules = rules.get(crypto, {})

@@ -5,7 +5,7 @@ from core.api.auth import fetch_token_with_retry
 from core.api.trade_list import get_trade_list
 from core.trading.trade import Trade
 from core.utils.adaptive_polling import AdaptivePoller
-from core.api.offers import send_scheduled_task_alert
+from core.messaging.alerts.telegram_alert import send_scheduled_task_alert
 
 logger = logging.getLogger(__name__)
 
