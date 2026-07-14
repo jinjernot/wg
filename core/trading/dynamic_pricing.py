@@ -248,7 +248,9 @@ def update_dynamic_pricing_job():
             # 4. Update offer if there is a meaningful change
             if abs(target_margin - current_margin) >= 0.05:
                 logger.warning(f"[DynamicPricing] Updating offer {offer_hash} margin from {current_margin}% to {target_margin}% because: {reason_msg}")
-                
+
+                # Brief cooldown between offer updates to avoid hitting Noones rate limits.
+                time.sleep(5)
                 res = update_offer_margin(account_name, offer_hash, target_margin)
                 if res.get("success"):
                     logger.info(f"[DynamicPricing] Successfully updated offer {offer_hash} to {target_margin}%.")

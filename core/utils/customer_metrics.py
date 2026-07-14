@@ -9,6 +9,66 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 
+def _load_all_customer_trades() -> dict:
+    """
+    Shared helper: reads every trade JSON file in TRADES_STORAGE_DIR and
+    returns a dict keyed by lowercase buyer username mapping to a list of
+    trade-info dicts (date, platform, owner, status, volume, trade_hash).
+
+    Raises no exceptions — files that cannot be parsed are skipped with a
+    warning so callers always get a (possibly empty) dict.
+    """
+    customer_trades = defaultdict(list)
+
+    if not os.path.exists(TRADES_STORAGE_DIR):
+        logger.warning(f"Trade storage directory not found at: {TRADES_STORAGE_DIR}")
+        return customer_trades
+
+    for filename in os.listdir(TRADES_STORAGE_DIR):
+        if not filename.endswith(".json"):
+            continue
+
+        try:
+            file_owner, file_platform = filename.replace(".json", "").split("_")
+        except ValueError:
+            continue
+
+        filepath = os.path.join(TRADES_STORAGE_DIR, filename)
+
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                trades = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON in {filename}: {e}")
+            continue
+
+        for trade_hash, trade in trades.items():
+            buyer_username = trade.get("responder_username", "").strip()
+            if not buyer_username:
+                continue
+
+            trade_date_str = trade.get("first_seen_utc")
+            if not trade_date_str:
+                continue
+
+            try:
+                trade_date = parser.isoparse(trade_date_str)
+            except (ValueError, TypeError):
+                continue
+
+            customer_trades[buyer_username.lower()].append({
+                "trade_hash": trade_hash,
+                "date": trade_date,
+                "date_str": trade_date_str,
+                "platform": file_platform,
+                "owner": file_owner,
+                "status": trade.get("trade_status"),
+                "volume": float(trade.get("fiat_amount_requested", 0))
+            })
+
+    return customer_trades
+
+
 def get_new_customers_this_month():
     """
     Identifies new customers for the current month.
@@ -29,62 +89,18 @@ def get_new_customers_this_month():
     current_month_str = f"{current_year}-{current_month:02d}"
     
     # Track all trades per customer globally
-    customer_trades = defaultdict(list)  # {username: [trade_data, ...]}
-    
+    customer_trades = _load_all_customer_trades()
+
+    if not customer_trades:
+        return {
+            "count": 0,
+            "customers": [],
+            "month": current_month_str,
+            "total_volume": 0.0,
+            "platforms": {}
+        }
+
     try:
-        if not os.path.exists(TRADES_STORAGE_DIR):
-            logger.warning(f"Trade storage directory not found at: {TRADES_STORAGE_DIR}")
-            return {
-                "count": 0,
-                "customers": [],
-                "month": current_month_str,
-                "total_volume": 0.0,
-                "platforms": {}
-            }
-        
-        # First pass: collect ALL trades for ALL customers across all files
-        for filename in os.listdir(TRADES_STORAGE_DIR):
-            if not filename.endswith(".json"):
-                continue
-            
-            try:
-                file_owner, file_platform = filename.replace(".json", "").split("_")
-            except ValueError:
-                continue
-            
-            filepath = os.path.join(TRADES_STORAGE_DIR, filename)
-            
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    trades = json.load(f)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON in {filename}: {e}")
-                continue
-            
-            for trade_hash, trade in trades.items():
-                buyer_username = trade.get("responder_username", "").strip()
-                if not buyer_username:
-                    continue
-                
-                trade_date_str = trade.get("first_seen_utc")
-                if not trade_date_str:
-                    continue
-                
-                try:
-                    trade_date = parser.isoparse(trade_date_str)
-                except (ValueError, TypeError):
-                    continue
-                
-                # Store trade info for this customer
-                customer_trades[buyer_username.lower()].append({
-                    "trade_hash": trade_hash,
-                    "date": trade_date,
-                    "date_str": trade_date_str,
-                    "platform": file_platform,
-                    "owner": file_owner,
-                    "status": trade.get("trade_status"),
-                    "volume": float(trade.get("fiat_amount_requested", 0))
-                })
         
         # Second pass: identify new customers (first trade in current month)
         new_customers = []
@@ -167,51 +183,12 @@ def get_customer_growth_metrics(months_back=6):
     now = datetime.now(timezone.utc)
     
     # Track all trades per customer globally
-    customer_trades = defaultdict(list)
-    
+    customer_trades = _load_all_customer_trades()
+
+    if not customer_trades:
+        return {"monthly_data": []}
+
     try:
-        if not os.path.exists(TRADES_STORAGE_DIR):
-            logger.warning(f"Trade storage directory not found at: {TRADES_STORAGE_DIR}")
-            return {"monthly_data": []}
-        
-        # Collect ALL trades for ALL customers
-        for filename in os.listdir(TRADES_STORAGE_DIR):
-            if not filename.endswith(".json"):
-                continue
-            
-            try:
-                file_owner, file_platform = filename.replace(".json", "").split("_")
-            except ValueError:
-                continue
-            
-            filepath = os.path.join(TRADES_STORAGE_DIR, filename)
-            
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    trades = json.load(f)
-            except json.JSONDecodeError:
-                continue
-            
-            for trade_hash, trade in trades.items():
-                buyer_username = trade.get("responder_username", "").strip()
-                if not buyer_username:
-                    continue
-                
-                trade_date_str = trade.get("first_seen_utc")
-                if not trade_date_str:
-                    continue
-                
-                try:
-                    trade_date = parser.isoparse(trade_date_str)
-                except (ValueError, TypeError):
-                    continue
-                
-                customer_trades[buyer_username.lower()].append({
-                    "date": trade_date,
-                    "platform": file_platform,
-                    "volume": float(trade.get("fiat_amount_requested", 0)),
-                    "status": trade.get("trade_status")
-                })
         
         # Count new customers per month
         monthly_data = defaultdict(lambda: {"count": 0, "customers": []})

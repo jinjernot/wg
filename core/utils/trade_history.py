@@ -19,7 +19,8 @@ from core.api.auth import fetch_token_with_retry
 from config import PLATFORM_ACCOUNTS, TRADE_COMPLETED_URL_NOONES, TRADE_HISTORY_DIR
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.basicConfig(level=logging.DEBUG)
+# NOTE: do NOT call logging.basicConfig here — the root logger is already
+# configured by core.utils.log_config.setup_logging() at startup.
 
 matplotlib.use('Agg')
 
@@ -126,7 +127,7 @@ def normalize_trade(trade, account_name):
 
 def save_raw_json_response(account, raw_data):
     os.makedirs(TRADE_HISTORY_DIR, exist_ok=True)
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     fname = f"{account['name'].lower()}_raw_trades_{date_str}.json"
     path = os.path.join(TRADE_HISTORY_DIR, fname)
     with open(path, "w", encoding="utf-8") as f:
