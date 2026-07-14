@@ -11,8 +11,26 @@ logger = logging.getLogger(__name__)
 
 SETTINGS_FILE = os.path.join(BASE_DIR, "data", "config", "dynamic_pricing_settings.json")
 
+# Simple TTL cache for load_settings() — the file rarely changes, so there
+# is no reason to re-read it from disk on every scheduler tick.
+_settings_cache = {"data": None, "expires_at": 0.0}
+_SETTINGS_CACHE_TTL = 60  # seconds
+
+
+def _parse_margin(offer, default: float = 999.0) -> float:
+    """Return the float margin of an offer, or `default` if missing/invalid."""
+    val = offer.get("margin")
+    try:
+        return float(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
 def load_settings():
-    """Loads dynamic pricing settings from JSON file."""
+    """Loads dynamic pricing settings from JSON file (cached for 60 s)."""
+    now = time.time()
+    if _settings_cache["data"] is not None and now < _settings_cache["expires_at"]:
+        return _settings_cache["data"]
+
     default_settings = {
         "enabled": True,
         "min_competitor_max_limit": 5000.0,
@@ -52,9 +70,13 @@ def load_settings():
                 for k, v in default_settings.items():
                     if k not in data:
                         data[k] = v
+                _settings_cache["data"] = data
+                _settings_cache["expires_at"] = time.time() + _SETTINGS_CACHE_TTL
                 return data
         except Exception as e:
             logger.error(f"Error loading dynamic pricing settings: {e}")
+    _settings_cache["data"] = default_settings
+    _settings_cache["expires_at"] = time.time() + _SETTINGS_CACHE_TTL
     return default_settings
 
 def filter_competitors(public_offers, min_competitor_max_limit, min_competitor_positive_feedback, min_competitor_feedback_ratio):
@@ -88,7 +110,7 @@ def filter_competitors(public_offers, min_competitor_max_limit, min_competitor_p
         elif last_seen_status and last_seen_status not in ["seen-very-recently", "seen-recently"]:
             continue
             
-        # 3. Filter out low-reputation / price-baiting competitors
+        # 2. Filter out low-reputation / price-baiting competitors
         try:
             pos_feedback = int(o.get("offer_owner_feedback_positive") or 0)
             neg_feedback = int(o.get("offer_owner_feedback_negative") or 0)
@@ -198,11 +220,7 @@ def update_dynamic_pricing_job():
                 
             # 3. Find the closest competitor margin that we can outbid
             # Filter competitors to only those at or above our min safety margin
-            def get_comp_margin(x):
-                val = x.get("margin")
-                return float(val) if val is not None else 999.0
-
-            valid_competitors = [c for c in competitors if get_comp_margin(c) >= min_margin]
+            valid_competitors = [c for c in competitors if _parse_margin(c) >= min_margin]
 
             if not competitors:
                 logger.info(f"[DynamicPricing] No competitors found in our weight class (max_limit >= {min_competitor_max_limit}). Resetting to max margin.")
@@ -214,7 +232,7 @@ def update_dynamic_pricing_job():
                 reason_msg = f"All competitors are below Min Safety Margin \\({escape_markdown(str(min_margin))}%\\)\\. Capped at safety floor\\."
             else:
                 # Find the closest competitor (the lowest among those above min_margin)
-                lowest_comp = min(valid_competitors, key=get_comp_margin)
+                lowest_comp = min(valid_competitors, key=_parse_margin)
                 comp_username = lowest_comp.get("offer_owner_username")
                 
                 comp_margin_val = lowest_comp.get("margin")
@@ -371,15 +389,11 @@ def send_market_status_report():
         rule = crypto_rules.get(payment_method, {})
         min_margin = float(rule.get("min_margin", 11.0))
         
-        def get_comp_margin_val(x):
-            val = x.get("margin")
-            return float(val) if val is not None else 999.0
-            
-        valid_competitors = [c for c in competitors if get_comp_margin_val(c) >= min_margin]
+        valid_competitors = [c for c in competitors if _parse_margin(c) >= min_margin]
 
         closest_comp_margin_str = "None"
         if valid_competitors:
-            closest_comp = min(valid_competitors, key=get_comp_margin_val)
+            closest_comp = min(valid_competitors, key=_parse_margin)
             
             comp_price_val = closest_comp.get("fiat_price_per_crypto")
             comp_price = float(comp_price_val) if comp_price_val is not None else 0.0

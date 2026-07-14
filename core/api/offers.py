@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-from config import PLATFORM_ACCOUNTS
+from config import PLATFORM_ACCOUNTS, BASE_URL_NOONES
 from core.utils.http_client import get_http_client
 from core.utils.response_cache import get_response_cache
 
@@ -36,7 +36,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         logger.error(f"Could not authenticate for {auth_account['name']} to search public offers.")
         return None
 
-    url = "https://api.noones.com/noones/v1/offer/all"
+    url = f"{BASE_URL_NOONES}/v1/offer/all"
     
     request_body = {
         "crypto_currency_code": crypto_code.upper(),
@@ -149,7 +149,7 @@ def get_all_offers():
             "Content-Type": "application/x-www-form-urlencoded"
         }
 
-        url = "https://api.noones.com/noones/v1/offer/list"
+        url = f"{BASE_URL_NOONES}/v1/offer/list"
         
         try:
             response = http_client.post(url, headers=headers, timeout=15)
@@ -237,7 +237,7 @@ def update_offer_margin(account_name: str, offer_hash: str, margin: float):
         "Content-Type": "application/x-www-form-urlencoded"
     }
     
-    url = "https://api.noones.com/noones/v1/offer/update"
+    url = f"{BASE_URL_NOONES}/v1/offer/update"
     data = {
         "offer_hash": offer_hash,
         "margin": margin
@@ -277,7 +277,7 @@ def set_offer_status(turn_on):
         }
         
         endpoint = "/offer/turn-on" if turn_on else "/offer/turn-off"
-        url = f"https://api.noones.com/noones/v1{endpoint}"
+        url = f"{BASE_URL_NOONES}/v1{endpoint}"
 
         try:
             response = http_client.post(url, headers=headers)

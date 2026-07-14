@@ -7,7 +7,7 @@ import atexit
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from config import (
-    CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY,
+    CHAT_URL_NOONES, PAYMENT_REMINDER_DELAY, ATTACHMENT_WAIT_SECONDS,
     PAYMENT_ACCOUNTS_PATH, IMAGE_API_URL_NOONES,
     ONLINE_QUERY_KEYWORDS, BOT_OWNER_USERNAMES, BANK_TRANSFER_SLUGS,
     AUTO_MESSAGE_LIMIT
@@ -397,7 +397,7 @@ class Trade:
         if self.trade_state.get("trade_status") == 'Paid' and not self.trade_state.get('no_attachment_reminder_sent'):
             paid_timestamp = self.trade_state.get('paid_timestamp')
             if paid_timestamp:
-                if (datetime.now(timezone.utc).timestamp() - paid_timestamp) > 120:
+                if (datetime.now(timezone.utc).timestamp() - paid_timestamp) > ATTACHMENT_WAIT_SECONDS:
                     all_messages = self._get_chat_messages()
                     has_attachment = any(msg.get("type") == "trade_attach_uploaded" for msg in (all_messages or []))
 
@@ -611,8 +611,9 @@ class Trade:
                 # Mark alerts as sent for this attachment
                 processed_attachments[url]['alerts_sent'] = True
                 logger.debug(f"Marked attachment {url} as alerts_sent=True")
-                
-            self.save()
+
+        # Save once after processing all attachments, not on every iteration
+        self.save()
     
     def check_for_inactivity(self):
         """Sends a payment reminder if the trade has been inactive for too long."""

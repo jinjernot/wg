@@ -8,6 +8,7 @@ import csv
 import os
 
 from datetime import datetime, timezone, timedelta
+from calendar import monthrange
 from dateutil.parser import isoparse
 from threading import Lock
 
@@ -23,6 +24,46 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 # configured by core.utils.log_config.setup_logging() at startup.
 
 matplotlib.use('Agg')
+
+
+def _get_two_months_to_process():
+    """
+    Returns a list of two month-range dicts for the current month and the
+    previous month, each containing:
+        'name'         – filename-safe string e.g. 'July_2026'
+        'display_name' – human-readable string e.g. 'July 2026'
+        'start'        – datetime (UTC) at midnight of the 1st
+        'end'          – datetime (UTC) at the last second of the month
+                          (or now() for the current month)
+    """
+    now = datetime.now(timezone.utc)
+
+    # Current month: start of month → right now
+    current_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    months = [
+        {
+            'name': now.strftime('%B_%Y'),
+            'display_name': now.strftime('%B %Y'),
+            'start': current_start,
+            'end': now,
+        }
+    ]
+
+    # Previous month: start → 23:59:59 of last day
+    prev_month = now.month - 1 or 12
+    prev_year = now.year if now.month > 1 else now.year - 1
+    prev_start = datetime(prev_year, prev_month, 1, tzinfo=timezone.utc)
+    last_day = monthrange(prev_year, prev_month)[1]
+    prev_end = datetime(prev_year, prev_month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    months.append(
+        {
+            'name': prev_start.strftime('%B_%Y'),
+            'display_name': prev_start.strftime('%B %Y'),
+            'start': prev_start,
+            'end': prev_end,
+        }
+    )
+    return months
 
 ALL_TRADES = []
 LOCK = Lock()
@@ -356,47 +397,11 @@ def plot_trades_per_time_of_day(all_trades, output_path):
 
 def plot_client_profitability(trades, output_dir):
     """Generate bar charts showing top 10 most profitable clients by volume for current and previous month."""
-    from datetime import timezone as tz
-    from dateutil.parser import isoparse
-    from calendar import monthrange
-    import matplotlib.pyplot as plt
-    
     if not trades:
         return
-    
-    now = datetime.now(tz.utc)
-    
-    # Define months to process
-    months_to_process = []
-    
-    # Current month
-    current_month_start = datetime(now.year, now.month, 1, tzinfo=tz.utc)
-    months_to_process.append({
-        'name': now.strftime('%B_%Y'),
-        'display_name': now.strftime('%B %Y'),
-        'start': current_month_start,
-        'end': now
-    })
-    
-    # Previous month
-    if now.month == 1:
-        prev_month = 12
-        prev_year = now.year - 1
-    else:
-        prev_month = now.month - 1
-        prev_year = now.year
-    
-    prev_month_start = datetime(prev_year, prev_month, 1, tzinfo=tz.utc)
-    last_day = monthrange(prev_year, prev_month)[1]
-    prev_month_end = datetime(prev_year, prev_month, last_day, 23, 59, 59, tzinfo=tz.utc)
-    
-    months_to_process.append({
-        'name': prev_month_start.strftime('%B_%Y'),
-        'display_name': prev_month_start.strftime('%B %Y'),
-        'start': prev_month_start,
-        'end': prev_month_end
-    })
-    
+
+    months_to_process = _get_two_months_to_process()
+
     # Generate chart for each month
     for month_info in months_to_process:
         month_name = month_info['name']
@@ -479,45 +484,12 @@ def plot_client_profitability(trades, output_dir):
 
 def generate_client_profitability_csv(trades, output_dir):
     """Generate client profitability CSVs for current month and previous month."""
-    from datetime import timezone as tz
-    from dateutil.parser import isoparse
-    from calendar import monthrange
-    
     if not trades:
         logging.info("No trades data for client profitability report.")
         return
-    
-    now = datetime.now(tz.utc)
-    
-    # Generate for last 2 months
-    months_to_process = []
-    
-    # Current month
-    current_month_start = datetime(now.year, now.month, 1, tzinfo=tz.utc)
-    months_to_process.append({
-        'name': now.strftime('%B_%Y'),
-        'start': current_month_start,
-        'end': now  # Up to now
-    })
-    
-    # Previous month
-    if now.month == 1:
-        prev_month = 12
-        prev_year = now.year - 1
-    else:
-        prev_month = now.month - 1
-        prev_year = now.year
-    
-    prev_month_start = datetime(prev_year, prev_month, 1, tzinfo=tz.utc)
-    last_day = monthrange(prev_year, prev_month)[1]
-    prev_month_end = datetime(prev_year, prev_month, last_day, 23, 59, 59, tzinfo=tz.utc)
-    
-    months_to_process.append({
-        'name': prev_month_start.strftime('%B_%Y'),
-        'start': prev_month_start,
-        'end': prev_month_end
-    })
-    
+
+    months_to_process = _get_two_months_to_process()
+
     # Process each month
     for month_info in months_to_process:
         month_name = month_info['name']

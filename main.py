@@ -7,7 +7,7 @@ import shutil
 import signal
 from apscheduler.schedulers.background import BackgroundScheduler
 from core.trading.processor import process_trades, get_thread_heartbeats
-from config import PLATFORM_ACCOUNTS, TRADES_STORAGE_DIR
+from config import PLATFORM_ACCOUNTS
 from core.api.offers import set_offer_status
 from core.utils.log_config import setup_logging
 from core.messaging.alerts.low_balance_alert import check_wallet_balances_and_alert
@@ -117,12 +117,6 @@ def check_disk_space_job():
 
 
 def main():
-
-    if not os.path.exists(TRADES_STORAGE_DIR):
-        logger.info(
-            f"Creating trade storage directory at: {TRADES_STORAGE_DIR}")
-        os.makedirs(TRADES_STORAGE_DIR)
-
     try:
         send_bot_online_alert()
     except Exception as e:
