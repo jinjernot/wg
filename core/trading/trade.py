@@ -420,14 +420,25 @@ class Trade:
         status = str(self.trade_state.get("status")).lower()
         
         if trade_status in ['released', 'successful'] or status == 'successful':
+            # Set the flag and save BEFORE sending — this prevents a concurrent
+            # poll cycle (background thread pool) from seeing the flag as False
+            # and firing a second completion message before the first save() lands.
             logger.info(f"Trade {self.trade_hash} is completed. Sending completion message.")
-            send_trade_completion_message(self.trade_hash, self.account, self.headers)
             self.trade_state['completion_message_sent'] = True
             self.save()
+            send_trade_completion_message(self.trade_hash, self.account, self.headers)
 
     def handle_paid_status(self):
         """Handles the logic when a trade is marked as paid."""
         logger.debug(f"--- Handling 'Paid' status for {self.trade_hash} ---")
+
+        # Stamp paid_timestamp and save BEFORE sending the payment-received
+        # message. This prevents a concurrent background thread from also
+        # entering handle_paid_status (via check_status_change) and firing
+        # a duplicate receipt-request message.
+        if 'paid_timestamp' not in self.trade_state:
+            self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
+            self.save()
 
         # Check if buyer already uploaded a receipt before we ask for one
         all_messages = self._get_chat_messages()
@@ -442,12 +453,9 @@ class Trade:
             if not self.trade_state.get('auto_responses_disabled'):
                 send_payment_received_message(self.trade_hash, self.account, self.headers)
 
-        if 'paid_timestamp' not in self.trade_state:
-            self.trade_state['paid_timestamp'] = datetime.now(timezone.utc).timestamp()
-
-            # IMMEDIATE EMAIL CHECK when marked as Paid  # EMAIL MODULE DISABLED
-            # logger.info(f"Trade {self.trade_hash} marked as Paid. Triggering immediate email check.")
-            # self.check_for_email_confirmation()
+        # IMMEDIATE EMAIL CHECK when marked as Paid  # EMAIL MODULE DISABLED
+        # logger.info(f"Trade {self.trade_hash} marked as Paid. Triggering immediate email check.")
+        # self.check_for_email_confirmation()
 
     def check_for_paid_without_attachment(self):
         """If a trade is paid, and some time has passed, check for an attachment and send a reminder if needed."""
@@ -703,5 +711,9 @@ class Trade:
         if reference_time and (datetime.now(timezone.utc) - reference_time).total_seconds() > PAYMENT_REMINDER_DELAY:
             logger.info(
                 f"Sending payment reminder for trade {self.trade_hash} due to inactivity.")
-            self.send_interactive_auto_message(send_payment_reminder_message, self.trade_hash, self.account, self.headers)
+            # Set the flag and save BEFORE sending — prevents a concurrent
+            # background thread from also passing this guard and double-sending
+            # the reminder on the same trade.
             self.trade_state['reminder_sent'] = True
+            self.save()
+            self.send_interactive_auto_message(send_payment_reminder_message, self.trade_hash, self.account, self.headers)
