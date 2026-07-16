@@ -2,7 +2,8 @@ import certifi
 import logging
 import json
 import time
-import os 
+import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from config import (
     TRADE_LIST_URL_NOONES,
@@ -38,22 +39,24 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                 trades_data = response.json()
                 filename = f"{account['name'].replace(' ', '_')}_trades.json"
                 filepath = os.path.join(TRADES_ACTIVE_DIR, filename)
-                temp_filepath = filepath + ".tmp"
+                # Use a uuid-based suffix to prevent cross-thread .tmp collisions
+                # when two threads write for the same account simultaneously.
+                temp_filepath = filepath + f".{uuid.uuid4().hex}.tmp"
                 try:
                     with open(temp_filepath, "w", encoding="utf-8") as json_file:
                         json.dump(trades_data, json_file, indent=4)
                     success = False
                     last_err = None
-                    for attempt in range(5):
+                    for replace_attempt in range(5):
                         try:
                             os.replace(temp_filepath, filepath)
                             success = True
                             break
                         except PermissionError as e:
                             last_err = e
-                            delay = 0.1 * (2 ** attempt)
+                            delay = 0.1 * (2 ** replace_attempt)
                             time.sleep(delay)
-                    
+
                     if not success:
                         try:
                             if os.path.exists(filepath):
@@ -62,7 +65,8 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                         except Exception as e:
                             raise last_err or e
                 except Exception as e:
-                    logger.error(f"Failed to write trades file atomically for {account['name']}: {e}")
+                    logger.warning(f"Could not write trades snapshot for {account['name']}: {e}")
+                finally:
                     if os.path.exists(temp_filepath):
                         try:
                             os.remove(temp_filepath)
@@ -116,9 +120,10 @@ def get_trade_list(account, headers, limit=10, page=1, max_retries=3, include_co
                                                         completed_at = completed_at.replace(tzinfo=timezone.utc)
                                                         
                                                     if completed_at > five_minutes_ago:
-                                                        # /v1/trade/completed API omits owner_username, inject it directly
+                                                        # /v1/trade/completed API omits owner_username, inject it from
+                                                        # the explicit field in PLATFORM_ACCOUNTS (not parsed from name).
                                                         if "owner_username" not in trade:
-                                                            trade["owner_username"] = account["name"].split("_")[0]
+                                                            trade["owner_username"] = account.get("owner_username", account["name"])
                                                             
                                                         recently_completed.append(trade)
                                                         logger.info(f"Found recently completed trade: {trade.get('trade_hash')} at {completed_at_str}")

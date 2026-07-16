@@ -63,18 +63,26 @@ class AdaptivePoller:
     def get_interval(self):
         """
         Get the current polling interval, adjusted for time of day.
-        
+
         Returns:
             Interval in seconds to wait before next poll
         """
         # Check if we're in off-hours (2 AM - 7 AM Mexico City time)
         current_hour = datetime.now(self._tz).hour
-        
+
         if self.off_hours_start <= current_hour < self.off_hours_end:
             if self.current_interval != self.off_hours_interval:
                 logger.info(f"Off-hours detected ({current_hour}:00 MX), using {self.off_hours_interval}s interval")
             return self.off_hours_interval
-        
+
+        # If we just exited off-hours and had accumulated many empty polls,
+        # reset the counter so we don't immediately drop back to quiet_interval
+        # on the first empty poll of the new day.
+        if self.consecutive_empty_polls > 0 and self.current_interval == self.off_hours_interval:
+            logger.info("Exiting off-hours — resetting consecutive empty poll counter.")
+            self.consecutive_empty_polls = 0
+            self.current_interval = self.base_interval
+
         return self.current_interval
     
     def get_stats(self):

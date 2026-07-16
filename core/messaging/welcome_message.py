@@ -51,8 +51,15 @@ def send_welcome_message(trade, account, headers, max_retries=3):
         afk_mode_is_active = is_afk_mode_enabled() # Check AFK mode
         logger.debug(f"Night mode active: {night_mode_is_active}, AFK mode active: {afk_mode_is_active}")
 
-        # Map owner configuration, default to davidvs
-        owner_config = OWNERS_CONFIG.get(owner_username, OWNERS_CONFIG["davidvs"])
+        # Map owner configuration — fail loudly if unknown rather than silently
+        # sending the wrong payment details under davidvs's config.
+        owner_config = OWNERS_CONFIG.get(owner_username)
+        if owner_config is None:
+            logger.warning(
+                f"Unknown owner_username '{owner_username}' — no welcome config found. "
+                f"Skipping welcome message for {trade_hash}."
+            )
+            return False
 
         # Select the appropriate message dictionary
         if afk_mode_is_active:
@@ -67,12 +74,13 @@ def send_welcome_message(trade, account, headers, max_retries=3):
 
         chat_url = CHAT_URL_NOONES
 
-        # Prepare the message body
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        # Build a local copy so we don't mutate the caller's shared dict.
+        # self.headers is used concurrently by other operations on the same trade.
+        local_headers = {**headers, "Content-Type": "application/x-www-form-urlencoded"}
         body = {"trade_hash": trade_hash, "message": message}
 
         # Send the message
-        if send_message_with_retry(chat_url, body, headers, max_retries):
+        if send_message_with_retry(chat_url, body, local_headers, max_retries):
             logger.info(f"Welcome message sent for trade {trade_hash} ({account['name']})")
             return True
         else:

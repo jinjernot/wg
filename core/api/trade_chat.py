@@ -1,31 +1,15 @@
-import json
 import logging
 import time
 import os
 import re
 from config import (
     GET_CHAT_URL_NOONES,
-    CHAT_LOG_PATH, ATTACHMENT_PATH
+    ATTACHMENT_PATH
 )
 from core.api.auth import fetch_token_with_retry
 from core.utils.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
-
-def save_chat_log(trade_hash, messages, account_name):
-    account_log_path = os.path.join(CHAT_LOG_PATH, account_name)
-    os.makedirs(account_log_path, exist_ok=True)
-    log_file_path = os.path.join(account_log_path, f"{trade_hash}_chat_log.json")
-    chat_log_data = { "trade_hash": trade_hash, "messages": messages, "timestamp": time.time() }
-
-    try:
-        with open(log_file_path, "w", encoding="utf-8") as log_file:
-            json.dump(chat_log_data, log_file, indent=4)
-        logger.info(f"Chat log for trade {trade_hash} saved successfully.")
-    except Exception as e:
-        logger.error(f"Failed to save chat log for trade {trade_hash}: {e}")
-
-
 
 
 def download_attachment(image_url_path, image_api_url, trade_hash, headers):

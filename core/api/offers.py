@@ -3,14 +3,15 @@ import json
 import os
 from datetime import datetime
 from core.api.auth import fetch_token_with_retry
-from config import PLATFORM_ACCOUNTS, BASE_URL_NOONES
+from config import PLATFORM_ACCOUNTS, BASE_URL_NOONES, LOGS_DIR
 from core.utils.http_client import get_http_client
 from core.utils.response_cache import get_response_cache
 
 
 logger = logging.getLogger(__name__)
 
-MARKET_SEARCH_LOG_DIR = os.path.join('data', 'logs', 'market_search')
+# Use the config-managed LOGS_DIR so this works regardless of working directory.
+MARKET_SEARCH_LOG_DIR = str(LOGS_DIR / "market_search")
 os.makedirs(MARKET_SEARCH_LOG_DIR, exist_ok=True)
 
 def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: str, trade_direction: str = "buy", payment_method_country_iso: str = None, country_code: str = None):
@@ -59,7 +60,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         "Accept": "application/json"
     }
 
-    logger.info(f"Sending public offer search payload: {json.dumps(request_body, indent=2)}")
+    logger.debug(f"Sending public offer search payload: {json.dumps(request_body, indent=2)}")
 
     http_client = get_http_client()
     try:
@@ -252,7 +253,10 @@ def update_offer_margin(account_name: str, offer_hash: str, margin: float):
             get_response_cache().invalidate("all_offers")
             return {"success": True}
         else:
-            error_message = response.json().get("error", {}).get("message", "Unknown API error")
+            try:
+                error_message = response.json().get("error", {}).get("message", "Unknown API error")
+            except (ValueError, Exception):
+                error_message = response.text or "Unknown API error"
             if isinstance(error_message, dict):
                 error_message = str(error_message)
             return {"success": False, "error": error_message}

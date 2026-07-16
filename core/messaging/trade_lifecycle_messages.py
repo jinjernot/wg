@@ -26,9 +26,10 @@ def _send_lifecycle_message(trade_hash, account, headers, message_list, message_
     chat_url = CHAT_URL_NOONES
     message = random.choice(message_list)
     body = {"trade_hash": trade_hash, "message": message}
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    # Build a local copy so we don't mutate the caller's shared headers dict.
+    local_headers = {**headers, "Content-Type": "application/x-www-form-urlencoded"}
 
-    if send_message_with_retry(chat_url, body, headers, max_retries):
+    if send_message_with_retry(chat_url, body, local_headers, max_retries):
         logger.info(f"{message_type} message sent for trade {trade_hash}.")
     else:
         logger.error(f"Failed to send {message_type} message for trade {trade_hash}.")

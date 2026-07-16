@@ -17,8 +17,10 @@ _active_processing_hashes = set()
 _active_processing_lock = threading.Lock()
 
 # Thread pool for existing trade processing.
-# Using a small number of workers to avoid rate-limiting Noones API.
-_existing_trade_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="existing-trader")
+# Kept intentionally small: fewer concurrent writers means less contention on
+# the _lock in trade_state_loader, which was causing the main thread to block
+# long enough to trip the watchdog's 10-minute deadlock timeout.
+_existing_trade_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="existing-trader")
 atexit.register(_existing_trade_executor.shutdown, wait=True, cancel_futures=False)
 
 # How long to pause before retrying after a run of consecutive auth failures
@@ -143,7 +145,9 @@ def process_trades(account):
                         continue
                     _active_processing_hashes.add(trade.trade_hash)
 
-                # Stamp heartbeat
+                # Stamp heartbeat BEFORE processing each trade so the watchdog
+                # never sees a 10-minute silence even when many new trades arrive
+                # in one cycle (each one can take several seconds to process).
                 with _heartbeat_lock:
                     _heartbeats[thread_name] = time.time()
 
@@ -153,6 +157,10 @@ def process_trades(account):
                 except Exception as e:
                     logger.error(f"Error processing new trade {trade.trade_hash}: {e}", exc_info=True)
                 finally:
+                    # Stamp heartbeat again after the trade is done so a slow
+                    # trade.process() call doesn't eat into the watchdog budget.
+                    with _heartbeat_lock:
+                        _heartbeats[thread_name] = time.time()
                     with _active_processing_lock:
                         _active_processing_hashes.discard(trade.trade_hash)
 

@@ -9,7 +9,15 @@ from config import TRADES_STORAGE_DIR
 
 logger = logging.getLogger(__name__)
 
+# Use an RLock so the same thread can call load_processed_trades() from
+# within save_processed_trade() without deadlocking itself.
+# IMPORTANT: always acquire with a timeout — background pool threads do slow
+# file I/O (json.dump + os.fsync + os.replace) while holding this lock.
+# If the main trading thread blocks here indefinitely it stops stamping its
+# watchdog heartbeat and triggers a false-positive process restart.
 _lock = threading.RLock()
+_LOCK_TIMEOUT = 5  # seconds — give up rather than block the main thread
+
 
 def retry_on_permission_error(max_retries=5, base_delay=0.1):
     """Decorator to retry file operations on Windows PermissionError with exponential backoff"""
@@ -30,20 +38,28 @@ def retry_on_permission_error(max_retries=5, base_delay=0.1):
         return wrapper
     return decorator
 
+
 @retry_on_permission_error(max_retries=5)
 def load_processed_trades(owner_username, platform):
     """Loads all processed trades for a specific user and platform."""
-    with _lock:
+    acquired = _lock.acquire(timeout=_LOCK_TIMEOUT)
+    if not acquired:
+        logger.warning(
+            f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
+            f"to load trades for {owner_username}_{platform}. Returning empty dict."
+        )
+        return {}
+    try:
         file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
         try:
             # Check if file exists and is not empty
             if not os.path.exists(file_path):
                 return {}
-            
+
             if os.path.getsize(file_path) == 0:
                 logger.warning(f"Trade file for {owner_username}_{platform} is empty. Returning empty dict.")
                 return {}
-                
+
             with open(file_path, "r") as file:
                 return json.load(file)
         except json.JSONDecodeError as e:
@@ -51,42 +67,58 @@ def load_processed_trades(owner_username, platform):
             return {}
         except FileNotFoundError:
             return {}
+    finally:
+        _lock.release()
+
 
 @retry_on_permission_error(max_retries=5)
 def save_processed_trade(trade_data, platform):
     """
     Saves the complete and final state of a single trade to the JSON file.
     Uses retry logic to handle Windows file locking issues.
+
+    If the global lock cannot be acquired within _LOCK_TIMEOUT seconds (because a
+    background thread is doing slow I/O), the save is skipped and a warning is
+    logged.  The next poll cycle will pick up the same trade and save it then,
+    so no data is permanently lost.
     """
     owner_username = trade_data.get("owner_username", "unknown_user")
     trade_hash = trade_data.get("trade_hash")
-    
-    if not owner_username or not trade_hash:
-        return # Cannot save without these essential keys
 
-    with _lock:
+    if not owner_username or not trade_hash:
+        return  # Cannot save without these essential keys
+
+    acquired = _lock.acquire(timeout=_LOCK_TIMEOUT)
+    if not acquired:
+        logger.warning(
+            f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
+            f"to save trade {trade_hash}. Save skipped — will retry next cycle."
+        )
+        return
+
+    try:
         file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
-        
+
         # Load all trades to ensure we don't overwrite other trades in the file.
         all_trades = load_processed_trades(owner_username, platform)
-    
+
         # Check if the data has actually changed before doing heavy I/O
         if all_trades.get(trade_hash) == trade_data:
             logger.debug(f"Trade state for {trade_hash} has not changed. Skipping disk write.")
             return
-        
+
         # Update the dictionary with the new, complete data for the specific trade.
         all_trades[trade_hash] = trade_data
 
         # Write the entire updated dictionary back to the file.
-        # Write to a temporary file first to ensure atomicity
+        # Write to a temporary file first to ensure atomicity.
         temp_file_path = file_path + ".tmp"
         try:
             with open(temp_file_path, "w") as file:
                 json.dump(all_trades, file, indent=4)
                 file.flush()
                 os.fsync(file.fileno())
-            
+
             # On Windows, os.replace() can raise PermissionError (WinError 5)
             # if antivirus briefly holds a lock on the destination file.
             try:
@@ -100,6 +132,8 @@ def save_processed_trade(trade_data, platform):
             if os.path.exists(temp_file_path):
                 try:
                     os.remove(temp_file_path)
-                except:
+                except Exception:
                     pass  # Ignore error if temp file can't be removed
             raise e
+    finally:
+        _lock.release()

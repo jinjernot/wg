@@ -50,7 +50,13 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             logger.error(f"Missing 'bank' detail for selected_id {selected_id} for {owner_username}. Aborting message to avoid sending broken details.")
             return False
 
-        message_dict = OWNERS_PAYMENT_CONFIG.get(owner_username, PAYMENT_MESSAGES_DAVID)
+        message_dict = OWNERS_PAYMENT_CONFIG.get(owner_username)
+        if message_dict is None:
+            logger.warning(
+                f"Unknown owner_username '{owner_username}' — no payment message config found. "
+                f"Skipping payment details for {trade_hash}."
+            )
+            return False
 
         template = message_dict.get(payment_method_slug, message_dict["default"])
 
@@ -61,10 +67,11 @@ def send_payment_details_message(trade_hash, payment_method_slug, headers, chat_
             card_number=account.get("card_number", "N/A")
         )
 
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        # Build a local copy so we don't mutate the caller's shared headers dict.
+        local_headers = {**headers, "Content-Type": "application/x-www-form-urlencoded"}
         body = {"trade_hash": trade_hash, "message": message}
 
-        if send_message_with_retry(chat_url, body, headers, max_retries):
+        if send_message_with_retry(chat_url, body, local_headers, max_retries):
             logger.info(f"Payment details sent for trade {trade_hash} ({account['name']}) for {owner_username}")
             return True
         else:

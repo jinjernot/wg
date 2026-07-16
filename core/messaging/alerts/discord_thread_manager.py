@@ -27,11 +27,19 @@ _discord_api_lock = threading.Lock()
 
 
 def _ensure_cache_loaded():
-    """Loads the JSON file into _cache exactly once, at first access."""
+    """Loads the JSON file into _cache exactly once, at first access.
+    Disk I/O is done outside the lock to avoid blocking concurrent callers
+    during the one-time startup read.
+    """
     global _cache_initialized
+    # Fast path — already loaded (no lock needed for read of a bool)
+    if _cache_initialized:
+        return
+    # Do the slow disk read outside the lock.
+    data = _read_file()
     with _cache_lock:
+        # Re-check under the lock in case another thread beat us here.
         if not _cache_initialized:
-            data = _read_file()
             _cache.update(data)
             _cache_initialized = True
 
@@ -167,10 +175,10 @@ def _make_request_with_retry(url, headers, payload, max_retries=5):
                     except (json.JSONDecodeError, KeyError, ValueError):
                         retry_after = 2 ** attempt
                         code_msg    = ""
-                        
+
                     jitter = random.uniform(0.1, 0.5) * (attempt + 1)
                     total_sleep = retry_after + jitter
-                    
+
                     logger.warning(
                         f"[RATE LIMIT] Discord API rate limited{code_msg} "
                         f"(attempt {attempt + 1}/{max_retries}). "
@@ -179,7 +187,17 @@ def _make_request_with_retry(url, headers, payload, max_retries=5):
                     time.sleep(total_sleep)
                     continue
 
-            # Other errors — not retryable
+                # Transient server-side errors — retry with backoff
+                if response.status_code in (500, 502, 503, 504):
+                    wait = 2 ** attempt
+                    logger.warning(
+                        f"Discord API returned {response.status_code} "
+                        f"(attempt {attempt + 1}/{max_retries}). Retrying in {wait}s."
+                    )
+                    time.sleep(wait)
+                    continue
+
+            # Non-retryable client error (4xx other than 429)
             logger.error(
                 f"Discord API request failed with status {response.status_code}: "
                 f"{response.text}"
