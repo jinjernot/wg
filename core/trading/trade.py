@@ -109,10 +109,67 @@ class Trade:
         """Saves the current, complete state of the trade."""
         save_processed_trade(self.trade_state, self.platform)
 
+    def _is_owner_recently_active(self) -> bool:
+        """
+        Returns True if a human operator sent a message in the trade chat
+        within the 'owner_active_suppression_minutes' window (default 15 min).
+
+        When an owner is actively handling the trade manually, we want the bot
+        to stay silent and not fire spam warnings, AFK replies, delay replies, etc.
+        over the top of the real conversation.
+
+        Uses the already-cached chat messages so it costs zero extra API calls.
+        """
+        settings = get_cached_app_settings()
+        window_minutes = settings.get("owner_active_suppression_minutes", 15)
+        if window_minutes <= 0:
+            return False  # Suppression disabled (window of 0 = always allow auto-msgs)
+
+        # First try the timestamp we already track in state — faster path.
+        last_owner_ts = self.trade_state.get("last_owner_ts")
+        if last_owner_ts:
+            elapsed_minutes = (datetime.now(timezone.utc).timestamp() - last_owner_ts) / 60
+            if elapsed_minutes < window_minutes:
+                logger.debug(
+                    f"[OwnerActive] Owner was active {elapsed_minutes:.1f}m ago in trade "
+                    f"{self.trade_hash} (window={window_minutes}m) — suppressing auto-message."
+                )
+                return True
+
+        # Fallback: scan cached chat history (no extra API call — _messages_cache is reused).
+        all_messages = self._get_chat_messages()
+        if not all_messages:
+            return False
+
+        now = datetime.now(timezone.utc).timestamp()
+        cutoff = now - (window_minutes * 60)
+        for msg in reversed(all_messages):
+            author = msg.get("author")
+            if author in BOT_OWNER_USERNAMES:
+                ts = msg.get("timestamp", 0) or 0
+                if ts > cutoff:
+                    logger.debug(
+                        f"[OwnerActive] Found owner message {(now - ts) / 60:.1f}m ago in trade "
+                        f"{self.trade_hash} — suppressing auto-message."
+                    )
+                    return True
+                break  # Messages are oldest-first; first owner msg we hit going backward is the latest
+        return False
+
     def send_interactive_auto_message(self, send_func, *args, **kwargs):
         """Sends an interactive auto-message, increments the counter, and handles limits."""
         if self.trade_state.get('auto_responses_disabled'):
             logger.debug(f"Skipping auto-message for trade {self.trade_hash} as auto-responses are disabled.")
+            return False
+
+        # If a human operator is actively chatting, stay silent.
+        # This prevents the bot from firing spam warnings, delay replies, AFK
+        # messages, etc. over the top of a real conversation.
+        if self._is_owner_recently_active():
+            logger.info(
+                f"[OwnerActive] Suppressing auto-message for trade {self.trade_hash} "
+                f"— owner recently active in chat."
+            )
             return False
 
         # Send the actual message
@@ -502,8 +559,18 @@ class Trade:
         if new_messages:
             self.chat_processor.process_new_messages(new_messages)
             for msg in reversed(new_messages):
-                 if msg.get("author") not in BOT_OWNER_USERNAMES and msg.get("author") is not None:
+                author = msg.get("author")
+                if author not in BOT_OWNER_USERNAMES and author is not None:
                     self.trade_state['last_buyer_ts'] = msg.get("timestamp")
+                    break
+            # Track the most recent owner message so _is_owner_recently_active()
+            # can use the state value as a fast path without re-scanning chat.
+            for msg in reversed(new_messages):
+                author = msg.get("author")
+                if author in BOT_OWNER_USERNAMES:
+                    ts = msg.get("timestamp")
+                    if ts:
+                        self.trade_state['last_owner_ts'] = ts
                     break
 
         # Process attachments from entire history, avoiding duplicates

@@ -14,7 +14,11 @@ def get_app_settings():
             "verbose_logging_enabled": True,
             "offers_enabled": False,
             "wallet_alerts_enabled": True,
-            "force_welcome_chat_check": True
+            "force_welcome_chat_check": True,
+            # Minutes of owner silence required before auto-messages resume.
+            # If an owner sent a message less than this many minutes ago,
+            # all interactive bot replies are suppressed automatically.
+            "owner_active_suppression_minutes": 15
         }
         with open(APP_SETTINGS_FILE, "w") as f:
             json.dump(default_settings, f)
@@ -28,6 +32,7 @@ def get_app_settings():
             settings.setdefault("offers_enabled", False)
             settings.setdefault("wallet_alerts_enabled", True)
             settings.setdefault("force_welcome_chat_check", True)
+            settings.setdefault("owner_active_suppression_minutes", 15)
             return settings
     except (json.JSONDecodeError, FileNotFoundError):
         return {
@@ -36,7 +41,8 @@ def get_app_settings():
             "verbose_logging_enabled": True,
             "offers_enabled": False,
             "wallet_alerts_enabled": True,
-            "force_welcome_chat_check": True
+            "force_welcome_chat_check": True,
+            "owner_active_suppression_minutes": 15
         }
 
 def update_app_settings(new_settings):
