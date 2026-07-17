@@ -235,7 +235,9 @@ def send_discord_embed(embed_data, alert_type="default", trade_hash=None):
                     else:
                         # Reactions are cosmetic — don't spam ERROR logs for rate limits
                         logger.debug(f"Could not add reaction to message {message_id}: {reaction_response.status_code}")
-        else:
+        elif not success:
+            # Only log an error for genuine failures, not flood-filter suppressions
+            # (which return success=True, response=None).
             status = response.status_code if response is not None else "N/A"
             text   = response.text       if response is not None else "No response"
             logger.error(f"Failed to send chat message as bot: {status} - {text}")
