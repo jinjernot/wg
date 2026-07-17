@@ -279,8 +279,13 @@ class Trade:
         except (ValueError, TypeError) as e:
             logger.warning(f"Could not evaluate amount for high-value check on {self.trade_hash}: {e}")
 
+        # Persist first_seen_utc immediately — this is the sentinel that marks a
+        # trade as "already seen". If the app restarts before the final self.save()
+        # in process(), handle_new_trade() would fire again and re-send welcome
+        # messages, payment details, and Telegram/Discord new-trade notifications.
         self.trade_state['first_seen_utc'] = datetime.now(
             timezone.utc).isoformat()
+        self.save()
         self.ensure_initial_messages_sent(is_new=True)
         self.trade_state['status_history'] = [
             self.trade_state.get("trade_status")]
@@ -623,9 +628,12 @@ class Trade:
 
         if not self.trade_state.get('attachment_message_sent'):
             logger.info(f"New attachment found for trade {self.trade_hash}. Processing.")
+            # Set flag and save BEFORE sending — prevents a restart between the
+            # send call and the end-of-function save() from re-firing this message.
+            self.trade_state['attachment_message_sent'] = True
+            self.save()
             if not self.trade_state.get('auto_responses_disabled'):
                 send_attachment_message(self.trade_hash, self.account, self.headers)
-            self.trade_state['attachment_message_sent'] = True
 
         credential_identifier = self.get_credential_identifier_for_trade()
         # account_config = EMAIL_ACCOUNT_DETAILS.get(credential_identifier)  # EMAIL MODULE DISABLED
@@ -673,7 +681,11 @@ class Trade:
                 if not self.trade_state.get('amount_validation_alert_sent'):
                     expected = self.trade_state.get("fiat_amount_requested")
                     currency = self.trade_state.get("fiat_currency_code")
-                    self.trade_state['amount_validation_alert_sent'] = True  # Set flag before submit
+                    # Set flag and save BEFORE submitting to executor — a restart
+                    # between here and the end-of-loop save() would otherwise
+                    # lose the flag and fire duplicate validation alerts.
+                    self.trade_state['amount_validation_alert_sent'] = True
+                    self.save()
                     _notification_executor.submit(
                         send_amount_validation_alert, self.trade_hash, self.owner_username, expected, found_amount, currency
                     )

@@ -51,7 +51,7 @@ _discord_api_lock = threading.Lock()
 # Keyed on the first _DISCORD_SIG_LEN chars of the serialised payload.
 # ---------------------------------------------------------------------------
 _DISCORD_FLOOD_WINDOW = 5 * 60   # 5 minutes
-_DISCORD_SIG_LEN      = 200      # chars used as the payload "signature"
+_DISCORD_SIG_LEN      = 400      # wider sig reduces false-collision risk between trades
 _discord_flood_cache: dict[str, float] = {}
 _discord_flood_lock  = threading.Lock()
 
@@ -79,7 +79,11 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
     logger.debug(f"[WEBHOOK] Sending request to: {webhook_url!r}")
 
     # --- Flood filter ---
-    sig = json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] if payload else webhook_url[:_DISCORD_SIG_LEN]
+    # Key = first N chars of serialised payload + the last 60 chars of the URL
+    # (which includes ?thread_id=...) so two different trade threads with
+    # identical embed content don't share the same dedup slot.
+    url_suffix = webhook_url[-60:] if webhook_url else ""
+    sig = (json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] + url_suffix) if payload else (webhook_url[:_DISCORD_SIG_LEN])
     with _discord_flood_lock:
         last_sent = _discord_flood_cache.get(sig, 0)
         if time.time() - last_sent < _DISCORD_FLOOD_WINDOW:
