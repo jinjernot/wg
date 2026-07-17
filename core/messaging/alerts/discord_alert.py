@@ -44,6 +44,17 @@ logger = logging.getLogger(__name__)
 
 _discord_api_lock = threading.Lock()
 
+# ---------------------------------------------------------------------------
+# Discord flood filter — mirrors the one in telegram_alert.py.
+# Prevents the same embed/message from being sent more than once within
+# _DISCORD_FLOOD_WINDOW seconds, even across concurrent background threads.
+# Keyed on the first _DISCORD_SIG_LEN chars of the serialised payload.
+# ---------------------------------------------------------------------------
+_DISCORD_FLOOD_WINDOW = 5 * 60   # 5 minutes
+_DISCORD_SIG_LEN      = 200      # chars used as the payload "signature"
+_discord_flood_cache: dict[str, float] = {}
+_discord_flood_lock  = threading.Lock()
+
 AUTOMATED_MESSAGES = set(
     TRADE_COMPLETION_MESSAGE +
     PAYMENT_RECEIVED_MESSAGE +
@@ -66,6 +77,22 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
         return False, "Webhook URL is not configured.", None
 
     logger.debug(f"[WEBHOOK] Sending request to: {webhook_url!r}")
+
+    # --- Flood filter ---
+    sig = json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] if payload else webhook_url[:_DISCORD_SIG_LEN]
+    with _discord_flood_lock:
+        last_sent = _discord_flood_cache.get(sig, 0)
+        if time.time() - last_sent < _DISCORD_FLOOD_WINDOW:
+            logger.debug(
+                f"[FloodFilter] Suppressed duplicate Discord webhook alert "
+                f"(cooldown: {_DISCORD_FLOOD_WINDOW // 60}m): {sig[:80]}..."
+            )
+            return True, "Suppressed (flood filter)", None
+        _discord_flood_cache[sig] = time.time()
+        # Evict stale entries
+        stale_cutoff = time.time() - _DISCORD_FLOOD_WINDOW * 2
+        for k in [k for k, v in _discord_flood_cache.items() if v < stale_cutoff]:
+            del _discord_flood_cache[k]
 
     for attempt in range(max_retries):
         try:
@@ -112,6 +139,21 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
 
 def _send_discord_bot_request(url, headers, payload, max_retries=5):
     """Send a request as the Discord bot (not webhook) with rate-limit retry."""
+    # --- Flood filter ---
+    sig = json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] if payload else url[:_DISCORD_SIG_LEN]
+    with _discord_flood_lock:
+        last_sent = _discord_flood_cache.get(sig, 0)
+        if time.time() - last_sent < _DISCORD_FLOOD_WINDOW:
+            logger.debug(
+                f"[FloodFilter] Suppressed duplicate Discord bot message "
+                f"(cooldown: {_DISCORD_FLOOD_WINDOW // 60}m): {sig[:80]}..."
+            )
+            return True, None
+        _discord_flood_cache[sig] = time.time()
+        stale_cutoff = time.time() - _DISCORD_FLOOD_WINDOW * 2
+        for k in [k for k, v in _discord_flood_cache.items() if v < stale_cutoff]:
+            del _discord_flood_cache[k]
+
     for attempt in range(max_retries):
         try:
             with _discord_api_lock:

@@ -325,7 +325,6 @@ def check_binance_emails():
     state = load_processed_emails()
     processed_ids = state["processed_ids"]
     recent_alerts = state["recent_alerts"]
-    new_emails_processed = False
 
     for account in accounts:
         try:
@@ -424,10 +423,13 @@ def check_binance_emails():
                 except Exception as e:
                     logger.error(f"Failed to send Discord alert for Binance email: {e}")
 
-                # Mark as processed and save history
+                # Mark as processed immediately and persist to disk.
+                # Saving per-email (rather than batching to the end) ensures that
+                # if the app crashes or restarts mid-loop, already-processed emails
+                # are never re-sent on the next run.
                 ts_iso = datetime.now(timezone.utc).isoformat()
                 processed_ids[msg_id] = ts_iso
-                
+
                 alert_item = {
                     "id": msg_id,
                     "timestamp": ts_iso,
@@ -438,13 +440,14 @@ def check_binance_emails():
                     "is_banorte": is_banorte
                 }
                 recent_alerts.insert(0, alert_item)
-                new_emails_processed = True
+
+                # Persist state right now so a crash before the next email
+                # doesn't cause this email to be re-processed.
+                prune_old_entries(state)
+                state["recent_alerts"] = recent_alerts[:10]  # Cap history at 10 items
+                save_processed_emails(state)
+                logger.debug(f"State persisted after processing email {msg_id}.")
 
         except Exception as e:
             logger.error(f"An error occurred while checking emails for account '{account}': {e}", exc_info=True)
-
-    if new_emails_processed:
-        prune_old_entries(state)
-        state["recent_alerts"] = recent_alerts[:10]  # Cap history at 10 items
-        save_processed_emails(state)
 

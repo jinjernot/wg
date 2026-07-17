@@ -399,6 +399,15 @@ class Trade:
         if current_status not in self.trade_state.get('status_history', []):
             logger.info(
                 f"Trade {self.trade_hash} has a new status: '{current_status}'")
+            # Append and persist the new status BEFORE firing notifications or
+            # calling handle_paid_status(). This follows the same "set flag →
+            # save → act" pattern used by check_for_completion_message and
+            # check_for_inactivity, and prevents a restart between the internal
+            # save() inside handle_paid_status and the final process() save()
+            # from causing the same status notification to fire again next cycle.
+            self.trade_state.setdefault(
+                'status_history', []).append(current_status)
+            self.save()
 
             _notification_executor.submit(
                 create_trade_status_update_embed,
@@ -407,8 +416,6 @@ class Trade:
 
             if current_status == 'Paid':
                 self.handle_paid_status()
-            self.trade_state.setdefault(
-                'status_history', []).append(current_status)
 
     def check_for_completion_message(self):
         """Sends the completion message whenever the trade is Released/Successful and not yet sent.
@@ -543,11 +550,14 @@ class Trade:
         else:
             new_messages = all_messages
 
-        # Stamp the cursor NOW — before any processing or saves — so that every
-        # intermediate self.save() inside this function persists the correct value
-        # and the next cycle never re-sends the same messages.
+        # Stamp AND immediately persist the cursor before any processing.
+        # Without the save() here, a crash or restart between now and the final
+        # self.save() at the bottom of this function would leave a stale cursor
+        # on disk — and the next cycle would re-send every message since the old
+        # cursor to Discord/Telegram (the "106 messages" flood scenario).
         if all_messages:
             self.trade_state['last_processed_message_id'] = all_messages[-1].get('id')
+            self.save()
 
         # Process new text messages
         for msg in new_messages:
