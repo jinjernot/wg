@@ -144,7 +144,8 @@ def _send_discord_request(webhook_url, payload=None, files=None, max_retries=5):
 def _send_discord_bot_request(url, headers, payload, max_retries=5):
     """Send a request as the Discord bot (not webhook) with rate-limit retry."""
     # --- Flood filter ---
-    sig = json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] if payload else url[:_DISCORD_SIG_LEN]
+    url_suffix = url[-40:] if url else ""
+    sig = (json.dumps(payload, sort_keys=True)[:_DISCORD_SIG_LEN] + url_suffix) if payload else url[:_DISCORD_SIG_LEN]
     with _discord_flood_lock:
         last_sent = _discord_flood_cache.get(sig, 0)
         if time.time() - last_sent < _DISCORD_FLOOD_WINDOW:
