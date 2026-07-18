@@ -329,6 +329,8 @@ function statusPill(trade) {
         return `<span class="trade-status-pill pill-paid"><span class="live-dot ld-green"></span>Paid</span>`;
     if (s === 'Dispute open')
         return `<span class="trade-status-pill pill-dispute"><span class="live-dot ld-red"></span>Disputed</span>`;
+    if (trade.has_attachment)
+        return `<span class="trade-status-pill pill-paid"><span class="live-dot ld-green"></span>Receipt Uploaded</span>`;
     if (s)
         return `<span class="trade-status-pill pill-active"><span class="live-dot ld-indigo"></span>${s}</span>`;
     return `<span class="trade-status-pill pill-default">N/A</span>`;

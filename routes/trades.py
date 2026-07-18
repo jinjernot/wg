@@ -48,15 +48,7 @@ def get_active_trades():
                             trade['account_name_source'] = account_name_source
                             
                             
-                            owner_username = trade.get("owner_username", "unknown_user")
-                            if "owner_states_cache" not in locals():
-                                owner_states_cache = {}
-                            if owner_username not in owner_states_cache:
-                                owner_states_cache[owner_username] = load_processed_trades(owner_username, "Noones")
-                                
-                            trade_state = owner_states_cache[owner_username].get(trade.get("trade_hash"), {})
-                            processed_attachments = trade_state.get("processed_attachments", {})
-                            trade['has_attachment'] = len(processed_attachments) > 0
+                            trade['has_attachment'] = int(trade.get("total_attachments", 0)) > 0
                         active_trades_data.extend(trades_list)
             except json.JSONDecodeError as e:
                 logger.warning(f"JSON parsing error for {filename} (might be writing): {e}")
