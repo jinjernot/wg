@@ -90,6 +90,7 @@ class Trade:
             all_trades = loaded_trades
         existing_data = all_trades.get(self.trade_hash, {})
         self.trade_state = {**existing_data, **trade_data}
+        self._was_already_completed = str(existing_data.get("trade_status", "")).lower() in ['released', 'successful'] or str(existing_data.get("status", "")).lower() == 'successful'
         self._messages_cache = None  # Cleared each process() cycle
         self.chat_processor = ChatProcessor(self)
 
@@ -223,7 +224,8 @@ class Trade:
                 f"Trade {self.trade_hash} is completed — skipping all "
                 f"post-completion message handlers."
             )
-            self.save()
+            if not getattr(self, '_was_already_completed', False):
+                self.save()
             return
 
         # On the very first cycle for a new trade, skip chat/attachment
