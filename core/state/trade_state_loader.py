@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # If the main trading thread blocks here indefinitely it stops stamping its
 # watchdog heartbeat and triggers a false-positive process restart.
 _lock = threading.RLock()
-_LOCK_TIMEOUT = 5  # seconds — give up rather than block the main thread
+_LOCK_TIMEOUT = 60  # seconds — give up rather than block the main thread
 
 
 def retry_on_permission_error(max_retries=5, base_delay=0.1):
@@ -44,11 +44,10 @@ def load_processed_trades(owner_username, platform):
     """Loads all processed trades for a specific user and platform."""
     acquired = _lock.acquire(timeout=_LOCK_TIMEOUT)
     if not acquired:
-        logger.warning(
-            f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
-            f"to load trades for {owner_username}_{platform}. Returning empty dict."
-        )
-        return {}
+        err_msg = (f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
+                   f"to load trades for {owner_username}_{platform}.")
+        logger.error(err_msg)
+        raise TimeoutError(err_msg)
     try:
         file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")
         try:
@@ -90,11 +89,10 @@ def save_processed_trade(trade_data, platform):
 
     acquired = _lock.acquire(timeout=_LOCK_TIMEOUT)
     if not acquired:
-        logger.warning(
-            f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
-            f"to save trade {trade_hash}. Save skipped — will retry next cycle."
-        )
-        return
+        err_msg = (f"[trade_state_loader] Could not acquire lock within {_LOCK_TIMEOUT}s "
+                   f"to save trade {trade_hash}.")
+        logger.error(err_msg)
+        raise TimeoutError(err_msg)
 
     try:
         file_path = os.path.join(TRADES_STORAGE_DIR, f"{owner_username}_{platform}.json")

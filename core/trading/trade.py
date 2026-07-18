@@ -255,6 +255,18 @@ class Trade:
         logger.info(
             f"--- New trade found: {self.trade_hash}. Handling initial messages. ---")
 
+        # Persist first_seen_utc immediately — this is the sentinel that marks a
+        # trade as "already seen". If the app restarts or if save fails, we must
+        # not send Telegram/Discord notifications to avoid duplicates.
+        self.trade_state['first_seen_utc'] = datetime.now(
+            timezone.utc).isoformat()
+        self.trade_state['status_history'] = [
+            self.trade_state.get("trade_status")]
+        
+        # Save BEFORE sending notifications. If this raises TimeoutError, the
+        # method aborts safely and retries on the next poll cycle.
+        self.save()
+
         # Snapshot immutable data for safe capture in background threads
         trade_snapshot = dict(self.trade_state)
         _trade_hash = self.trade_hash
@@ -279,16 +291,7 @@ class Trade:
         except (ValueError, TypeError) as e:
             logger.warning(f"Could not evaluate amount for high-value check on {self.trade_hash}: {e}")
 
-        # Persist first_seen_utc immediately — this is the sentinel that marks a
-        # trade as "already seen". If the app restarts before the final self.save()
-        # in process(), handle_new_trade() would fire again and re-send welcome
-        # messages, payment details, and Telegram/Discord new-trade notifications.
-        self.trade_state['first_seen_utc'] = datetime.now(
-            timezone.utc).isoformat()
-        self.save()
         self.ensure_initial_messages_sent(is_new=True)
-        self.trade_state['status_history'] = [
-            self.trade_state.get("trade_status")]
 
     def _was_welcome_message_sent_in_chat(self):
         """Scans chat history to verify if the welcome message has already been sent by the owner."""

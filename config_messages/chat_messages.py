@@ -9,6 +9,16 @@ TRADE_COMPLETION_MESSAGE = [
     "Done. Thanks! A quick review helps a lot.",
     "Trade complete. Leave feedback!",
     "Crypto released. Thanks for trading with us.",
+    "All finished here. Enjoy your day!",
+    "Crypto is on its way. Feedback is appreciated!",
+    "Trade is completed successfully. Thank you!",
+    "Coins released! A positive rating helps us out.",
+    "Done! Have a great day.",
+    "Sent the crypto, thanks for your business.",
+    "Completed! Looking forward to trading again.",
+    "Released everything. Don't forget to leave feedback!",
+    "Finished the trade. Thanks!",
+    "Your crypto has been released, thank you.",
 ]
 
 PAYMENT_RECEIVED_MESSAGE = [
@@ -22,6 +32,16 @@ PAYMENT_RECEIVED_MESSAGE = [
     "receipt please",
     "attach the receipt",
     "send the receipt when you can",
+    "please share a screenshot of the transaction",
+    "upload a picture of the payment confirmation",
+    "need a screenshot to verify the payment",
+    "attach a photo of the receipt when done",
+    "could you please send the payment proof?",
+    "drop the receipt here so I can review",
+    "I'll need the payment screenshot to proceed",
+    "send over the receipt once paid",
+    "please upload the confirmation screenshot",
+    "waiting on the payment proof",
 ]
 
 PAYMENT_REMINDER_MESSAGE = [
@@ -35,19 +55,44 @@ PAYMENT_REMINDER_MESSAGE = [
     "still waiting",
     "nothing showing yet",
     "still nothing showing",
+    "I haven't received the payment yet",
+    "the funds haven't arrived on my end",
+    "still checking, but no payment so far",
+    "payment is still not reflecting",
+    "haven't seen the funds come through yet",
+    "still waiting for the payment to clear",
+    "nothing on my side yet",
+    "I'm still not seeing the payment",
+    "let me know when you've sent it, nothing yet",
+    "funds are not showing up yet",
 ]
 
 ATTACHMENT_MESSAGE = [
-    "got it, checking",
+    "received the receipt, checking",
     "checking the receipt, one sec",
-    "got it",
+    "receipt received, reviewing now",
     "checking now",
     "on it",
     "looking at it",
     "let me check the receipt",
     "give me a second",
-    "got the receipt, checking it",
+    "received the receipt, checking it",
     "ok, looking at this",
+    "thanks for the screenshot, I'll review it now",
+    "receipt attached, let me take a look",
+    "checking the attachment",
+    "give me a moment to verify the receipt",
+    "reviewing the document now",
+    "thanks, let me check the payment details",
+    "just received the image, checking it",
+    "I'll review the screenshot, one moment",
+    "checking the uploaded file",
+    "verifying the receipt now",
+    "attachment received, giving it a look",
+    "let me review the attached receipt",
+    "one moment while I check the receipt",
+    "receipt is loading, I'll review it in a sec",
+    "thanks for sending, checking it now",
 ]
 
 AFK_MESSAGE = [
@@ -61,6 +106,16 @@ AFK_MESSAGE = [
     "Just a moment.",
     "Give me a sec.",
     "Shortly.",
+    "I'll be right with you.",
+    "Please hold on a moment.",
+    "Be right back.",
+    "Give me a brief moment.",
+    "I'll check this in a minute.",
+    "Just give me a couple of minutes.",
+    "Will be with you in a second.",
+    "Hold tight, I'll be back shortly.",
+    "One quick moment please.",
+    "I'll respond in just a minute.",
 ]
 
 EXTENDED_AFK_MESSAGE = [
@@ -87,6 +142,16 @@ NO_ATTACHMENT_MESSAGE = [
     "send the receipt and I'll release",
     "can't find the receipt",
     "need proof of payment please",
+    "I need a picture of the receipt to continue",
+    "please make sure to attach the payment screenshot",
+    "don't forget to send the receipt",
+    "I can't release without the payment proof",
+    "you forgot to attach the receipt",
+    "please provide the screenshot of the transaction",
+    "I need the confirmation image to proceed",
+    "upload the receipt so I can verify",
+    "I won't be able to release without a receipt",
+    "still looking for the payment screenshot",
 ]
 
 ONLINE_REPLY_MESSAGE = [
@@ -147,6 +212,16 @@ RELEASE_MESSAGE = [
     "Reviewing.",
     "Give me just a sec.",
     "Hold on.",
+    "Taking a look right now.",
+    "I am verifying this for you.",
+    "Reviewing the details.",
+    "Let me see.",
+    "Double checking everything.",
+    "Working on verifying this.",
+    "Give me a brief moment to review.",
+    "I'm on it right now.",
+    "Checking the status.",
+    "Let me review this real quick.",
 ]
 
 SPAM_WARNING_MESSAGE = [
