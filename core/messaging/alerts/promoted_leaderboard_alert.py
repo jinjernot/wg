@@ -54,7 +54,7 @@ def check_promoted_leaderboard_and_alert():
             if c and f and p:
                 if c.upper() == "SOL":
                     continue
-                if "cash-deposit" in p.lower() or "gift-card" in p.lower():
+                if "cash-deposit" in p.lower() or "gift-card" in p.lower() or "paysafecard" in p.lower():
                     continue
                 combinations.add((c, f, p))
     else:
