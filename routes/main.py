@@ -39,3 +39,11 @@ def get_recent_email_alerts_route():
     recent = state.get("recent_alerts", [])
     return jsonify(recent)
 
+@main_bp.route("/get_promoted_status")
+def get_promoted_status():
+    from core.messaging.alerts.promoted_leaderboard_alert import load_previous_state
+    try:
+        state = load_previous_state()
+        return jsonify({"success": True, "state": state})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

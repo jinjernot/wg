@@ -1039,6 +1039,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function fetchPromotedStatus() {
+        try {
+            const response = await fetch('/get_promoted_status');
+            const result = await response.json();
+            if (result.success && result.state) {
+                const state = result.state;
+                
+                const renderDots = (userData, containerId) => {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    
+                    if (!userData || Object.keys(userData).length === 0) {
+                        container.innerHTML = '<span style="color:var(--text-3); font-size: 0.85rem;">No data</span>';
+                        return;
+                    }
+                    
+                    container.innerHTML = '';
+                    for (const crypto in userData) {
+                        const status = userData[crypto].status;
+                        const isPromoted = status === 'first' || status === 'not_first';
+                        
+                        const dot = document.createElement('div');
+                        dot.style.width = '10px';
+                        dot.style.height = '10px';
+                        dot.style.borderRadius = '50%';
+                        dot.style.backgroundColor = isPromoted ? 'var(--green)' : 'var(--red)';
+                        dot.title = `${crypto}: ${isPromoted ? 'Promoted (' + status + ')' : 'Not Promoted'}`;
+                        
+                        container.appendChild(dot);
+                    }
+                };
+                
+                const davidUsername = Object.keys(state).find(k => k.toLowerCase().includes('david'));
+                const joeUsername = Object.keys(state).find(k => k.toLowerCase().includes('joewillgang') || k.toLowerCase().includes('joe'));
+                
+                renderDots(state[davidUsername], 'david-promoted-dots');
+                renderDots(state[joeUsername], 'will-promoted-dots');
+            }
+        } catch (error) {
+            console.error('Failed to fetch promoted status:', error);
+        }
+    }
+
     // --- Initial and Periodic Updates ---
     updateStatus();
     fetchActiveTrades();
@@ -1046,10 +1089,12 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchWalletBalances();
     fetchWeeklyVolume();
     fetchPricingSettings();
+    fetchPromotedStatus();
     setInterval(updateStatus, 30000);
     setInterval(fetchActiveTrades, 15000);
     setInterval(fetchOffers, 120000);
     setInterval(fetchWalletBalances, 300000);
     setInterval(fetchWeeklyVolume, 600000);
     setInterval(fetchPricingSettings, 30000);
+    setInterval(fetchPromotedStatus, 30000);
 });
