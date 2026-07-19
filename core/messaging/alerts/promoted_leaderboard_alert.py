@@ -52,6 +52,10 @@ def check_promoted_leaderboard_and_alert():
             f = o.get("currency_code")
             p = o.get("payment_method_slug")
             if c and f and p:
+                if c.upper() == "SOL":
+                    continue
+                if "cash-deposit" in p.lower() or "gift-card" in p.lower():
+                    continue
                 combinations.add((c, f, p))
     else:
         # Fallback if no offers found

@@ -1079,20 +1079,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             const gDiv = document.createElement('div');
                             gDiv.style.display = 'flex';
                             gDiv.style.alignItems = 'center';
-                            gDiv.style.gap = '6px';
-                            gDiv.style.marginLeft = container.childNodes.length > 0 ? '10px' : '0';
-                            gDiv.style.paddingLeft = container.childNodes.length > 0 ? '10px' : '0';
+                            gDiv.style.gap = '8px';
+                            gDiv.style.marginLeft = container.childNodes.length > 0 ? '14px' : '0';
+                            gDiv.style.paddingLeft = container.childNodes.length > 0 ? '14px' : '0';
                             if (container.childNodes.length > 0) {
-                                gDiv.style.borderLeft = '1px solid rgba(255,255,255,0.1)';
+                                gDiv.style.borderLeft = '1px solid rgba(255,255,255,0.15)';
                             }
                             
                             const label = document.createElement('span');
-                            label.style.fontSize = '0.7rem';
+                            label.style.fontSize = '0.8rem';
                             label.style.color = 'var(--text-3)';
                             label.style.textTransform = 'uppercase';
-                            label.style.fontWeight = '600';
+                            label.style.fontWeight = '700';
                             label.style.letterSpacing = '0.5px';
-                            label.style.marginRight = '2px';
+                            label.style.marginRight = '4px';
                             label.innerText = gName;
                             gDiv.appendChild(label);
                             
@@ -1103,8 +1103,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const isPromoted = status === 'first' || status === 'not_first';
                                 
                                 const dot = document.createElement('div');
-                                dot.style.width = '9px';
-                                dot.style.height = '9px';
+                                dot.style.width = '12px';
+                                dot.style.height = '12px';
                                 dot.style.borderRadius = '50%';
                                 dot.style.backgroundColor = isPromoted ? 'var(--green)' : 'var(--red)';
                                 dot.style.boxShadow = isPromoted ? '0 0 6px rgba(16, 185, 129, 0.4)' : 'none';
