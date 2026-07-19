@@ -128,7 +128,7 @@ def search_public_offers(crypto_code: str, fiat_code: str, payment_method_slug: 
         return None
 
 
-def get_all_offers():
+def get_all_offers(active_only=True):
     """Fetches all of a user's own offers using the correct /offer/list endpoint."""
     # Check cache first (3 minute TTL — offers rarely change on their own)
     response_cache = get_response_cache()
@@ -163,14 +163,14 @@ def get_all_offers():
                     if not offers and "data" in response_data and isinstance(response_data["data"], list):
                          offers = response_data["data"]
 
-                    active_offers = [o for o in offers if o.get("active")]
+                    filtered_offers = [o for o in offers if o.get("active")] if active_only else offers
 
-                    for offer in active_offers:
+                    for offer in filtered_offers:
                         offer['account_name'] = account["name"]
                         offer['enabled'] = offer['active']
                     
-                    all_offers_data.extend(active_offers)
-                    logger.info(f"Successfully fetched {len(active_offers)} active offers for {account['name']}.")
+                    all_offers_data.extend(filtered_offers)
+                    logger.info(f"Successfully fetched {len(filtered_offers)} offers for {account['name']}.")
 
                 except json.JSONDecodeError:
                     logger.error(f"Failed to decode JSON for {account['name']} from /offer/list. Response: {response.text}")

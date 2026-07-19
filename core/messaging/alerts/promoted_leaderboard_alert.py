@@ -44,7 +44,7 @@ def check_promoted_leaderboard_and_alert():
         current_state[username] = {}
         
     from core.api.offers import get_all_offers
-    own_offers = get_all_offers()
+    own_offers = get_all_offers(active_only=False)
     combinations = set()
     if own_offers:
         for o in own_offers:

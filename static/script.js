@@ -1075,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const joeUsername = Object.keys(state).find(k => k.toLowerCase().includes('joewillgang') || k.toLowerCase().includes('joe'));
                 
                 renderDots(state[davidUsername], 'david-promoted-dots');
-                renderDots(state[joeUsername], 'will-promoted-dots');
+                renderDots(state[joeUsername], 'joe-promoted-dots');
             }
         } catch (error) {
             console.error('Failed to fetch promoted status:', error);
