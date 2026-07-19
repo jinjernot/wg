@@ -184,8 +184,8 @@ def update_dynamic_pricing_job():
             min_margin = float(rule.get("min_margin", 11.0))
             max_margin = float(rule.get("max_margin", 24.5))
             
-            # Apply user-specific safety floor override for bank transfer / SPEI
-            if payment_method in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios"]:
+            # Apply user-specific safety floor override for bank transfer / SPEI / OXXO
+            if payment_method in ["bank-transfer", "spei-sistema-de-pagos-electronicos-interbancarios", "oxxo"]:
                 if account_name and "david" in str(account_name).lower():
                     min_margin = float(settings.get("david_min_margin", 11.0))
                 elif account_name and "joe" in str(account_name).lower():
