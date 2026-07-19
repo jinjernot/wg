@@ -43,24 +43,34 @@ def check_promoted_leaderboard_and_alert():
     for username in BOT_OWNER_USERNAMES:
         current_state[username] = {}
         
-    cryptos = ["BTC", "USDT"]
-    fiat_code = "MXN"
-    payment_method_slug = "bank-transfer"
+    from core.api.offers import get_all_offers
+    own_offers = get_all_offers()
+    combinations = set()
+    if own_offers:
+        for o in own_offers:
+            c = o.get("crypto_currency_code")
+            f = o.get("currency_code")
+            p = o.get("payment_method_slug")
+            if c and f and p:
+                combinations.add((c, f, p))
+    else:
+        # Fallback if no offers found
+        combinations = {("BTC", "MXN", "bank-transfer"), ("USDT", "MXN", "bank-transfer")}
     
-    for crypto in cryptos:
+    for crypto, fiat_code, payment_method_slug in combinations:
         try:
-            # Fetch public sell offers ( visitor buying BTC/USDT with MXN via bank-transfer )
+            # Fetch public sell offers ( visitor buying crypto with fiat via PM )
             offers = search_public_offers(
                 crypto_code=crypto,
                 fiat_code=fiat_code,
                 payment_method_slug=payment_method_slug,
-                trade_direction="buy", # visitor buys -> returns traders selling
-                payment_method_country_iso="MX",
-                country_code="MX"
+                trade_direction="buy",
+                payment_method_country_iso="MX" if fiat_code.upper() == "MXN" else None,
+                country_code="MX" if fiat_code.upper() == "MXN" else None
             )
             
             if offers is None:
-                logger.warning(f"[LeaderboardWatchdog] Failed to fetch offers for {crypto}.")
+                logger.warning(f"[LeaderboardWatchdog] Failed to fetch offers for {crypto}-{payment_method_slug}.")
                 continue
                 
             # Filter for promoted/stickied offers
@@ -98,7 +108,9 @@ def check_promoted_leaderboard_and_alert():
                 else:
                     status = "offline"
                     
-                current_state[username][crypto] = {
+                composite_key = f"{crypto}-{payment_method_slug}"
+                
+                current_state[username][composite_key] = {
                     "status": status,
                     "rank": owner_rank,
                     "first_place_username": first_place_username,
@@ -107,17 +119,17 @@ def check_promoted_leaderboard_and_alert():
                 }
                 
                 # Check previous status for comparison
-                # Note: Handles migration if the previous state stored data in the old format
                 prev_user_state = prev_state.get(username, {})
+                # Migration for old implicit JoeWillgang tracking or old crypto-only keys
                 if not prev_user_state and crypto in prev_state and username == "JoeWillgang":
-                    # Migrate old state format which was implicitly tracking JoeWillgang
                     prev_user_state = prev_state
                     
-                prev_crypto_state = prev_user_state.get(crypto, {})
+                # Try new composite key first, fallback to old crypto key for migration
+                prev_crypto_state = prev_user_state.get(composite_key) or prev_user_state.get(crypto, {})
                 prev_status = prev_crypto_state.get("status")
                 
                 if not prev_status:
-                    logger.info(f"[LeaderboardWatchdog] Initial state recorded for {username} [{crypto}]: {status}")
+                    logger.info(f"[LeaderboardWatchdog] Initial state recorded for {username} [{composite_key}]: {status}")
                     continue
                     
                 # Check for changes in status
@@ -128,7 +140,7 @@ def check_promoted_leaderboard_and_alert():
                     # Case 1: Stolen from position #1
                     if prev_status == "first" and status in ["not_first", "offline"]:
                         alert_triggered = True
-                        alert_msg = f"🚨 *{escape_markdown(username)} \\[{crypto}\\] Promoted Position STOLEN\\!* 🚨\n\n"
+                        alert_msg = f"🚨 *{escape_markdown(username)} \\[{crypto}-{payment_method_slug}\\] Promoted Position STOLEN\\!* 🚨\n\n"
                         if status == "not_first":
                             alert_msg += (
                                 f"You dropped to *Rank \\#{owner_rank}* in Promoted Spots\\.\n"
@@ -146,7 +158,7 @@ def check_promoted_leaderboard_and_alert():
                     elif prev_status == "not_first" and status == "offline":
                         alert_triggered = True
                         alert_msg = (
-                            f"⚠️ *{escape_markdown(username)} \\[{crypto}\\] Promoted Spot Lost\\!* ⚠️\n\n"
+                            f"⚠️ *{escape_markdown(username)} \\[{crypto}-{payment_method_slug}\\] Promoted Spot Lost\\!* ⚠️\n\n"
                             f"Your offer fell out of the Top 3 Promoted Spots completely\\.\n"
                             f"Current Leaderboard is led by: `{escape_markdown(first_place_username)}`"
                         )
@@ -155,7 +167,7 @@ def check_promoted_leaderboard_and_alert():
                     elif status == "first" and prev_status in ["not_first", "offline"]:
                         alert_triggered = True
                         alert_msg = (
-                            f"🎉 *{escape_markdown(username)} \\[{crypto}\\] Position \\#1 Reclaimed\\!* 🎉\n\n"
+                            f"🎉 *{escape_markdown(username)} \\[{crypto}-{payment_method_slug}\\] Position \\#1 Reclaimed\\!* 🎉\n\n"
                             f"You are back at *Rank \\#1* on the Promoted Offers Leaderboard\\."
                         )
                         
