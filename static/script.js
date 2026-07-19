@@ -1064,9 +1064,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const method = parts.slice(1).join('-');
                         
                         let groupName = 'Other';
-                        if (method === 'bank-transfer') groupName = 'Bank';
-                        else if (method === 'oxxo') groupName = 'Oxxo';
-                        else if (method.includes('spei')) groupName = 'SPEI';
+                        if (method === 'bank-transfer' || method === 'domestic-wire-transfer') groupName = 'Bank';
+                        else if (method === 'oxxo' || method.includes('spin')) groupName = 'Oxxo';
+                        else if (method.includes('spei') || method.includes('stp') || method.includes('interbancari')) groupName = 'SPEI';
                         
                         if (!groups[groupName]) groups[groupName] = [];
                         groups[groupName].push({ key, coin, method, data: userData[key] });
