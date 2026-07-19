@@ -1056,19 +1056,66 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     container.innerHTML = '';
-                    for (const crypto in userData) {
-                        const status = userData[crypto].status;
-                        const isPromoted = status === 'first' || status === 'not_first';
+                    
+                    const groups = {};
+                    for (const key in userData) {
+                        const parts = key.split('-');
+                        const coin = parts[0];
+                        const method = parts.slice(1).join('-');
                         
-                        const dot = document.createElement('div');
-                        dot.style.width = '10px';
-                        dot.style.height = '10px';
-                        dot.style.borderRadius = '50%';
-                        dot.style.backgroundColor = isPromoted ? 'var(--green)' : 'var(--red)';
-                        dot.title = `${crypto}: ${isPromoted ? 'Promoted (' + status + ')' : 'Not Promoted'}`;
+                        let groupName = 'Other';
+                        if (method === 'bank-transfer') groupName = 'Bank';
+                        else if (method === 'oxxo') groupName = 'Oxxo';
+                        else if (method.includes('spei')) groupName = 'SPEI';
                         
-                        container.appendChild(dot);
+                        if (!groups[groupName]) groups[groupName] = [];
+                        groups[groupName].push({ key, coin, method, data: userData[key] });
                     }
+                    
+                    const order = ['Bank', 'Oxxo', 'SPEI', 'Other'];
+                    
+                    order.forEach(gName => {
+                        if (groups[gName] && groups[gName].length > 0) {
+                            const gDiv = document.createElement('div');
+                            gDiv.style.display = 'flex';
+                            gDiv.style.alignItems = 'center';
+                            gDiv.style.gap = '6px';
+                            gDiv.style.marginLeft = container.childNodes.length > 0 ? '10px' : '0';
+                            gDiv.style.paddingLeft = container.childNodes.length > 0 ? '10px' : '0';
+                            if (container.childNodes.length > 0) {
+                                gDiv.style.borderLeft = '1px solid rgba(255,255,255,0.1)';
+                            }
+                            
+                            const label = document.createElement('span');
+                            label.style.fontSize = '0.7rem';
+                            label.style.color = 'var(--text-3)';
+                            label.style.textTransform = 'uppercase';
+                            label.style.fontWeight = '600';
+                            label.style.letterSpacing = '0.5px';
+                            label.style.marginRight = '2px';
+                            label.innerText = gName;
+                            gDiv.appendChild(label);
+                            
+                            groups[gName].sort((a,b) => a.coin.localeCompare(b.coin));
+                            
+                            groups[gName].forEach(item => {
+                                const status = item.data.status;
+                                const isPromoted = status === 'first' || status === 'not_first';
+                                
+                                const dot = document.createElement('div');
+                                dot.style.width = '9px';
+                                dot.style.height = '9px';
+                                dot.style.borderRadius = '50%';
+                                dot.style.backgroundColor = isPromoted ? 'var(--green)' : 'var(--red)';
+                                dot.style.boxShadow = isPromoted ? '0 0 6px rgba(16, 185, 129, 0.4)' : 'none';
+                                dot.title = `${item.key}: ${isPromoted ? 'Promoted (' + status + ')' : 'Not Promoted'}`;
+                                
+                                gDiv.appendChild(dot);
+                            });
+                            
+                            container.appendChild(gDiv);
+                        }
+                    });
                 };
                 
                 const davidUsername = Object.keys(state).find(k => k.toLowerCase().includes('david'));

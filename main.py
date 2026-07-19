@@ -139,6 +139,7 @@ def main():
         try:
             update_dynamic_pricing_job()
             send_market_status_report()
+            check_promoted_leaderboard_and_alert()
         except Exception as e:
             logger.error(f"Failed to perform initial startup pricing/report check: {e}")
 
