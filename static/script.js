@@ -1064,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const method = parts.slice(1).join('-');
                         
                         let groupName = 'Other';
-                        if (method === 'bank-transfer' || method === 'domestic-wire-transfer') groupName = 'Bank';
+                        if (method === 'bank-transfer' || method === 'domestic-wire-transfer' || method.includes('other-bank')) groupName = 'Bank';
                         else if (method === 'oxxo' || method.includes('spin')) groupName = 'Oxxo';
                         else if (method.includes('spei') || method.includes('stp') || method.includes('interbancari')) groupName = 'SPEI';
                         
